@@ -41,6 +41,9 @@ class CtrlapsApplication : Application(), ImageLoaderFactory {
     /** Attachments from private chats, kept on the phone. */
     val chatMedia: ChatMedia by lazy { ChatMedia(this, api) }
 
+    /** Who this phone has checked on Verify, and who is starred. */
+    val verifyHistory: com.arkhins.ctrlaps.data.VerifyHistory by lazy { com.arkhins.ctrlaps.data.VerifyHistory(this) }
+
     /** The phone's own copy of every private chat. */
     val chatCache: ChatCache by lazy { ChatCache(this, api, chatMedia, appScope) }
 
