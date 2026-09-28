@@ -3,6 +3,7 @@ import "server-only";
 import { one, q, run, tx } from "./db";
 import { AuthError, type SessionUser } from "./auth";
 import { ROLE_LABEL, type Role } from "./roles";
+import { userPhotoUrl } from "./profile";
 
 /*
  * Seasons. One is current — chosen by an admin — and everything that
@@ -266,7 +267,7 @@ export async function seasonArchive(user: SessionUser, id: string): Promise<Seas
     })),
     announcements,
     chats: others.map((o) => ({
-      other: { id: o.id, name: o.name || o.email, role: o.role, roleLabel: ROLE_LABEL[o.role], photoUrl: o.photo_key ? `/api/users/${o.id}/photo` : null },
+      other: { id: o.id, name: o.name || o.email, role: o.role, roleLabel: ROLE_LABEL[o.role], photoUrl: userPhotoUrl(o.id, o.photo_key) },
       messages: (byOther.get(o.id) ?? []).map((r) => message(r, user.id)),
     })),
   };

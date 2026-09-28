@@ -23,10 +23,23 @@ export function profileFromForm(form: FormData): ProfileFields | { error: string
   return { name, dob, phone };
 }
 
-/** Save a profile photo; null when it is not an image we accept. */
+/**
+ * Save a profile photo under a new name each time, so its address changes with
+ * it and no phone or browser keeps showing the old one. Null when it is not an
+ * image we accept.
+ */
 export async function storePhoto(userId: string, photo: File): Promise<string | null> {
-  return storeImage(`photos/${userId}`, photo);
+  return storeImage(`photos/${userId}-${Date.now().toString(36)}`, photo);
 }
+
+/** Remove the photo a new one replaced. */
+export function dropOldPhoto(oldKey: string | null, newKey: string | null): void {
+  if (oldKey && oldKey !== newKey) storage().remove(oldKey).catch((error) => console.error("[photo]", error));
+}
+
+/** Where a person's photo is read from; the version changes whenever the photo does. */
+export const userPhotoUrl = (id: string, key: string | null): string | null =>
+  key ? `/api/users/${id}/photo?v=${encodeURIComponent(key.slice(key.lastIndexOf("/") + 1))}` : null;
 
 /** Save an image under `<prefix>.<ext>`; null when it is not an image we accept. */
 export async function storeImage(prefix: string, photo: File): Promise<string | null> {

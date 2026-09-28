@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import { AccountActions } from "@/components/AccountActions";
+import { ProfileEditor } from "@/components/ProfileEditor";
 import { Avatar } from "@/components/Avatar";
 import { StatusBadge } from "@/components/StatusBadge";
 import { latestRelease } from "@/lib/appReleases";
@@ -64,10 +65,13 @@ export default async function Account() {
               </div>
             )}
           </div>
-          <p className="text-xs text-snow-faint">Profile details are locked. Your manager or an admin can change them.</p>
+          {user.role !== "user" && <p className="text-xs text-snow-faint">Profile details are locked. Your manager or an admin can change them.</p>}
         </div>
       </section>
 
+      {user.role === "user" && (
+        <ProfileEditor profile={{ name: p.name ?? "", dob: p.dob ?? "", phone: p.phone ?? "", email: p.email, photoUrl: p.photoUrl }} />
+      )}
       </div>
       <AccountActions appVersion={release?.version ?? null} />
     </div>

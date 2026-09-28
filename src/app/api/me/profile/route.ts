@@ -2,7 +2,7 @@ import { handle } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { run } from "@/lib/db";
 import { fail, json } from "@/lib/http";
-import { profileFromForm, storePhoto } from "@/lib/profile";
+import { dropOldPhoto, profileFromForm, storePhoto } from "@/lib/profile";
 import { audit, toPublic, userById } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +27,7 @@ export const POST = handle(async (request) => {
     "UPDATE users SET name = $2, dob = $3, phone = $4, photo_key = $5, profile_completed_at = now() WHERE id = $1",
     [user.id, fields.name, fields.dob, fields.phone, key],
   );
+  dropOldPhoto(user.photo_key, key);
   await audit(user.id, user.id, "profile.completed");
   return json({ user: toPublic((await userById(user.id))!) });
 });

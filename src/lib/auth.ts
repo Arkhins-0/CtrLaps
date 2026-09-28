@@ -187,17 +187,18 @@ export async function clearAttempts(email: string): Promise<void> {
 
 /* ───────────────────────────── One-time links ─────────────────────── */
 
-export async function issueToken(userId: string, kind: "invite" | "reset", hours: number): Promise<string> {
+export async function issueToken(userId: string, kind: "invite" | "reset" | "email", hours: number, newEmail: string | null = null): Promise<string> {
   const token = randomToken();
   await run("UPDATE auth_tokens SET used_at = now() WHERE user_id = $1 AND kind = $2 AND used_at IS NULL", [
     userId,
     kind,
   ]);
-  await run("INSERT INTO auth_tokens (hash, user_id, kind, expires_at) VALUES ($1, $2, $3, $4)", [
+  await run("INSERT INTO auth_tokens (hash, user_id, kind, expires_at, new_email) VALUES ($1, $2, $3, $4, $5)", [
     hashToken(token),
     userId,
     kind,
     new Date(Date.now() + hours * 3_600_000),
+    newEmail,
   ]);
   return token;
 }
@@ -215,6 +216,19 @@ export async function tokenUser(token: string, kind: "invite" | "reset"): Promis
 
 export async function consumeToken(token: string): Promise<void> {
   await run("UPDATE auth_tokens SET used_at = now() WHERE hash = $1", [hashToken(token)]);
+}
+
+/** A live email-change link: whose account, and the address it changes to. */
+export async function emailChange(token: string): Promise<{ user: SessionUser; newEmail: string } | null> {
+  const row = await one<SessionUser & { new_email: string }>(
+    `SELECT ${userColumns("u")}, t.new_email
+     FROM auth_tokens t JOIN users u ON u.id = t.user_id
+     WHERE t.hash = $1 AND t.kind = 'email' AND t.used_at IS NULL AND t.expires_at > now() AND t.new_email IS NOT NULL`,
+    [hashToken(token)],
+  );
+  if (!row) return null;
+  const { new_email, ...user } = row;
+  return { user, newEmail: new_email };
 }
 
 /* ───────────────────────────── Registration links ───────────────── */

@@ -4,6 +4,7 @@ import { one } from "@/lib/db";
 import { fail, json } from "@/lib/http";
 import { normaliseCode } from "@/lib/ids";
 import { ROLE_LABEL, STATUS_LABEL } from "@/lib/roles";
+import { userPhotoUrl } from "@/lib/profile";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export const GET = handle(async (request) => {
     status: user.status,
     statusLabel: STATUS_LABEL[user.status],
     verifyCode: user.verify_code,
-    photoUrl: user.photo_key ? `/api/users/${user.id}/photo` : null,
+    photoUrl: userPhotoUrl(user.id, user.photo_key),
     profileComplete: Boolean(user.profile_completed_at),
   });
 });

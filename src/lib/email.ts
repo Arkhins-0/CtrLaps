@@ -127,6 +127,31 @@ export async function sendAlreadyRegistered(email: string) {
   );
 }
 
+export async function sendEmailChange(newEmail: string, token: string) {
+  const url = `${SITE_URL}/confirm-email/${token}`;
+  await sendEmail(
+    [{ email: newEmail }],
+    `Confirm your new email for ${APP_NAME}`,
+    layout(
+      "Confirm your new email",
+      `Open the link to make this the email of your ${APP_NAME} account. It works for 24 hours. Until then your old email stays. If you did not ask for this, ignore this mail.`,
+      { label: "Confirm this email", url },
+    ),
+  );
+}
+
+/** Told to the old address once the change is made, so a change nobody asked for does not go unnoticed. */
+export async function sendEmailChanged(oldEmail: string, newEmail: string) {
+  await sendEmail(
+    [{ email: oldEmail }],
+    `Your ${APP_NAME} email was changed`,
+    layout(
+      "Your email was changed",
+      `Your ${APP_NAME} account now uses ${escapeHtml(newEmail)}. If you did not do this, contact the organisers straight away.`,
+    ),
+  );
+}
+
 export async function sendReset(to: Recipient, token: string) {
   const url = `${SITE_URL}/reset/${token}`;
   await sendEmail(
