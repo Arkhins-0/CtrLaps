@@ -10,6 +10,7 @@ import { PasswordInput } from "./PasswordInput";
 export function AccountActions({ appVersion }: { appVersion: string | null }) {
   const router = useRouter();
   const [panel, setPanel] = useState<"none" | "scan" | "password">("none");
+  const [confirmOut, setConfirmOut] = useState(false);
 
   const signOut = async () => {
     await api("/api/auth/logout", { method: "POST", json: {} }).catch(() => null);
@@ -33,10 +34,26 @@ export function AccountActions({ appVersion }: { appVersion: string | null }) {
         <a href="/archive" className="btn-ghost px-4 py-1.5 text-xs">
           Archive
         </a>
-        <button className="btn-ghost ml-auto px-4 py-1.5 text-xs" onClick={signOut}>
+        <button className="btn-ghost ml-auto px-4 py-1.5 text-xs text-danger" onClick={() => setConfirmOut(true)}>
           Sign out
         </button>
       </div>
+      {confirmOut && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" role="dialog" aria-modal="true" onClick={() => setConfirmOut(false)}>
+          <div className="card w-full max-w-sm space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold">Sign out?</h2>
+            <p className="text-sm text-snow-soft">You can sign in again any time with your email and password.</p>
+            <div className="flex justify-end gap-2 pt-1">
+              <button className="btn-ghost px-4 py-1.5 text-xs" onClick={() => setConfirmOut(false)} autoFocus>
+                Cancel
+              </button>
+              <button className="btn-danger px-4 py-1.5 text-xs" onClick={signOut}>
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {panel === "scan" && <Scanner />}
       {panel === "password" && <ChangePassword onDone={() => setPanel("none")} />}
       <p className="text-xs text-snow-faint">

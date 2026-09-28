@@ -1,5 +1,11 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.arkhins.ctrlaps.ui.theme.NightPanel
+import com.arkhins.ctrlaps.ui.theme.Danger
 import androidx.compose.ui.res.painterResource
 import com.arkhins.ctrlaps.R
 import com.arkhins.ctrlaps.ui.components.IconAction
@@ -71,6 +77,7 @@ fun AccountScreen(
     val me = vm.me ?: return
     val u = me.user
     val qr = rememberQr(me.qrUrl)
+    var confirmOut by remember { mutableStateOf(false) }
     // Settings and Storage look things up on the phone; done now, in the background, they open already filled.
     val context = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -138,8 +145,21 @@ fun AccountScreen(
 
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("v${BuildConfig.VERSION_NAME} · ${Config.POWERED_BY_NAME}", style = MaterialTheme.typography.labelSmall, color = SnowFaint, modifier = Modifier.weight(1f))
-            GhostButton("Sign out", danger = true) { scope.launch { vm.signOut() } }
+            GhostButton("Sign out", danger = true) { confirmOut = true }
         }
+    }
+
+    if (confirmOut) {
+        AlertDialog(
+            onDismissRequest = { confirmOut = false },
+            containerColor = NightPanel,
+            title = { Text("Sign out?", style = MaterialTheme.typography.headlineSmall, color = Snow) },
+            text = { Text("Your messages and files stay on this phone. Sign in again any time with your email and password.", color = SnowSoft) },
+            confirmButton = {
+                TextButton(onClick = { confirmOut = false; scope.launch { vm.signOut() } }) { Text("Sign out", color = Danger) }
+            },
+            dismissButton = { TextButton(onClick = { confirmOut = false }) { Text("Cancel", color = Snow) } },
+        )
     }
 }
 
