@@ -13,6 +13,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -114,6 +117,7 @@ fun Field(
     enabled: Boolean = true,
     placeholder: String? = null,
 ) {
+    var shown by remember { mutableStateOf(false) }
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
@@ -122,7 +126,18 @@ fun Field(
         modifier = modifier.fillMaxWidth(),
         singleLine = singleLine,
         enabled = enabled,
-        visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
+        visualTransformation = if (password && !shown) PasswordVisualTransformation() else VisualTransformation.None,
+        trailingIcon = if (password) {
+            {
+                IconButton(onClick = { shown = !shown }) {
+                    Icon(
+                        painterResource(if (shown) R.drawable.ic_eye_off else R.drawable.ic_eye),
+                        contentDescription = if (shown) "Hide password" else "Show password",
+                        tint = SnowFaint,
+                    )
+                }
+            }
+        } else null,
         keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Password else keyboard),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Gold,

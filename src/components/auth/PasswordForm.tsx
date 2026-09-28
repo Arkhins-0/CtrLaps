@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { PasswordInput } from "../PasswordInput";
 
 /**
  * Choose a password, twice. `onSubmit` does the call; errors come back as a
@@ -43,14 +44,14 @@ export function PasswordForm({
         <label className="label" htmlFor="pw">
           New password
         </label>
-        <input id="pw" className="input" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} />
+        <PasswordInput id="pw" className="input" autoComplete="new-password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} />
         <p className="mt-1 text-xs text-snow-faint">At least 8 characters.</p>
       </div>
       <div>
         <label className="label" htmlFor="pw2">
           Repeat password
         </label>
-        <input id="pw2" className="input" type="password" autoComplete="new-password" required value={again} onChange={(e) => setAgain(e.target.value)} />
+        <PasswordInput id="pw2" className="input" autoComplete="new-password" required value={again} onChange={(e) => setAgain(e.target.value)} />
       </div>
       {agreement && (
         <label className="flex cursor-pointer items-start gap-3 text-sm text-snow-soft">
