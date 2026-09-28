@@ -1,5 +1,9 @@
 package com.arkhins.ctrlaps.ui
 
+import androidx.compose.ui.res.painterResource
+import com.arkhins.ctrlaps.R
+import com.arkhins.ctrlaps.ui.components.IconAction
+import com.arkhins.ctrlaps.ui.theme.Gold
 import com.arkhins.ctrlaps.data.Saver
 import com.arkhins.ctrlaps.ui.components.SaveButton
 import com.arkhins.ctrlaps.ui.components.saveAll
@@ -392,8 +396,18 @@ private fun MainNav(vm: AppViewModel) {
                 var t by remember { mutableStateOf("Season") }
                 Pushed(t) { SeasonArchiveScreen(vm, e.arguments?.getString("id") ?: "", onView = view, onDeleted = back) { t = it } }
             }
-            composable("scanner") { Pushed("Verify") { ScannerScreen(onOpenChat = openChat) } }
-            composable("verify/{token}") { e -> Pushed("Verify") { ScannerScreen(initialToken = e.arguments?.getString("token"), onOpenChat = openChat) } }
+            composable("scanner") {
+                var typing by remember { mutableStateOf(false) }
+                Pushed("Verify", action = { if (typing) IconAction(painterResource(R.drawable.ic_scan), "Scan a QR code", Gold) { typing = false } }) {
+                    ScannerScreen(typing = typing, onTyping = { typing = it }, onOpenChat = openChat)
+                }
+            }
+            composable("verify/{token}") { e ->
+                var typing by remember { mutableStateOf(false) }
+                Pushed("Verify", action = { if (typing) IconAction(painterResource(R.drawable.ic_scan), "Scan a QR code", Gold) { typing = false } }) {
+                    ScannerScreen(initialToken = e.arguments?.getString("token"), typing = typing, onTyping = { typing = it }, onOpenChat = openChat)
+                }
+            }
 
             composable("pdf") {
                 val at = viewSentAt
