@@ -1,4 +1,5 @@
 import { body, handle, isUuid, type Params } from "@/lib/api";
+import { categoriesOf } from "@/lib/categories";
 import { requireUser } from "@/lib/auth";
 import { fail, json } from "@/lib/http";
 import { canPostChannel, channelFor } from "@/lib/messages";
@@ -15,7 +16,12 @@ export const GET = handle<Params<"id">>(async (_request, { params }) => {
   const weekend = await weekendById(id);
   if (!weekend) return fail("No such race weekend.", 404);
   const channel = await channelFor(id);
-  return json({ weekend, channelId: channel?.id ?? null, canPost: weekend.channelOpen && (await canPostChannel(user, id)) });
+  return json({
+    weekend,
+    categories: await categoriesOf([weekend.seasonId ?? ""]),
+    channelId: channel?.id ?? null,
+    canPost: weekend.channelOpen && (await canPostChannel(user, id)),
+  });
 });
 
 export const PATCH = handle<Params<"id">>(async (request, { params }) => {

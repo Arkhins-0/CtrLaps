@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { ChannelView, type ClosedReason } from "@/components/ChannelView";
 import { WeekendCard } from "@/components/schedule/WeekendCard";
 import { canPostChannel, channelFor, conversationMessages, markConversationRead } from "@/lib/messages";
+import { categoriesOf } from "@/lib/categories";
 import { weekendById } from "@/lib/races";
 import { listSeasons } from "@/lib/seasons";
 import { requireProfile } from "@/lib/session";
@@ -15,11 +16,12 @@ export default async function WeekendPage({ params }: { params: Promise<{ id: st
   const weekend = await weekendById(id);
   if (!weekend) notFound();
   const isAdmin = user.role === "admin";
-  const [channel, mayPost, seasons] = await Promise.all([
+  const [channel, mayPost, seasons, categories] = await Promise.all([
     channelFor(id),
     // Admins, coordinators and this weekend's channel managers.
     canPostChannel(user, id),
     isAdmin ? listSeasons() : Promise.resolve([]),
+    categoriesOf([weekend.seasonId ?? ""]),
   ]);
   const messages = channel ? await conversationMessages(user, channel.id) : [];
   if (channel) await markConversationRead(user.id, channel.id);
@@ -35,6 +37,7 @@ export default async function WeekendPage({ params }: { params: Promise<{ id: st
         seasons={seasons.filter((s) => s.status === "active")}
         startOpen
         deletedHref="/schedule"
+        categories={categories}
       />
 
       <section className="space-y-3">

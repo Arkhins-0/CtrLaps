@@ -6,9 +6,11 @@ import { useState } from "react";
 import { Icon } from "@/components/Icon";
 import { LocalTime } from "@/components/LocalTime";
 import { api } from "@/lib/client";
+import type { Category } from "@/lib/categories";
 import type { Session, Weekend } from "@/lib/races";
 import type { Season } from "@/lib/seasons";
 import { formatIn } from "@/lib/time";
+import { CategoryTag } from "./CategoryTag";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Glyph } from "./Glyph";
 import { WeekendMenu } from "./WeekendMenu";
@@ -28,6 +30,8 @@ export function WeekendCard({
   showSeason = false,
   dimmed = false,
   deletedHref,
+  categories = [],
+  only = null,
 }: {
   weekend: Weekend;
   isAdmin: boolean;
@@ -40,6 +44,10 @@ export function WeekendCard({
   dimmed?: boolean;
   /** Where to go once the weekend is deleted; without it the page just reloads. */
   deletedHref?: string;
+  /** The race categories of the weekend's season (and others, for the edit form). */
+  categories?: Category[];
+  /** Show only this category's sessions (and those for everyone). */
+  only?: string | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(startOpen);
@@ -51,6 +59,9 @@ export function WeekendCard({
   const [error, setError] = useState<string | null>(null);
   const now = Date.now();
   const changed = () => router.refresh();
+  const byId = new Map(categories.map((c) => [c.id, c]));
+  const running = w.categoryIds.map((id) => byId.get(id)).filter((c): c is Category => Boolean(c));
+  const sessions = only ? w.sessions.filter((s) => !s.categoryId || s.categoryId === only) : w.sessions;
 
   const act = async (fn: () => Promise<unknown>, fallback: string, then: () => void = changed) => {
     setBusy(true);
@@ -75,6 +86,7 @@ export function WeekendCard({
       <WeekendForm
         weekend={w}
         seasons={seasons}
+        categories={categories}
         onDone={() => {
           setEditing(false);
           changed();
@@ -98,7 +110,7 @@ export function WeekendCard({
           )}
           {place && <p className="text-sm text-snow-soft">{place}</p>}
         </div>
-        {w.sessions.length > 0 && (
+        {sessions.length > 0 && (
           <button
             className="btn-icon text-gold hover:text-gold"
             aria-label={open ? "Hide sessions" : "Show sessions"}
@@ -131,23 +143,31 @@ export function WeekendCard({
         {showSeason && w.seasonName ? ` · ${w.seasonName}` : ""}
         {isAdmin ? ` · channel ${w.channelOpen ? "open" : "closed"}` : ""}
       </p>
+      {running.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {running.map((c) => (
+            <CategoryTag key={c.id} category={c} />
+          ))}
+        </div>
+      )}
       {error && <p className="error mt-3">{error}</p>}
 
       {/* Rows 0fr → 1fr lets the height ease open and shut without measuring it. */}
       <div
         className={`grid transition-[grid-template-rows,opacity,visibility] duration-300 ease-out ${
-          open && w.sessions.length > 0 ? "visible grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0"
+          open && sessions.length > 0 ? "visible grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0"
         }`}
       >
         <div className="min-h-0 overflow-hidden">
           <ul className="mt-3 divide-y divide-night-line">
-            {w.sessions.map((s) => {
+            {sessions.map((s) => {
               if (editingSession?.id === s.id)
                 return (
                   <li key={s.id} className="py-3">
                     <SessionForm
                       weekend={w}
                       session={s}
+                      categories={categories}
                       onDone={() => {
                         setEditingSession(null);
                         changed();
@@ -162,6 +182,11 @@ export function WeekendCard({
                 <li key={s.id} className="flex items-center gap-2 py-2 text-sm">
                   <div className="min-w-0 flex-1">
                     <p className={`font-medium ${done ? "text-snow-faint" : ""}`}>
+                      {s.categoryId && byId.get(s.categoryId) && (
+                        <span className="mr-1.5">
+                          <CategoryTag category={byId.get(s.categoryId)!} />
+                        </span>
+                      )}
                       {s.name}
                       {live && <span className="chip ml-2 border-gold bg-gold px-2 py-0 text-[10px] text-night">LIVE</span>}
                     </p>
@@ -197,6 +222,7 @@ export function WeekendCard({
         <div className="mt-3">
           <SessionForm
             weekend={w}
+            categories={categories}
             onDone={() => {
               setAdding(false);
               setOpen(true);

@@ -336,7 +336,19 @@ data class ChannelResponse(
 )
 
 @Serializable
-data class RaceSession(val id: String, val weekendId: String = "", val name: String, val startsAt: String, val endsAt: String)
+data class RaceSession(
+    val id: String,
+    val weekendId: String = "",
+    val name: String,
+    val startsAt: String,
+    val endsAt: String,
+    /** Its race category; null when it is for everyone. */
+    val categoryId: String? = null,
+)
+
+/** A race category (class) of a season: "ITC", its colour and order. */
+@Serializable
+data class Category(val id: String, val seasonId: String, val name: String, val code: String, val color: String, val position: Int = 0)
 
 @Serializable
 data class Weekend(
@@ -352,16 +364,18 @@ data class Weekend(
     val seasonId: String? = null,
     val seasonName: String? = null,
     val seasonArchived: Boolean = false,
+    /** The race categories running this round. */
+    val categoryIds: List<String> = emptyList(),
     val sessions: List<RaceSession> = emptyList(),
 ) {
     val place: String get() = listOf(venue, city, country).filter { it.isNotBlank() }.joinToString(", ")
 }
 
 @Serializable
-data class WeekendsResponse(val weekends: List<Weekend>)
+data class WeekendsResponse(val weekends: List<Weekend>, val categories: List<Category> = emptyList())
 
 @Serializable
-data class WeekendResponse(val weekend: Weekend, val channelId: String? = null, val canPost: Boolean = false)
+data class WeekendResponse(val weekend: Weekend, val categories: List<Category> = emptyList(), val channelId: String? = null, val canPost: Boolean = false)
 
 @Serializable
 data class NextRace(

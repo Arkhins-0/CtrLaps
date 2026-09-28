@@ -1,7 +1,8 @@
 import { body, handle, isUuid, str, type Params } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { fail, json } from "@/lib/http";
-import { announceScheduleChange, deleteSession, describeSession, upsertSession, weekendById } from "@/lib/races";
+import { categoriesOf } from "@/lib/categories";
+import { announceScheduleChange, categoryFitsWeekend, deleteSession, describeSession, upsertSession, weekendById } from "@/lib/races";
 import { zonedToUtc } from "@/lib/time";
 import { audit } from "@/lib/users";
 
@@ -28,16 +29,21 @@ export const POST = handle<Params<"id">>(async (request, { params }) => {
   if (name.length < 2) return fail("Name the session (e.g. Practice 1, Qualifying, Race).");
   if (!startsAt || !endsAt) return fail("Enter a start and end time.");
   if (endsAt <= startsAt) return fail("The session ends before it starts.");
+  // Its race category; none (or "") = for everyone.
+  const categoryId = str(b.categoryId, 64) || null;
+  if (categoryId && (!isUuid(categoryId) || !(await categoryFitsWeekend(id, categoryId)))) return fail("That category isn't in this season.");
 
   const before = sessionId ? weekend.sessions.find((s) => s.id === sessionId) : undefined;
-  const saved = await upsertSession(id, sessionId, { name, startsAt, endsAt });
+  const saved = await upsertSession(id, sessionId, { name, startsAt, endsAt, categoryId });
   const after = (await weekendById(id))!;
   const session = after.sessions.find((s) => s.id === saved)!;
   await audit(admin.id, id, sessionId ? "session.updated" : "session.created", { before, session });
 
-  const changed = !before || before.startsAt !== session.startsAt || before.endsAt !== session.endsAt || before.name !== session.name;
+  const changed =
+    !before || before.startsAt !== session.startsAt || before.endsAt !== session.endsAt || before.name !== session.name || before.categoryId !== session.categoryId;
   if (changed && !(b.quiet === true)) {
-    await announceScheduleChange(admin, after, `${before ? "Changed" : "Added"} — ${describeSession(session, after.timezone)}`);
+    const code = session.categoryId ? (await categoriesOf([after.seasonId ?? ""])).find((c) => c.id === session.categoryId)?.code : null;
+    await announceScheduleChange(admin, after, `${before ? "Changed" : "Added"} — ${describeSession(session, after.timezone, code)}`);
   }
   return json({ weekend: after, sessionId: saved });
 });
