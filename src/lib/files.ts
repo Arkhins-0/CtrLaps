@@ -5,6 +5,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env, isStorageConfigured } from "./env";
 import { one, q, run } from "./db";
 import { storage } from "./storage";
+import { categoryMemberSql } from "./categoryChannels";
 
 /*
  * Documents. The bytes go to storage; the row says what they are. On S3
@@ -111,7 +112,7 @@ export async function fileById(id: string): Promise<FileRow | undefined> {
 /**
  * The file, if this person may have it. Its uploader always may (it's theirs, even after deleting the message). Anyone
  * else only through a message that still carries it and that they can see: one they sent or received, a channel
- * post, their private chat, or a group they're in. A file forwarded on is the same file, so the forward keeps it
+ * post, a post in a race category they are in, their private chat, or a group they're in. A file forwarded on is the same file, so the forward keeps it
  * readable for its own chat while "delete for everyone" takes it away from the first one.
  */
 export async function fileForUser(userId: string, fileId: string): Promise<FileRow | undefined> {
@@ -128,7 +129,8 @@ export async function fileForUser(userId: string, fileId: string): Promise<FileR
              OR c.kind = 'channel'
              OR EXISTS (SELECT 1 FROM message_recipients r WHERE r.message_id = m.id AND r.user_id = $2)
              OR (c.kind = 'direct' AND $2 IN (c.owner_id, c.member_id))
-             OR (c.kind = 'group' AND EXISTS (SELECT 1 FROM group_members g WHERE g.conversation_id = c.id AND g.user_id = $2)))
+             OR (c.kind = 'group' AND EXISTS (SELECT 1 FROM group_members g WHERE g.conversation_id = c.id AND g.user_id = $2))
+             OR (c.kind = 'category' AND EXISTS (SELECT 1 FROM users u WHERE u.id = $2 AND ${categoryMemberSql("u", "c.category_id")})))
        ))`,
     [fileId, userId],
   );

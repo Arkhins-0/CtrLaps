@@ -218,6 +218,11 @@ export function MessageItem({ m, showSender = true, highlight = false, inPlace =
                   Race weekend channel →
                 </Link>
               )}
+              {m.kind === "category" && m.categoryId && (
+                <Link href={`/c/${m.categoryId}`} className="hover:text-snow">
+                  Category channel →
+                </Link>
+              )}
             </p>
           )}
         </div>

@@ -11,6 +11,7 @@ const POLL_MS = 20_000;
 function linkFor(m: MessageOut): string {
   if (m.kind === "direct" && m.conversationId) return `/chats/${m.conversationId}`;
   if (m.kind === "channel" && m.weekendId) return `/w/${m.weekendId}`;
+  if (m.kind === "category" && m.categoryId) return `/c/${m.categoryId}`;
   return `/home?m=${m.id}`;
 }
 

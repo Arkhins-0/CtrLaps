@@ -80,6 +80,8 @@ data class Message(
     val conversationId: String? = null,
     val kind: String = "broadcast",
     val weekendId: String? = null,
+    /** A category channel's category. */
+    val categoryId: String? = null,
     val sender: Sender? = null,
     val body: String = "",
     /** The first attachment (all a server before multi-attachments sends). */
@@ -243,7 +245,31 @@ data class GroupResponse(val group: GroupInfo)
 
 /** The channels page: seasons, the current one first, each with its race weekends' channels. */
 @Serializable
-data class ChannelsResponse(val seasons: List<ChannelSeason> = emptyList())
+data class ChannelsResponse(val seasons: List<ChannelSeason> = emptyList(), val categories: List<CategoryChannel> = emptyList())
+
+/** A race category's channel this person is in (this season). */
+@Serializable
+data class CategoryChannel(
+    val id: String,
+    val name: String,
+    val code: String,
+    val color: String,
+    val unread: Int = 0,
+    val lastMessageAt: String? = null,
+    val lastMessage: String? = null,
+)
+
+@Serializable
+data class CategoryChannelInfo(val id: String, val name: String, val code: String, val color: String, val seasonName: String = "")
+
+@Serializable
+data class CategoryChannelResponse(
+    val channelId: String,
+    val category: CategoryChannelInfo,
+    val open: Boolean,
+    val canPost: Boolean,
+    val messages: List<Message>,
+)
 
 @Serializable
 data class ChannelSeason(val id: String, val name: String, val current: Boolean = false, val status: String = "active", val weekends: List<ChannelWeekend> = emptyList())
@@ -389,7 +415,11 @@ data class NextRace(
 )
 
 @Serializable
-data class UsersResponse(val users: List<PublicUser>)
+data class UsersResponse(val users: List<PublicUser>, val categories: List<RosterCategory> = emptyList())
+
+/** A category this season with the people tied to it (its racers, its teams' crew and managers, its race officials). */
+@Serializable
+data class RosterCategory(val id: String, val name: String, val code: String, val color: String, val memberIds: List<String> = emptyList())
 
 @Serializable
 data class UserResponse(

@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.data.CategoryChannel
 import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -61,10 +62,11 @@ import kotlinx.serialization.json.putJsonArray
 /**
  * The broadcast channels: one per race weekend, listed season by season
  * with the current season on top. Tapping a weekend opens its channel.
- * An admin names the people who manage a channel from here.
+ * An admin names the people who manage a channel from here. Above them,
+ * the channels of the race categories this person is in.
  */
 @Composable
-fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit) {
+fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCategory: (String) -> Unit = {}) {
     val app = LocalApp.current
     var data by remember { mutableStateOf<ChannelsResponse?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -82,12 +84,18 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit) {
     }
 
     val seasons = data?.seasons
+    val categories = data?.categories.orEmpty()
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)) {
         when {
             error != null && seasons == null -> item { Box(Modifier.padding(16.dp)) { ErrorText(error) } }
             seasons == null -> item { Loading() }
-            seasons.all { it.weekends.isEmpty() } -> item { Box(Modifier.padding(16.dp)) { Empty("No race weekends yet.") } }
-            else -> seasons.filter { it.weekends.isNotEmpty() }.forEach { season ->
+            seasons.all { it.weekends.isEmpty() } && categories.isEmpty() -> item { Box(Modifier.padding(16.dp)) { Empty("No race weekends yet.") } }
+            else -> {
+              if (categories.isNotEmpty()) {
+                item(key = "categories") { SectionTitle("CATEGORIES", Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
+                items(categories, key = { "c-" + it.id }) { c -> CategoryChannelRow(c) { onOpenCategory(c.id) } }
+              }
+              seasons.filter { it.weekends.isNotEmpty() }.forEach { season ->
                 item(key = "season-${season.id}") {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         SectionTitle(season.name.uppercase(), Modifier.weight(1f))
@@ -147,6 +155,7 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit) {
                     }
                     Box(Modifier.padding(start = 76.dp)) { Divider() }
                 }
+              }
             }
         }
     }
@@ -160,6 +169,35 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit) {
             }
         }
     }
+}
+
+/** A race category's channel: its code in its colour, the last post, unread. */
+@Composable
+private fun CategoryChannelRow(c: CategoryChannel, onOpen: () -> Unit) {
+    val color = runCatching { androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(c.color)) }.getOrDefault(SnowSoft)
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.width(48.dp).height(48.dp).background(color.copy(alpha = 0.15f), RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
+            Text(c.code.take(5), style = MaterialTheme.typography.labelMedium, color = color, maxLines = 1)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(c.name, style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(c.lastMessage ?: "No posts yet", style = MaterialTheme.typography.bodySmall, color = if (c.unread > 0) Snow else SnowFaint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            c.lastMessageAt?.let { Text(whenLabel(it), style = MaterialTheme.typography.labelSmall, color = if (c.unread > 0) Gold else SnowFaint) }
+            if (c.unread > 0) {
+                Spacer(Modifier.height(4.dp))
+                Box(Modifier.background(Gold, RoundedCornerShape(999.dp)).padding(horizontal = 7.dp, vertical = 2.dp)) {
+                    Text("${c.unread}", style = MaterialTheme.typography.labelSmall, color = OnGold)
+                }
+            }
+        }
+    }
+    Box(Modifier.padding(start = 76.dp)) { Divider() }
 }
 
 /** Admin: tick the people who manage this weekend's channel. */

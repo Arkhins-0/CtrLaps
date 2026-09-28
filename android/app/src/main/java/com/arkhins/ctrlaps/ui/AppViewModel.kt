@@ -201,12 +201,13 @@ class AppViewModel(private val app: CtrlapsApplication) : ViewModel() {
                     link = when {
                         (m.kind == "direct" || m.kind == "group") && m.conversationId != null -> "/chats/${m.conversationId}"
                         m.kind == "channel" && m.weekendId != null -> "/w/${m.weekendId}"
+                        m.kind == "category" && m.categoryId != null -> "/c/${m.categoryId}"
                         else -> "/home?m=${m.id}"
                     },
                     kind = when (m.kind) {
                         "direct" -> "chat"
                         "group" -> "group"
-                        "channel" -> "channel"
+                        "channel", "category" -> "channel"
                         else -> "announcement"
                     },
                     senderName = m.sender?.name.orEmpty(),

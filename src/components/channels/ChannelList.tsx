@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
+import type { CategoryChannel } from "@/lib/categoryChannels";
 import type { ChannelManager, ChannelSeason, ChannelWeekend } from "@/lib/channels";
 import { WhenLabel } from "../ChatList";
 import { Dialog } from "../groups/Dialog";
@@ -12,9 +13,9 @@ import { pickPerson, type PickPerson } from "../groups/people";
 /**
  * The broadcast channels: one per race weekend, listed season by season
  * with the current season on top. A row opens its weekend. An admin names
- * the people who manage a channel from here.
+ * the people who manage a channel from here. Above them, the channels of the race categories this person is in.
  */
-export function ChannelList({ initial, isAdmin }: { initial: ChannelSeason[]; isAdmin: boolean }) {
+export function ChannelList({ initial, categories = [], isAdmin }: { initial: ChannelSeason[]; categories?: CategoryChannel[]; isAdmin: boolean }) {
   const [seasons, setSeasons] = useState(initial);
   const [managing, setManaging] = useState<ChannelWeekend | null>(null);
   const shown = seasons.filter((s) => s.weekends.length > 0);
@@ -24,6 +25,39 @@ export function ChannelList({ initial, isAdmin }: { initial: ChannelSeason[]; is
 
   return (
     <div className="-mx-4 min-h-0 flex-1 overflow-y-auto pb-4 sm:-mx-6 lg:mx-0">
+      {categories.length > 0 && (
+        <section className="mb-3">
+          <div className="px-4 py-2 sm:px-6 lg:px-3">
+            <p className="section-title">Categories</p>
+          </div>
+          {categories.map((c, i) => (
+            <div key={c.id}>
+              {i > 0 && <div className="ml-[4.75rem] border-t border-night-line sm:ml-[5.25rem] lg:ml-[4.5rem]" />}
+              <Link href={`/c/${c.id}`} className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-snow/5 sm:px-6 lg:rounded-xl lg:px-3">
+                <span
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] text-[12px] font-bold tracking-wide"
+                  style={{ color: c.color, backgroundColor: `${c.color}26` }}
+                  aria-hidden
+                >
+                  {c.code.slice(0, 5)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-medium">{c.name}</span>
+                  <span className={`block truncate text-[13px] ${c.unread > 0 ? "text-snow" : "text-snow-faint"}`}>{c.lastMessage ?? "No posts yet"}</span>
+                </span>
+                <span className="flex shrink-0 flex-col items-end gap-1">
+                  {c.lastMessageAt && (
+                    <span className={`text-[11px] ${c.unread > 0 ? "text-gold" : "text-snow-faint"}`}>
+                      <WhenLabel iso={c.lastMessageAt} />
+                    </span>
+                  )}
+                  {c.unread > 0 && <span className="badge">{c.unread > 99 ? "99+" : c.unread}</span>}
+                </span>
+              </Link>
+            </div>
+          ))}
+        </section>
+      )}
       {shown.length === 0 && <p className="px-4 py-3 text-sm text-snow-faint sm:px-6 lg:px-3">No race weekends yet.</p>}
       {shown.map((s) => (
         <section key={s.id} className="mb-3">

@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.data.RosterCategory
 import com.arkhins.ctrlaps.ui.components.putEvent
 import kotlinx.serialization.json.putJsonObject
 import androidx.compose.foundation.clickable
@@ -58,7 +59,7 @@ import kotlinx.serialization.json.putJsonArray
 
 /**
  * A one-off message to chosen people below you. The page reads like the
- * People page — a search box, then everyone grouped by role — with the
+ * People page — a search box, chips for a whole role or race category, then everyone grouped by role — with the
  * message box at the bottom, where a chat keeps it.
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -66,6 +67,7 @@ import kotlinx.serialization.json.putJsonArray
 fun ComposeScreen(onSent: () -> Unit) {
     val app = LocalApp.current
     var people by remember { mutableStateOf<List<PublicUser>?>(null) }
+    var categories by remember { mutableStateOf<List<RosterCategory>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var picked by remember { mutableStateOf(setOf<String>()) }
     var query by remember { mutableStateOf("") }
@@ -73,7 +75,9 @@ fun ComposeScreen(onSent: () -> Unit) {
 
     LaunchedEffect(Unit) {
         try {
-            people = app.store.get("/api/users", UsersResponse.serializer()) { c -> people = c.users.filter { it.status == "active" } }.users.filter { it.status == "active" }
+            val r = app.store.get("/api/users", UsersResponse.serializer()) { c -> people = c.users.filter { it.status == "active" }; categories = c.categories }
+            people = r.users.filter { it.status == "active" }
+            categories = r.categories
         } catch (e: Exception) {
             error = e.message
         }
@@ -130,6 +134,17 @@ fun ComposeScreen(onSent: () -> Unit) {
                                 if (ids.isEmpty()) return@forEach
                                 val all = ids.all { it in picked }
                                 Chip("All ${ROLE_LABELS[role]?.lowercase()}s · ${ids.size}", Gold, filled = all) {
+                                    picked = if (all) picked - ids.toSet() else picked + ids
+                                }
+                            }
+                            // A race category's people below you: its racers, its teams' crew and managers, its officials.
+                            val shownIds = shown.map { it.id }.toSet()
+                            categories.forEach { c ->
+                                val ids = c.memberIds.filter { it in shownIds }
+                                if (ids.isEmpty()) return@forEach
+                                val all = ids.all { it in picked }
+                                val color = runCatching { androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(c.color)) }.getOrDefault(Gold)
+                                Chip("All ${c.code} · ${ids.size}", color, filled = all) {
                                     picked = if (all) picked - ids.toSet() else picked + ids
                                 }
                             }

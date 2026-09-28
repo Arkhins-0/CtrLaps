@@ -1,0 +1,43 @@
+import { body, bool, handle, isUuid, str, uuids, type Params } from "@/lib/api";
+import { requireUser } from "@/lib/auth";
+import { canPostCategory, categoryConversation, categoryInfo } from "@/lib/categoryChannels";
+import { fail, json } from "@/lib/http";
+import { canReadCategory, conversationMessages, markConversationRead, postToCategory } from "@/lib/messages";
+
+export const dynamic = "force-dynamic";
+
+/** A race category's channel, for the people in it. Reading marks it read, except `?read=0` (the phone in the background). */
+export const GET = handle<Params<"id">>(async (request, { params }) => {
+  const user = await requireUser();
+  const { id } = await params;
+  if (!isUuid(id)) return fail("No such category.", 404);
+  const category = await categoryInfo(id);
+  if (!category || !(await canReadCategory(user, id))) return fail("No such category.", 404);
+  const conversationId = await categoryConversation(id);
+  const messages = await conversationMessages(user, conversationId);
+  if (new URL(request.url).searchParams.get("read") !== "0") await markConversationRead(user.id, conversationId);
+  return json({
+    channelId: conversationId,
+    category: { id: category.id, name: category.name, code: category.code, color: category.color, seasonName: category.seasonName },
+    open: category.open,
+    closedReason: category.open ? null : "archived",
+    canPost: category.open && (await canPostCategory(user, id)),
+    messages,
+  });
+});
+
+/** Admins, coordinators and the category's race officials post; it reaches everyone in the category. */
+export const POST = handle<Params<"id">>(async (request, { params }) => {
+  const user = await requireUser();
+  const { id } = await params;
+  if (!isUuid(id)) return fail("No such category.", 404);
+  const b = await body(request);
+  const messageId = await postToCategory(user, id, {
+    body: str(b.body, 5000),
+    linkUrl: str(b.linkUrl, 2000) || null,
+    fileId: str(b.fileId, 64) || null,
+    fileIds: uuids(b.fileIds),
+    urgent: bool(b.urgent),
+  });
+  return json({ id: messageId }, 201);
+});

@@ -4,12 +4,13 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { api } from "@/lib/client";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
+import type { RosterCategory } from "@/lib/categoryChannels";
 import type { PublicUser } from "@/lib/users";
 import { Avatar } from "./Avatar";
 import { MessageComposer } from "./MessageComposer";
 
-/** Pick who, below you, gets the message — by person or a whole role at once. */
-export function ComposeForm({ people }: { people: PublicUser[] }) {
+/** Pick who, below you, gets the message — by person, a whole role, or a race category's people at once. */
+export function ComposeForm({ people, categories = [] }: { people: PublicUser[]; categories?: RosterCategory[] }) {
   const router = useRouter();
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState("");
@@ -25,8 +26,8 @@ export function ComposeForm({ people }: { people: PublicUser[] }) {
       else n.add(id);
       return n;
     });
-  const toggleRole = (role: Role) => {
-    const ids = people.filter((p) => p.role === role).map((p) => p.id);
+  const toggleRole = (role: Role) => toggleIds(people.filter((p) => p.role === role).map((p) => p.id));
+  const toggleIds = (ids: string[]) => {
     const all = ids.every((id) => picked.has(id));
     setPicked((s) => {
       const n = new Set(s);
@@ -59,6 +60,28 @@ export function ComposeForm({ people }: { people: PublicUser[] }) {
             );
           })}
         </div>
+        {/* A category's people who are below you: its racers, its teams' crew and managers, its race officials. */}
+        {categories.some((c) => c.memberIds.some((id) => people.some((p) => p.id === id))) && (
+          <div className="flex flex-wrap gap-2">
+            {categories.map((c) => {
+              const ids = c.memberIds.filter((id) => people.some((p) => p.id === id));
+              if (ids.length === 0) return null;
+              const all = ids.every((id) => picked.has(id));
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  className="chip"
+                  style={all ? { backgroundColor: c.color, borderColor: c.color, color: "#0B0B0C" } : { borderColor: `${c.color}80`, color: c.color }}
+                  onClick={() => toggleIds(ids)}
+                  title={c.name}
+                >
+                  All {c.code} · {ids.length}
+                </button>
+              );
+            })}
+          </div>
+        )}
         <input className="input" placeholder="Search people" value={filter} onChange={(e) => setFilter(e.target.value)} />
         <div className="max-h-72 divide-y divide-night-line overflow-y-auto">
           {shown.map((p) => (

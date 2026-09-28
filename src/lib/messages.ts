@@ -16,6 +16,7 @@ import { CHANNEL_POSTERS, ROLE_LABEL, type Role } from "./roles";
 import { APP_NAME } from "./config";
 import { userPhotoUrl } from "./profile";
 import { currentSeason, LIVE_SEASON } from "./seasons";
+import { canPostCategory, categoryConversation, categoryInfo, categoryMemberIds, isCategoryMember } from "./categoryChannels";
 
 /*
  * Messages, four ways: a one-off broadcast to chosen people below, a post
@@ -24,7 +25,7 @@ import { currentSeason, LIVE_SEASON } from "./seasons";
  * the recipients' inbox the same way.
  */
 
-export type Kind = "broadcast" | "channel" | "direct" | "group";
+export type Kind = "broadcast" | "channel" | "direct" | "group" | "category";
 
 /** `document`: sent through "Document", so it shows as a document whatever its type. */
 export type FileRef = { id: string; name: string; mime: string; size: number; document?: boolean; thumb?: string | null };
@@ -57,6 +58,8 @@ export type MessageOut = {
   conversationId: string | null;
   kind: Kind;
   weekendId: string | null;
+  /** A category channel's category. */
+  categoryId: string | null;
   sender: { id: string; name: string; role: Role; roleLabel: string; photoUrl: string | null } | null;
   body: string;
   /** The first attachment (what older clients show). */
@@ -113,6 +116,7 @@ type Row = {
   conversation_id: string | null;
   kind: Kind | null;
   weekend_id: string | null;
+  category_id: string | null;
   sender_id: string | null;
   sender_name: string | null;
   sender_email: string | null;
@@ -234,7 +238,7 @@ function pollOut(row: PollRow, viewerId: string, named: boolean): PollOut {
 }
 
 const SELECT = `
-  SELECT m.id, m.conversation_id, c.kind, c.weekend_id, m.sender_id,
+  SELECT m.id, m.conversation_id, c.kind, c.weekend_id, c.category_id, m.sender_id,
          s.name AS sender_name, s.email AS sender_email, s.role AS sender_role, s.photo_key AS sender_photo,
          m.body, m.file_id, f.name AS file_name, f.mime AS file_mime, f.size::text AS file_size, f.as_document AS file_document, f.thumb AS file_thumb,
          m.urgent, m.created_at, r.read_at, m.reply_to_id, m.edited_at, m.deleted_at, m.changed_at, m.forwarded,
@@ -278,6 +282,7 @@ function out(row: Row, viewerId: string): MessageOut {
     conversationId: row.conversation_id,
     kind: row.kind ?? "broadcast",
     weekendId: row.weekend_id,
+    categoryId: row.category_id ?? null,
     sender: row.sender_id
       ? {
           id: row.sender_id,
@@ -552,6 +557,47 @@ export async function postToChannel(sender: SessionUser, weekendId: string, draf
         : undefined,
   });
   return id;
+}
+
+/* ─────────────────────────── Category channel ────────────────────── */
+
+/** A post in a race category's channel: to everyone in the category (see categoryChannels.ts), on their Home too. */
+export async function postToCategory(sender: SessionUser, categoryId: string, draft: Draft): Promise<string> {
+  const category = await categoryInfo(categoryId);
+  if (!category) throw new AuthError(404, "No such category.");
+  if (!(await canPostCategory(sender, categoryId))) throw new AuthError(403, "Only admins, coordinators and this category's race officials post here.");
+  if (!category.open) throw new AuthError(403, "This season has ended; its channels are closed.");
+  if (!hasContent(draft)) throw new AuthError(400, "Write something or attach a document.");
+  const files = await checkFiles(sender, draft);
+  const id = await insertMessage(await categoryConversation(categoryId), sender, draft, files);
+  const text = preview(draft.body, files);
+  await deliver({
+    messageId: id,
+    recipientIds: await categoryMemberIds(categoryId, sender.id),
+    push: {
+      title: `${category.code} · ${sender.name || sender.email}`,
+      body: text,
+      link: `/c/${categoryId}`,
+      tag: `c-${categoryId}`,
+      popup: popupData("channel", sender, draft, files[0] ?? null, category.code),
+    },
+    sync: { scope: "home" },
+    email:
+      draft.urgent || files.length > 0
+        ? {
+            subject: `${draft.urgent ? "Urgent: " : ""}${category.code} — ${text.slice(0, 80)}`,
+            title: `${category.name} (${category.code})`,
+            body: mailBody(draft, files),
+            files,
+          }
+        : undefined,
+  });
+  return id;
+}
+
+/** May this person read a category's channel? Its members may; admins and coordinators read them all. */
+export async function canReadCategory(user: SessionUser, categoryId: string): Promise<boolean> {
+  return user.role === "admin" || user.role === "coordinator" || (await isCategoryMember(user.id, categoryId));
 }
 
 /* ───────────────────────────── Direct ────────────────────────────── */
