@@ -2,6 +2,7 @@ import { Avatar } from "./Avatar";
 import { ChatButton } from "./ChatButton";
 import { StatusBadge } from "./StatusBadge";
 import type { Status } from "@/lib/roles";
+import { CopyButton } from "./CopyButton";
 
 export type Verified = {
   id: string;
@@ -27,7 +28,10 @@ export function VerifyCard({ v, chat = true }: { v: Verified; chat?: boolean }) 
           {v.roleLabel}
           {v.teamName ? ` · ${v.teamName}` : ""}
         </p>
-        <p className="font-mono text-xs tracking-widest text-snow-faint">{v.verifyCode}</p>
+        <p className="flex items-center gap-1">
+          <span className="font-mono text-xs tracking-widest text-snow-faint">{v.verifyCode}</span>
+          <CopyButton value={v.verifyCode} label="Copy account code" />
+        </p>
       </div>
       <StatusBadge status={v.status} />
     </div>

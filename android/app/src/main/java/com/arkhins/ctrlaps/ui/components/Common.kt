@@ -1,5 +1,11 @@
 package com.arkhins.ctrlaps.ui.components
 
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.compose.ui.res.painterResource
 import com.arkhins.ctrlaps.R
@@ -267,17 +273,40 @@ fun Centered(text: String) {
 }
 
 @Composable
-fun KeyValue(label: String, value: String, mono: Boolean = false) {
+fun KeyValue(label: String, value: String, mono: Boolean = false, copyable: Boolean = false) {
     Column {
         Text(label, style = MaterialTheme.typography.labelSmall, color = SnowFaint)
         Spacer(Modifier.height(2.dp))
-        Text(
-            value,
-            style = if (mono) MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace, letterSpacing = 3.sp) else MaterialTheme.typography.bodyMedium,
-            color = Snow,
-            fontWeight = if (mono) FontWeight.SemiBold else null,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                value,
+                style = if (mono) MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace, letterSpacing = 3.sp) else MaterialTheme.typography.bodyMedium,
+                color = Snow,
+                fontWeight = if (mono) FontWeight.SemiBold else null,
+            )
+            if (copyable) CopyButton(value, label)
+        }
     }
+}
+
+/** A small copy icon beside a code: copies it, buzzes once, and says "Code … copied". */
+@Composable
+fun CopyButton(value: String, what: String = "Code") {
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    Box(
+        Modifier
+            .padding(start = 6.dp)
+            .size(32.dp)
+            .clip(CircleShape)
+            .clickable {
+                clipboard.setText(AnnotatedString(value))
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                Toast.makeText(context, "Code $value copied", Toast.LENGTH_SHORT).show()
+            },
+        contentAlignment = Alignment.Center,
+    ) { Icon(painterResource(R.drawable.ic_copy), contentDescription = "Copy $what", tint = SnowFaint, modifier = Modifier.size(18.dp)) }
 }
 
 @Composable
