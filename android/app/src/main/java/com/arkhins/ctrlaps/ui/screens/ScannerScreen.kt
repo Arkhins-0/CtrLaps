@@ -1,5 +1,16 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
+import com.arkhins.ctrlaps.R
+import com.arkhins.ctrlaps.data.RecentCheck
+import com.arkhins.ctrlaps.ui.components.Divider
+import com.arkhins.ctrlaps.ui.components.SectionTitle
+import com.arkhins.ctrlaps.ui.theme.Danger
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -105,7 +116,7 @@ fun ScannerScreen(initialToken: String? = null, typing: Boolean, onTyping: (Bool
         error = null
         scope.launch {
             try {
-                result = app.api.get("/api/verify?$query", Verified.serializer())
+                result = app.api.get("/api/verify?$query", Verified.serializer()).also { app.verifyHistory.add(it) }
                 scanning = false
             } catch (e: Exception) {
                 error = e.message ?: "No match."
@@ -144,19 +155,15 @@ fun ScannerScreen(initialToken: String? = null, typing: Boolean, onTyping: (Bool
             GhostButton("Scan again") { result = null; error = null; scanning = true }
         }
         if (!typing) {
-            // Looks like a text box; a tap turns the screen into code entry.
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, NightLine, RoundedCornerShape(12.dp))
-                    .clickable { code = ""; error = null; result = null; onTyping(true) }
-                    .padding(horizontal = 16.dp, vertical = 18.dp),
-            ) { Text("Account code", style = MaterialTheme.typography.bodyLarge, color = SnowFaint) }
+            // The same eight boxes, empty; a tap turns the screen into code entry.
+            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { code = ""; error = null; result = null; onTyping(true) }.padding(vertical = 4.dp)) {
+                CodeRow("", current = null)
+            }
         }
         ErrorText(error)
+        if (result == null) RecentChecks { person -> lookup("code=${URLEncoder.encode(person.verifyCode, "UTF-8")}") }
         result?.let { v ->
-            IdCard(v, live = true)
+            IdCard(v)
             // No chat button for someone with no role yet: they have no chats.
             if (v.status == "active" && v.role != "user" && v.id != vm_me_id(app)) {
                 var chatError by remember(v.id) { mutableStateOf<String?>(null) }
@@ -269,22 +276,98 @@ private fun CodeBoxes(code: String, enabled: Boolean, onChange: (String) -> Unit
         singleLine = true,
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, keyboardType = KeyboardType.Ascii, autoCorrectEnabled = false),
         modifier = Modifier.fillMaxWidth().focusRequester(focus),
-        decorationBox = {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                for (i in 0 until 8) {
-                    if (i == 4) Text("-", style = MaterialTheme.typography.titleLarge, color = Snow, modifier = Modifier.padding(horizontal = 8.dp))
-                    val ch = code.getOrNull(i)
-                    val current = i == code.length && enabled
-                    Box(
-                        Modifier
-                            .padding(horizontal = 3.dp)
-                            .size(width = 34.dp, height = 44.dp)
-                            .background(NightPanel, RoundedCornerShape(8.dp))
-                            .border(if (current) 2.dp else 1.dp, if (current) Gold else NightLine, RoundedCornerShape(8.dp)),
-                        contentAlignment = Alignment.Center,
-                    ) { if (ch != null) Text(ch.toString(), style = MaterialTheme.typography.titleLarge, color = Snow) }
+        decorationBox = { CodeRow(code, current = if (enabled) code.length else null) },
+    )
+}
+
+/** The eight boxes and the dash between them, showing [code]; the box at [current] (the next to fill) is outlined in gold. */
+@Composable
+private fun CodeRow(code: String, current: Int?) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        for (i in 0 until 8) {
+            if (i == 4) Text("-", style = MaterialTheme.typography.titleLarge, color = Snow, modifier = Modifier.padding(horizontal = 8.dp))
+            val ch = code.getOrNull(i)
+            val here = i == current
+            Box(
+                Modifier
+                    .padding(horizontal = 3.dp)
+                    .size(width = 34.dp, height = 44.dp)
+                    .background(NightPanel, RoundedCornerShape(8.dp))
+                    .border(if (here) 2.dp else 1.dp, if (here) Gold else NightLine, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center,
+            ) { if (ch != null) Text(ch.toString(), style = MaterialTheme.typography.titleLarge, color = Snow) }
+        }
+    }
+}
+
+/**
+ * Who this phone has checked, under the scanner and the code boxes: starred people first, then the rest,
+ * newest first. A tap checks the person again (their status now, not as it was); the star keeps them at hand.
+ */
+@Composable
+private fun RecentChecks(onCheck: (Verified) -> Unit) {
+    val app = LocalApp.current
+    val history = app.verifyHistory
+    val checks by history.checks.collectAsState()
+    val starred by history.starred.collectAsState()
+    if (checks.isEmpty()) return
+    val (pinned, rest) = checks.partition { it.person.id in starred }
+
+    @Composable
+    fun Section(title: String, list: List<RecentCheck>, action: (@Composable () -> Unit)? = null) {
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            SectionTitle(title, Modifier.weight(1f))
+            action?.invoke()
+        }
+        Panel(padding = PaddingValues(4.dp)) {
+            Column {
+                list.forEachIndexed { i, c ->
+                    if (i > 0) Divider()
+                    val p = c.person
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onCheck(p) }.padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Avatar(app.api.absolute(p.photoUrl), p.name ?: p.verifyCode, 44)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(p.name ?: "Profile not completed", style = MaterialTheme.typography.titleSmall, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                "${p.roleLabel} · ${p.verifyCode}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (p.role == "user") Danger else SnowFaint,
+                                maxLines = 1,
+                            )
+                        }
+                        Text(checkedWhen(c.at), style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                        val on = p.id in starred
+                        IconButton(onClick = { history.toggleStar(p.id) }) {
+                            Icon(
+                                painterResource(if (on) R.drawable.ic_star else R.drawable.ic_star_border),
+                                contentDescription = if (on) "Unstar" else "Star",
+                                tint = if (on) Gold else SnowFaint,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    }
                 }
             }
-        },
-    )
+        }
+    }
+
+    if (pinned.isNotEmpty()) Section("STARRED", pinned)
+    if (rest.isNotEmpty()) Section("RECENT", rest) {
+        Text("Clear", style = MaterialTheme.typography.labelMedium, color = SnowFaint, modifier = Modifier.clickable { history.clearUnstarred() }.padding(6.dp))
+    }
+}
+
+/** "11:14 pm" today, "Yesterday", or "12 Sep". */
+private fun checkedWhen(at: Long): String {
+    val then = java.time.Instant.ofEpochMilli(at).atZone(java.time.ZoneId.systemDefault())
+    val today = java.time.LocalDate.now()
+    return when (then.toLocalDate()) {
+        today -> then.format(java.time.format.DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.ENGLISH)).lowercase()
+        today.minusDays(1) -> "Yesterday"
+        else -> then.format(java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.ENGLISH))
+    }
 }
