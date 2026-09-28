@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps
 
+import com.arkhins.ctrlaps.ui.theme.ThemeSetting
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
@@ -18,6 +19,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        ThemeSetting.init(this)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),

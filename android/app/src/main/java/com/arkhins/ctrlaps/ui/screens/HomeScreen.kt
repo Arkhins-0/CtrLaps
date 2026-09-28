@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import com.arkhins.ctrlaps.data.UpcomingEvent
 import com.arkhins.ctrlaps.data.UpcomingEventsResponse
 import com.arkhins.ctrlaps.data.EventReminders
@@ -252,7 +253,7 @@ fun HomeScreen(
                                     if (chat.unread > 0) {
                                         Spacer(Modifier.height(4.dp))
                                         Box(Modifier.background(Gold, RoundedCornerShape(999.dp)).padding(horizontal = 7.dp, vertical = 2.dp)) {
-                                            Text("${chat.unread}", style = MaterialTheme.typography.labelSmall, color = Night)
+                                            Text("${chat.unread}", style = MaterialTheme.typography.labelSmall, color = OnGold)
                                         }
                                     }
                                 }

@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -440,13 +441,13 @@ private fun ArchivedBubble(m: ArchivedMessage, onView: (FileView) -> Unit) {
                 Chip("Urgent", if (mine) Night else Danger, filled = mine)
                 Spacer(Modifier.height(4.dp))
             }
-            if (m.body.isNotBlank()) Text(formatted(m.body), style = MaterialTheme.typography.bodyMedium, color = if (mine) Night else Snow)
+            if (m.body.isNotBlank()) Text(formatted(m.body), style = MaterialTheme.typography.bodyMedium, color = if (mine) OnGold else Snow)
             if (m.file != null) {
                 if (m.body.isNotBlank()) Spacer(Modifier.height(6.dp))
                 Attachment(m.file, onView, onDark = !mine)
             }
             Spacer(Modifier.height(2.dp))
-            Text(localTime(m.createdAt), style = MaterialTheme.typography.labelSmall, color = if (mine) Night.copy(alpha = 0.6f) else SnowFaint, modifier = Modifier.align(Alignment.End))
+            Text(localTime(m.createdAt), style = MaterialTheme.typography.labelSmall, color = if (mine) OnGold.copy(alpha = 0.6f) else SnowFaint, modifier = Modifier.align(Alignment.End))
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -255,7 +256,7 @@ private fun SwitchRow(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
         Switch(
             checked = on,
             onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(checkedThumbColor = Night, checkedTrackColor = Gold, uncheckedThumbColor = SnowFaint, uncheckedTrackColor = NightLine, uncheckedBorderColor = NightLine),
+            colors = SwitchDefaults.colors(checkedThumbColor = OnGold, checkedTrackColor = Gold, uncheckedThumbColor = SnowFaint, uncheckedTrackColor = NightLine, uncheckedBorderColor = NightLine),
         )
     }
 }

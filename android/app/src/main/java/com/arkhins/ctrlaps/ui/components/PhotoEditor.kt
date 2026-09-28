@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.components
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.painterResource
@@ -286,8 +287,8 @@ fun PhotoEditor(
                             },
                             contentAlignment = Alignment.Center,
                         ) {
-                            if (sending) CircularProgressIndicator(Modifier.size(22.dp), color = Night, strokeWidth = 2.dp)
-                            else Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Send", tint = Night, modifier = Modifier.size(24.dp))
+                            if (sending) CircularProgressIndicator(Modifier.size(22.dp), color = OnGold, strokeWidth = 2.dp)
+                            else Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Send", tint = OnGold, modifier = Modifier.size(24.dp))
                             if (photos.size > 1) Box(
                                 Modifier.align(Alignment.TopEnd).size(20.dp).background(Night, CircleShape).border(1.dp, Gold, CircleShape),
                                 contentAlignment = Alignment.Center,
@@ -521,7 +522,7 @@ private fun TextPill(text: String, gold: Boolean = false, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
-    ) { Text(text, color = if (gold) Night else Snow, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
+    ) { Text(text, color = if (gold) OnGold else Snow, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
 }
 
 /* ───────────────────────────── The pixels ───────────────────────────── */

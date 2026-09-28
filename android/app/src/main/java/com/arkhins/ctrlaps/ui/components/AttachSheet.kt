@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.components
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
@@ -223,7 +224,7 @@ fun AttachSheet(
                         Modifier.size(52.dp).background(Gold, CircleShape).clickable { onSend(picked, caption.text.trim(), hd) },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Send", tint = Night, modifier = Modifier.size(24.dp))
+                        Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Send", tint = OnGold, modifier = Modifier.size(24.dp))
                         Box(
                             Modifier.align(Alignment.TopEnd).size(20.dp).background(Night, CircleShape).border(1.dp, Gold, CircleShape),
                             contentAlignment = Alignment.Center,
@@ -241,10 +242,10 @@ private fun Tile(label: String, icon: Int?, busy: Boolean = false, onClick: () -
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(enabled = !busy, onClick = onClick).padding(6.dp)) {
         Box(Modifier.size(52.dp).background(Gold, CircleShape), contentAlignment = Alignment.Center) {
             when {
-                busy -> CircularProgressIndicator(Modifier.size(22.dp), color = Night, strokeWidth = 2.dp)
-                icon == null -> Icon(painterResource(R.drawable.ic_camera), contentDescription = null, tint = Night, modifier = Modifier.size(24.dp))
-                icon == 0 -> Icon(Icons.Outlined.Place, contentDescription = null, tint = Night, modifier = Modifier.size(24.dp))
-                else -> Icon(painterResource(icon), contentDescription = null, tint = Night, modifier = Modifier.size(24.dp))
+                busy -> CircularProgressIndicator(Modifier.size(22.dp), color = OnGold, strokeWidth = 2.dp)
+                icon == null -> Icon(painterResource(R.drawable.ic_camera), contentDescription = null, tint = OnGold, modifier = Modifier.size(24.dp))
+                icon == 0 -> Icon(Icons.Outlined.Place, contentDescription = null, tint = OnGold, modifier = Modifier.size(24.dp))
+                else -> Icon(painterResource(icon), contentDescription = null, tint = OnGold, modifier = Modifier.size(24.dp))
             }
         }
         Spacer(Modifier.height(4.dp))
@@ -263,17 +264,17 @@ private fun PhotoCell(uri: Uri, number: Int?, onClick: () -> Unit) {
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
-        if (number != null) Box(Modifier.fillMaxSize().background(Night.copy(alpha = 0.35f)))
+        if (number != null) Box(Modifier.fillMaxSize().background(OnGold.copy(alpha = 0.35f)))
         Box(
             Modifier
                 .align(Alignment.TopEnd)
                 .padding(6.dp)
                 .size(24.dp)
-                .background(if (number != null) Gold else Night.copy(alpha = 0.3f), CircleShape)
+                .background(if (number != null) Gold else OnGold.copy(alpha = 0.3f), CircleShape)
                 .border(1.5.dp, if (number != null) Gold else Snow, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            if (number != null) Text("$number", style = MaterialTheme.typography.labelMedium, color = Night, fontWeight = FontWeight.Bold)
+            if (number != null) Text("$number", style = MaterialTheme.typography.labelMedium, color = OnGold, fontWeight = FontWeight.Bold)
         }
     }
 }

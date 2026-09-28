@@ -1,5 +1,12 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.runtime.collectAsState
+import com.arkhins.ctrlaps.ui.theme.Gold
+import com.arkhins.ctrlaps.ui.theme.ThemeMode
+import com.arkhins.ctrlaps.ui.theme.ThemeSetting
 import com.arkhins.ctrlaps.data.MediaLibrary
 import android.Manifest
 import android.app.Activity
@@ -85,7 +92,7 @@ private data class Access(
  */
 /** Settings: a menu into its pages. */
 @Composable
-fun SettingsScreen(onPermissions: () -> Unit) {
+fun SettingsScreen(onPermissions: () -> Unit, onTheme: () -> Unit) {
     val context = LocalContext.current
     var items by remember { mutableStateOf(lastSeen) }
     LaunchedEffect(Unit) { items = withContext(Dispatchers.Default) { accessList(context) }.also { lastSeen = it } }
@@ -105,6 +112,48 @@ fun SettingsScreen(onPermissions: () -> Unit) {
                     highlight = items.isNotEmpty() && allowed < items.size,
                     onClick = onPermissions,
                 )
+                HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
+                val mode by ThemeSetting.mode.collectAsState()
+                MenuRow("Theme", mode.label, onClick = onTheme)
+            }
+        }
+    }
+}
+
+/** Follow the phone's theme, or always light, or always dark. The whole app changes at once. */
+@Composable
+fun ThemeScreen() {
+    val mode by ThemeSetting.mode.collectAsState()
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Panel(padding = PaddingValues(vertical = 4.dp)) {
+            Column {
+                ThemeMode.entries.forEachIndexed { i, m ->
+                    if (i > 0) HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
+                    Row(
+                        Modifier.fillMaxWidth().clickable { ThemeSetting.set(m) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(m.label, style = MaterialTheme.typography.bodyLarge, color = Snow)
+                            Text(
+                                when (m) {
+                                    ThemeMode.System -> "Light or dark, as the phone is set"
+                                    ThemeMode.Light -> "Light pages, dark text"
+                                    ThemeMode.Dark -> "Dark pages, light text"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SnowFaint,
+                            )
+                        }
+                        RadioButton(selected = mode == m, onClick = { ThemeSetting.set(m) }, colors = RadioButtonDefaults.colors(selectedColor = Gold, unselectedColor = SnowFaint))
+                    }
+                }
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.components
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import com.arkhins.ctrlaps.data.LinkPreview
 import com.arkhins.ctrlaps.data.DeviceFiles
 import androidx.core.content.FileProvider
@@ -712,7 +713,7 @@ internal fun PlainIcon(icon: Painter, description: String, tint: Color, enabled:
 private fun SheetTile(label: String, icon: @Composable () -> Unit, busy: Boolean = false, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(enabled = !busy, onClick = onClick).padding(8.dp)) {
         Box(Modifier.size(56.dp).background(Gold, CircleShape), contentAlignment = Alignment.Center) {
-            if (busy) CircularProgressIndicator(Modifier.size(22.dp), color = Night, strokeWidth = 2.dp) else icon()
+            if (busy) CircularProgressIndicator(Modifier.size(22.dp), color = OnGold, strokeWidth = 2.dp) else icon()
         }
         Spacer(Modifier.height(6.dp))
         Text(label, style = MaterialTheme.typography.labelMedium, color = SnowSoft)

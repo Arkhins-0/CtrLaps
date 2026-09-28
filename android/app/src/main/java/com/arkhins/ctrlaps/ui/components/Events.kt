@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.components
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -198,8 +199,8 @@ fun CreateEventScreen(onClose: () -> Unit, onSend: suspend (NewEvent) -> Unit) {
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                if (busy) CircularProgressIndicator(Modifier.size(24.dp), color = Night, strokeWidth = 2.dp)
-                else Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Send", tint = if (ready) Night else SnowFaint)
+                if (busy) CircularProgressIndicator(Modifier.size(24.dp), color = OnGold, strokeWidth = 2.dp)
+                else Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Send", tint = if (ready) OnGold else SnowFaint)
             }
         }
     }
@@ -232,7 +233,7 @@ fun EventCard(event: CalendarEvent, onDark: Boolean, reply: suspend (String?) ->
     // Only the answer to the latest tap counts: taps close together can come back out of order.
     var taps by remember { mutableStateOf(0) }
     val ink = if (onDark) Snow else Night
-    val soft = if (onDark) SnowFaint else Night.copy(alpha = 0.6f)
+    val soft = if (onDark) SnowFaint else OnGold.copy(alpha = 0.6f)
     val accent = if (onDark) Gold else Night
 
     fun answer(a: String) {
@@ -271,7 +272,7 @@ fun EventCard(event: CalendarEvent, onDark: Boolean, reply: suspend (String?) ->
                         .padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("$label · $count", style = MaterialTheme.typography.labelLarge, color = if (on) (if (onDark) Night else Gold) else ink)
+                    Text("$label · $count", style = MaterialTheme.typography.labelLarge, color = if (on) (if (onDark) OnGold else Gold) else ink)
                 }
             }
         }
