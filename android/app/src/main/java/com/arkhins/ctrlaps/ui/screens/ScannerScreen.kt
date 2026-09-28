@@ -156,8 +156,9 @@ fun ScannerScreen(initialToken: String? = null, typing: Boolean, onTyping: (Bool
         }
         ErrorText(error)
         result?.let { v ->
-            IdCard(v)
-            if (v.status == "active" && v.id != vm_me_id(app)) {
+            IdCard(v, live = true)
+            // No chat button for someone with no role yet: they have no chats.
+            if (v.status == "active" && v.role != "user" && v.id != vm_me_id(app)) {
                 var chatError by remember(v.id) { mutableStateOf<String?>(null) }
                 var opening by remember(v.id) { mutableStateOf(false) }
                 GoldButton(if (opening) "Opening chat…" else "Chat with ${v.name ?: "this person"}", Modifier.fillMaxWidth(), enabled = !opening) {
