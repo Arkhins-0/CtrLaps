@@ -436,6 +436,10 @@ data class UserResponse(
 @Serializable
 data class CategoryIdsResponse(val categoryIds: List<String> = emptyList())
 
+/** The categories a user (no role yet) may follow this season, and the ones they follow. */
+@Serializable
+data class FollowingResponse(val categories: List<Category> = emptyList(), val categoryIds: List<String> = emptyList(), val canFollow: Boolean = false)
+
 @Serializable
 data class IdResponse(val id: String)
 
@@ -461,6 +465,8 @@ data class Verified(
     val photoUrl: String? = null,
     val profileComplete: Boolean = false,
     val qrUrl: String? = null,
+    /** Their race categories this season, shown as badges. */
+    val categories: List<Category> = emptyList(),
 )
 
 @Serializable

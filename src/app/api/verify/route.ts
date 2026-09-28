@@ -2,6 +2,7 @@ import { handle } from "@/lib/api";
 import { requireUser, userColumns, type SessionUser } from "@/lib/auth";
 import { one } from "@/lib/db";
 import { fail, json } from "@/lib/http";
+import { categoryBadges } from "@/lib/teams";
 import { normaliseCode } from "@/lib/ids";
 import { ROLE_LABEL, STATUS_LABEL } from "@/lib/roles";
 import { userPhotoUrl } from "@/lib/profile";
@@ -35,5 +36,6 @@ export const GET = handle(async (request) => {
     verifyCode: user.verify_code,
     photoUrl: userPhotoUrl(user.id, user.photo_key),
     profileComplete: Boolean(user.profile_completed_at),
+    categories: await categoryBadges(user),
   });
 });

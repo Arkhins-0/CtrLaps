@@ -1,6 +1,7 @@
 import { handle, isUuid, type Params } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { fail, json } from "@/lib/http";
+import { categoryBadges } from "@/lib/teams";
 import { canRead, conversationById, photoUrl } from "@/lib/messages";
 import { ROLE_LABEL, STATUS_LABEL } from "@/lib/roles";
 import { qrUrl, userById } from "@/lib/users";
@@ -31,6 +32,7 @@ export const GET = handle<Params<"id">>(async (_request, { params }) => {
     verifyCode: user.verify_code,
     photoUrl: photoUrl(user),
     profileComplete: Boolean(user.profile_completed_at),
+    categories: await categoryBadges(user),
     qrUrl: qrUrl(user),
   });
 });

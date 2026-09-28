@@ -3,6 +3,7 @@ import { ChatButton } from "./ChatButton";
 import { StatusBadge } from "./StatusBadge";
 import type { Status } from "@/lib/roles";
 import { CopyButton } from "./CopyButton";
+import { CategoryTag } from "./schedule/CategoryTag";
 
 export type Verified = {
   id: string;
@@ -13,6 +14,8 @@ export type Verified = {
   verifyCode: string;
   photoUrl: string | null;
   profileComplete: boolean;
+  /** Their race categories this season, as badges. */
+  categories?: { id: string; code: string; name: string; color: string }[];
 };
 
 /** What a scan shows: who, what role, and whether the account is in good standing. */
@@ -28,6 +31,13 @@ export function VerifyCard({ v, chat = true }: { v: Verified; chat?: boolean }) 
           {v.roleLabel}
           {v.teamName ? ` · ${v.teamName}` : ""}
         </p>
+        {v.categories && v.categories.length > 0 && (
+          <p className="mt-1 flex flex-wrap gap-1">
+            {v.categories.map((c) => (
+              <CategoryTag key={c.id} category={c} />
+            ))}
+          </p>
+        )}
         <p className="flex items-center gap-1">
           <span className="font-mono text-xs tracking-widest text-snow-faint">{v.verifyCode}</span>
           <CopyButton value={v.verifyCode} label="Copy account code" />

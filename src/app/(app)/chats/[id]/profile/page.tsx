@@ -6,6 +6,7 @@ import { VerifyCard } from "@/components/VerifyCard";
 import { canRead, conversationById, photoUrl } from "@/lib/messages";
 import { ROLE_LABEL } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
+import { categoryBadges } from "@/lib/teams";
 import { qrUrl, userById } from "@/lib/users";
 
 export const metadata = { title: "Profile" };
@@ -44,6 +45,7 @@ export default async function ChatProfile({ params }: { params: Promise<{ id: st
             verifyCode: user.verify_code,
             photoUrl: photoUrl(user),
             profileComplete: Boolean(user.profile_completed_at),
+            categories: await categoryBadges(user),
           }}
         />
         <div className="mx-auto w-48 rounded-xl bg-white p-2" dangerouslySetInnerHTML={{ __html: svg }} />

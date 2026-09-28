@@ -1,10 +1,14 @@
 import QRCode from "qrcode";
 import { AccountActions } from "@/components/AccountActions";
 import { CopyButton } from "@/components/CopyButton";
+import { FollowCategories } from "@/components/FollowCategories";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { Avatar } from "@/components/Avatar";
 import { StatusBadge } from "@/components/StatusBadge";
 import { latestRelease } from "@/lib/appReleases";
+import { categoriesOf } from "@/lib/categories";
+import { currentSeason } from "@/lib/seasons";
+import { followedCategories } from "@/lib/teams";
 import { ROLE_LABEL } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 import { qrUrl, toPublic, userById } from "@/lib/users";
@@ -15,9 +19,13 @@ export default async function Account() {
   const user = await requireProfile();
   const p = toPublic(user);
   const parent = user.parent_id ? await userById(user.parent_id) : undefined;
-  const [svg, release] = await Promise.all([
+  const season = await currentSeason();
+  const [svg, release, categories, following] = await Promise.all([
     QRCode.toString(qrUrl(user), { type: "svg", margin: 1, color: { dark: "#0B0B0C", light: "#FFFFFF" } }),
     latestRelease().catch(() => null),
+    // Users (no role yet) follow categories as fans; everyone else has theirs by role.
+    user.role === "user" ? categoriesOf([season.id]) : Promise.resolve([]),
+    user.role === "user" ? followedCategories(user.id, season.id) : Promise.resolve([]),
   ]);
 
   return (
@@ -76,6 +84,7 @@ export default async function Account() {
       {user.role === "user" && (
         <ProfileEditor profile={{ name: p.name ?? "", dob: p.dob ?? "", phone: p.phone ?? "", email: p.email, photoUrl: p.photoUrl }} />
       )}
+      {user.role === "user" && <FollowCategories categories={categories} initial={following} />}
       </div>
       <AccountActions appVersion={release?.version ?? null} />
     </div>
