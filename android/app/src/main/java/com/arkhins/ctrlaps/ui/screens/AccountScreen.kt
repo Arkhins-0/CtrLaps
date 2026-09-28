@@ -1,5 +1,8 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.ui.res.painterResource
+import com.arkhins.ctrlaps.R
+import com.arkhins.ctrlaps.ui.components.IconAction
 import android.graphics.Bitmap
 import android.graphics.Color as AColor
 import androidx.compose.foundation.Image
@@ -36,7 +39,6 @@ import com.arkhins.ctrlaps.LocalApp
 import com.arkhins.ctrlaps.ui.AppViewModel
 import com.arkhins.ctrlaps.ui.components.Avatar
 import com.arkhins.ctrlaps.ui.components.GhostButton
-import com.arkhins.ctrlaps.ui.components.GoldButton
 import com.arkhins.ctrlaps.ui.components.KeyValue
 import com.arkhins.ctrlaps.ui.components.Panel
 import com.arkhins.ctrlaps.ui.components.StatusChip
@@ -53,7 +55,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** The account tab: photo, code and QR, the scanner and archive, then a menu into Account, Storage, Settings and About. */
+/** The account tab: photo, code and QR (with the scanner in its corner), then a menu into Account, Archive, Storage, Settings and About. */
 @Composable
 fun AccountScreen(
     vm: AppViewModel,
@@ -99,24 +101,26 @@ fun AccountScreen(
         }
 
         Panel {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                // The white square is there from the first frame; the code fills it a moment later if it wasn't ready.
-                Box(Modifier.background(Color.White, RoundedCornerShape(12.dp)).padding(8.dp).size(180.dp)) {
-                    if (qr != null) Image(qr.asImageBitmap(), contentDescription = "Your QR code", modifier = Modifier.size(180.dp))
+            Box(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    // The white square is there from the first frame; the code fills it a moment later if it wasn't ready.
+                    Box(Modifier.background(Color.White, RoundedCornerShape(12.dp)).padding(8.dp).size(180.dp)) {
+                        if (qr != null) Image(qr.asImageBitmap(), contentDescription = "Your QR code", modifier = Modifier.size(180.dp))
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    KeyValue("Account code", u.verifyCode, mono = true)
                 }
-                Spacer(Modifier.height(12.dp))
-                KeyValue("Account code", u.verifyCode, mono = true)
+                Box(Modifier.align(Alignment.BottomEnd)) {
+                    IconAction(painterResource(R.drawable.ic_scan), "Scan a QR code", Gold, onClick = onScan)
+                }
             }
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GoldButton("Scan a QR code", onClick = onScan)
-            GhostButton("Archive", onClick = onArchive)
         }
 
         Panel {
             Column {
                 MenuRow("Account", "Email, date of birth and password", onClick = onDetails)
+                HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
+                MenuRow("Archive", "Past seasons: their weekends, channels and messages", onClick = onArchive)
                 HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
                 MenuRow("Storage", "What CTR[L]APS keeps on this phone", onClick = onStorage)
                 HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))

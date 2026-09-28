@@ -71,5 +71,6 @@ fun countdown(untilMillis: Long): String {
 fun bytes(n: Long): String = when {
     n < 1024 -> "$n B"
     n < 1024 * 1024 -> "${n / 1024} KB"
-    else -> String.format(Locale.US, "%.1f MB", n / (1024.0 * 1024.0))
+    n < 1024L * 1024 * 1024 -> String.format(Locale.US, "%.1f MB", n / (1024.0 * 1024.0))
+    else -> String.format(Locale.US, "%.1f GB", n / (1024.0 * 1024.0 * 1024.0))
 }
