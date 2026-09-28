@@ -111,13 +111,14 @@ enum class ThemeMode(val label: String) { System("System default"), Light("Light
 /** The chosen theme, kept on the phone. */
 object ThemeSetting {
     private var prefs: SharedPreferences? = null
-    private val _mode = MutableStateFlow(ThemeMode.System)
+    // Dark until someone picks otherwise: the look the app was made in.
+    private val _mode = MutableStateFlow(ThemeMode.Dark)
     val mode: StateFlow<ThemeMode> = _mode
 
     fun init(context: Context) {
         if (prefs != null) return
         prefs = context.applicationContext.getSharedPreferences("ctrlaps_theme", Context.MODE_PRIVATE).also { p ->
-            _mode.value = runCatching { ThemeMode.valueOf(p.getString("mode", null) ?: "System") }.getOrDefault(ThemeMode.System)
+            _mode.value = runCatching { ThemeMode.valueOf(p.getString("mode", null) ?: "Dark") }.getOrDefault(ThemeMode.Dark)
         }
     }
 
