@@ -319,7 +319,7 @@ private fun MainNav(vm: AppViewModel) {
         ) {
             composable("home") { Tab("home", "CTR[L]APS") { HomeScreen(vm, highlight = null, onOpenWeekend = openWeekend, onOpenChat = openChat, onAllChats = { nav.navigate("chats") { popUpTo("home"); launchSingleTop = true } }, onCompose = { nav.open("compose") }, onView = view) } }
             composable("home?m={m}") { e -> Tab("home", "CTR[L]APS") { HomeScreen(vm, highlight = e.arguments?.getString("m"), onOpenWeekend = openWeekend, onOpenChat = openChat, onAllChats = { nav.navigate("chats") { popUpTo("home"); launchSingleTop = true } }, onCompose = { nav.open("compose") }, onView = view) } }
-            composable("schedule") { Tab("schedule", "Schedule") { ScheduleScreen(isAdmin = vm.me?.isAdmin == true, onOpenWeekend = openWeekend, onArchive = { nav.open("archive") }) } }
+            composable("schedule") { Tab("schedule", "Schedule") { ScheduleScreen(isAdmin = vm.me?.isAdmin == true, onOpenWeekend = openWeekend, onArchive = { nav.open("archive") }, mine = vm.me?.categoryIds) } }
             composable("chats") { Tab("chats", "Chats", center = { ChatsHeader(chatsPage) { chatsPage = it } }) { ChatsScreen(vm, page = chatsPage, onPage = { chatsPage = it }, onOpen = openChat, onNewChat = { nav.open("newchat") }, onOpenWeekend = openWeekend) } }
             composable("people") { Tab("people", "People") { PeopleScreen(vm.me, onOpen = { nav.open("person/$it") }, onAdd = { nav.open("newperson") }, onEmail = { g -> nav.open(if (g == null) "email" else "email?group=$g") }) } }
             composable("account") {

@@ -16,11 +16,14 @@ export function PromoteForm({
   roles,
   myRole,
   myTeam,
+  teamNames = [],
 }: {
   person: PublicUser;
   roles: Role[];
   myRole: Role;
   myTeam: string | null;
+  /** Existing teams, suggested while typing so a team is not made twice by a typo. */
+  teamNames?: string[];
 }) {
   const router = useRouter();
   const choices = roles.filter((r) => r !== person.role);
@@ -65,6 +68,11 @@ export function PromoteForm({
 
   return (
     <form onSubmit={save} className="card space-y-4">
+      <datalist id="team-names">
+        {teamNames.map((n) => (
+          <option key={n} value={n} />
+        ))}
+      </datalist>
       <h2 className="font-semibold">{person.role === "user" ? `Promote ${name}` : `Change ${name}'s role`}</h2>
       {error && <p className="error">{error}</p>}
       <div>
@@ -86,7 +94,7 @@ export function PromoteForm({
       {role === "team_manager" && (
         <div>
           <label className="label" htmlFor="pr-team">Team name</label>
-          <input id="pr-team" className="input" required value={team} onChange={(e) => setTeam(e.target.value)} />
+          <input id="pr-team" list="team-names" autoComplete="off" className="input" required value={team} onChange={(e) => setTeam(e.target.value)} />
         </div>
       )}
       {(role === "racer" || role === "crew") &&
@@ -97,7 +105,7 @@ export function PromoteForm({
             <label className="label" htmlFor="pr-team">
               Team <span className="text-snow-faint">(optional)</span>
             </label>
-            <input id="pr-team" className="input" value={team} onChange={(e) => setTeam(e.target.value)} />
+            <input id="pr-team" list="team-names" autoComplete="off" className="input" value={team} onChange={(e) => setTeam(e.target.value)} />
           </div>
         ))}
       <p className="text-xs text-snow-faint">{name} is told by email. Their chats and pages change to the new role at once.</p>

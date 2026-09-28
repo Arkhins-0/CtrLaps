@@ -9,7 +9,7 @@ import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { PhotoCropDialog } from "./PhotoCropDialog";
 
 /** An email, a role and optionally a photo. A new email gets an invite; one that already has an account is promoted. */
-export function NewPersonForm({ roles, teamName, creatorRole }: { roles: Role[]; teamName: string | null; creatorRole: Role }) {
+export function NewPersonForm({ roles, teamName, creatorRole, teamNames = [] }: { roles: Role[]; teamName: string | null; creatorRole: Role; teamNames?: string[] }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>(roles[0]);
@@ -58,6 +58,11 @@ export function NewPersonForm({ roles, teamName, creatorRole }: { roles: Role[];
 
   return (
     <form onSubmit={submit} className="card max-w-md space-y-4">
+      <datalist id="team-names">
+        {teamNames.map((n) => (
+          <option key={n} value={n} />
+        ))}
+      </datalist>
       {cropping && <PhotoCropDialog file={cropping} onCancel={() => setCropping(null)} onDone={(f) => { setCropping(null); setPhoto(f); }} />}
       {error && (
         <p className="error">
@@ -113,7 +118,7 @@ export function NewPersonForm({ roles, teamName, creatorRole }: { roles: Role[];
           <label className="label" htmlFor="team">
             Team
           </label>
-          <input id="team" className="input" required value={team} onChange={(e) => setTeam(e.target.value)} />
+          <input id="team" list="team-names" autoComplete="off" className="input" required value={team} onChange={(e) => setTeam(e.target.value)} />
         </div>
       )}
       {(role === "racer" || role === "crew") &&
@@ -124,7 +129,7 @@ export function NewPersonForm({ roles, teamName, creatorRole }: { roles: Role[];
             <label className="label" htmlFor="team">
               Team <span className="text-snow-faint">(optional)</span>
             </label>
-            <input id="team" className="input" value={team} onChange={(e) => setTeam(e.target.value)} />
+            <input id="team" list="team-names" autoComplete="off" className="input" value={team} onChange={(e) => setTeam(e.target.value)} />
           </div>
         ))}
       <p className="text-xs text-snow-faint">

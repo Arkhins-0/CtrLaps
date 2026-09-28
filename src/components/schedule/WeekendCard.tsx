@@ -46,8 +46,8 @@ export function WeekendCard({
   deletedHref?: string;
   /** The race categories of the weekend's season (and others, for the edit form). */
   categories?: Category[];
-  /** Show only this category's sessions (and those for everyone). */
-  only?: string | null;
+  /** Show only these categories' sessions (and those for everyone). */
+  only?: string[] | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(startOpen);
@@ -61,7 +61,7 @@ export function WeekendCard({
   const changed = () => router.refresh();
   const byId = new Map(categories.map((c) => [c.id, c]));
   const running = w.categoryIds.map((id) => byId.get(id)).filter((c): c is Category => Boolean(c));
-  const sessions = only ? w.sessions.filter((s) => !s.categoryId || s.categoryId === only) : w.sessions;
+  const sessions = only ? w.sessions.filter((s) => !s.categoryId || only.includes(s.categoryId)) : w.sessions;
 
   const act = async (fn: () => Promise<unknown>, fallback: string, then: () => void = changed) => {
     setBusy(true);

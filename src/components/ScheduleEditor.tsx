@@ -19,6 +19,7 @@ export function ScheduleEditor({ weekends, seasons, categories }: { weekends: We
   const current = seasons.find((s) => s.current);
   const shownCategories = categories.filter((c) => c.seasonId === current?.id);
   const shown = only ? weekends.filter((w) => w.categoryIds.includes(only) || w.sessions.some((s) => s.categoryId === only)) : weekends;
+  const onlyIds = only ? [only] : null;
 
   return (
     <div className="space-y-6">
@@ -54,7 +55,7 @@ export function ScheduleEditor({ weekends, seasons, categories }: { weekends: We
           {shown
             .filter((w) => (w.seasonName ?? "") === seasonName)
             .map((w) => (
-              <WeekendCard key={w.id} weekend={w} isAdmin seasons={seasons} href={`/w/${w.id}`} categories={categories} only={only} />
+              <WeekendCard key={w.id} weekend={w} isAdmin seasons={seasons} href={`/w/${w.id}`} categories={categories} only={onlyIds} />
             ))}
         </div>
       ))}

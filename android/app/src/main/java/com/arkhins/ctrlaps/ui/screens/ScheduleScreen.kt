@@ -108,13 +108,15 @@ import java.time.format.DateTimeFormatter
 
 /** Every race weekend and its sessions. Admins create and edit both here. */
 @Composable
-fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive: () -> Unit) {
+fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive: () -> Unit, mine: List<String>? = null) {
     val app = LocalApp.current
     var seasons by remember { mutableStateOf<List<Season>>(emptyList()) }
     var weekends by remember { mutableStateOf<List<Weekend>?>(null) }
     var categories by remember { mutableStateOf<List<Category>>(emptyList()) }
     // Show one category's sessions (and those for everyone); null = all.
-    var only by rememberSaveable { mutableStateOf<String?>(null) }
+    // "mine" (the person's own categories, the default when they have any), a category's id, or null for all.
+    var filter by rememberSaveable { mutableStateOf(if (mine.isNullOrEmpty()) null else "mine") }
+    val only: List<String>? = when (filter) { null -> null; "mine" -> mine; else -> listOf(filter!!) }
     var error by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableStateOf(0) }
     var creating by remember { mutableStateOf(false) }
@@ -142,8 +144,9 @@ fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive:
         }
         val currentSeason = seasons.firstOrNull { it.current }?.id ?: w?.firstOrNull()?.seasonId
         val chips = categories.filter { it.seasonId == currentSeason }
-        if (chips.isNotEmpty()) item { CategoryChips(chips, only) { only = it } }
-        val shown = w?.filter { wk -> only == null || only in wk.categoryIds || wk.sessions.any { it.categoryId == only } }
+        if (chips.isNotEmpty()) item { CategoryChips(chips, filter, hasMine = !mine.isNullOrEmpty()) { filter = it } }
+        // A weekend that lists no categories is for everyone.
+        val shown = w?.filter { wk -> only == null || wk.categoryIds.isEmpty() || wk.categoryIds.any { it in only } || wk.sessions.any { it.categoryId in only } }
         when {
             error != null && w == null -> item { ErrorText(error) }
             w == null || shown == null -> item { Loading() }
@@ -331,7 +334,7 @@ fun WeekendCard(
     /** The race categories of the weekend's season. */
     categories: List<Category> = emptyList(),
     /** Show only this category's sessions (and those for everyone). */
-    only: String? = null,
+    only: List<String>? = null,
 ) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
@@ -346,7 +349,7 @@ fun WeekendCard(
     val now = System.currentTimeMillis()
     val byId = categories.associateBy { it.id }
     val running = w.categoryIds.mapNotNull { byId[it] }
-    val sessions = if (only == null) w.sessions else w.sessions.filter { it.categoryId == null || it.categoryId == only }
+    val sessions = if (only == null) w.sessions else w.sessions.filter { it.categoryId == null || it.categoryId in only }
     Panel {
         Column {
             Row(verticalAlignment = Alignment.Top) {
@@ -656,11 +659,12 @@ fun CategoryTag(c: Category) {
     ) { Text(c.code, style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.SemiBold) }
 }
 
-/** "All" and a chip per category: which category's sessions the schedule shows. */
+/** "Mine" (when the person has categories), "All" and a chip per category. */
 @Composable
-private fun CategoryChips(categories: List<Category>, only: String?, onChange: (String?) -> Unit) {
+private fun CategoryChips(categories: List<Category>, filter: String?, hasMine: Boolean, onChange: (String?) -> Unit) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Chip("All", Gold, filled = only == null) { onChange(null) }
-        categories.forEach { c -> Chip(c.code, categoryColor(c), filled = only == c.id) { onChange(if (only == c.id) null else c.id) } }
+        if (hasMine) Chip("Mine", Gold, filled = filter == "mine") { onChange("mine") }
+        Chip("All", Gold, filled = filter == null) { onChange(null) }
+        categories.forEach { c -> Chip(c.code, categoryColor(c), filled = filter == c.id) { onChange(if (filter == c.id) null else c.id) } }
     }
 }

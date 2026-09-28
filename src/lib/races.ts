@@ -129,12 +129,17 @@ export type NextRace =
       later: Session[];
     };
 
-/** The session running now, or the next one to start. */
-export async function nextRace(): Promise<NextRace> {
+/**
+ * The session running now, or the next one to start — of [categoryIds] (and sessions for everyone) when given, so
+ * the countdown is to this person's next session.
+ */
+export async function nextRace(categoryIds: string[] | null = null): Promise<NextRace> {
   const s = await one<SRow>(
     `SELECT rs.id, rs.weekend_id, rs.name, rs.starts_at, rs.ends_at, rs.category_id FROM race_sessions rs
      JOIN race_weekends w ON w.id = rs.weekend_id
-     WHERE rs.ends_at > now() AND ${LIVE_SEASON("w")} ORDER BY rs.starts_at LIMIT 1`,
+     WHERE rs.ends_at > now() AND ${LIVE_SEASON("w")} AND ($1::uuid[] IS NULL OR rs.category_id IS NULL OR rs.category_id = ANY($1::uuid[]))
+     ORDER BY rs.starts_at LIMIT 1`,
+    [categoryIds],
   );
   if (!s) return { state: "none" };
   const w = await weekendById(s.weekend_id);
@@ -146,7 +151,9 @@ export async function nextRace(): Promise<NextRace> {
     state: new Date(current.startsAt).getTime() <= now ? "live" : "upcoming",
     weekend,
     session: current,
-    later: sessions.filter((x) => x.id !== current.id && new Date(x.endsAt).getTime() > now),
+    later: sessions.filter(
+      (x) => x.id !== current.id && new Date(x.endsAt).getTime() > now && (!categoryIds || !x.categoryId || categoryIds.includes(x.categoryId)),
+    ),
   };
 }
 

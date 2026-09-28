@@ -3,19 +3,33 @@
 import { useState } from "react";
 import type { Category } from "@/lib/categories";
 import type { Weekend } from "@/lib/races";
-import { CategoryChips } from "./CategoryTag";
+import { CategoryChips, filterIds, type CategoryFilter } from "./CategoryTag";
 import { WeekendCard } from "./WeekendCard";
 
 /** Everyone's schedule: the category chips, then upcoming weekends and the past ones dimmed. */
-export function ScheduleList({ upcoming, past, categories }: { upcoming: Weekend[]; past: Weekend[]; categories: Category[] }) {
-  const [only, setOnly] = useState<string | null>(null);
-  const fits = (w: Weekend) => !only || w.categoryIds.includes(only) || w.sessions.some((s) => s.categoryId === only);
+export function ScheduleList({
+  upcoming,
+  past,
+  categories,
+  mine,
+}: {
+  upcoming: Weekend[];
+  past: Weekend[];
+  categories: Category[];
+  /** The person's own categories ("Mine", the default when they have any); null = none. */
+  mine: string[] | null;
+}) {
+  const [filter, setFilter] = useState<CategoryFilter>(mine ? "mine" : null);
+  const only = filterIds(filter, mine);
+  // A weekend that lists no categories is for everyone.
+  const fits = (w: Weekend) =>
+    !only || w.categoryIds.length === 0 || w.categoryIds.some((id) => only.includes(id)) || w.sessions.some((s) => s.categoryId && only.includes(s.categoryId));
   const current = [...upcoming, ...past][0]?.seasonId;
   const chips = categories.filter((c) => c.seasonId === current);
   const shown = [...upcoming, ...past].filter(fits);
   return (
     <div className="space-y-5">
-      <CategoryChips categories={chips} value={only} onChange={setOnly} />
+      <CategoryChips categories={chips} value={filter} onChange={setFilter} mine={mine} />
       {only && shown.length === 0 && <p className="card text-sm text-snow-faint">No weekend has this category yet.</p>}
       {/* Sessions start folded, as in the app: the arrow opens them. */}
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">

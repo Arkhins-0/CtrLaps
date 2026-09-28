@@ -1,5 +1,8 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.data.CategoryIdsResponse
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import androidx.compose.material3.HorizontalDivider
 import com.arkhins.ctrlaps.data.Verified
 import androidx.compose.runtime.collectAsState
@@ -407,6 +410,7 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
         // give, and only the boxes that role needs. The server checks the same rules.
         val canPromote = u.id != me?.user?.id && me?.canCreate?.isNotEmpty() == true &&
             u.status != "banned" && u.status != "dismissed" && (u.role == "user" || d.canEdit)
+        item { RaceCategoriesPanel(d) }
         if (canPromote && !promoting) {
             item { GoldButton(if (u.role == "user") "Promote" else "Change role", Modifier.fillMaxWidth(), enabled = !busy) { promoting = true } }
         }
@@ -721,6 +725,77 @@ private fun PromotePanel(me: Me, u: PublicUser, busy: Boolean, onCancel: () -> U
                     if (busy) "Saving…" else "Make ${ROLE_LABELS[role] ?: role}",
                     enabled = !busy && role.isNotBlank() && (!needsTeam || team.isNotBlank()),
                 ) { onSave(role, if (role == "team_manager" || ((role == "racer" || role == "crew") && !iAmTeamManager)) team.trim() else "") }
+            }
+        }
+    }
+}
+
+/**
+ * A person's race categories: a racer's classes ("Races in", from their team's entries), a race official's ("Looks
+ * after"), or what the team of crew or a team manager runs. Their manager, a coordinator or an admin taps to change a
+ * racer's or an official's.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RaceCategoriesPanel(d: UserResponse) {
+    val app = LocalApp.current
+    val scope = rememberCoroutineScope()
+    val u = d.user
+    val all = d.raceCategories
+    val assignable = u.role == "racer" || u.role == "race_official"
+    var ids by remember(u.id, d.categoryIds) { mutableStateOf(d.categoryIds) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    if (all.isEmpty() || (!assignable && d.teamCategoryIds.isEmpty())) return
+    val offered = if (u.role == "racer" && d.teamCategoryIds.isNotEmpty()) all.filter { it.id in d.teamCategoryIds } else all
+    val title = when (u.role) { "racer" -> "RACES IN"; "race_official" -> "LOOKS AFTER"; else -> "TEAM RACES IN" }
+    Panel {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionTitle(title)
+            ErrorText(error)
+            when {
+                !assignable -> FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    all.filter { it.id in d.teamCategoryIds }.forEach { CategoryTag(it) }
+                }
+                d.canSetCategories -> {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        offered.forEach { c ->
+                            Chip(c.code, categoryColor(c), filled = c.id in ids) {
+                                if (busy) return@Chip
+                                val before = ids
+                                val next = if (c.id in ids) ids - c.id else ids + c.id
+                                ids = next
+                                busy = true
+                                error = null
+                                scope.launch {
+                                    try {
+                                        ids = app.api.put("/api/users/${u.id}/categories", CategoryIdsResponse.serializer()) {
+                                            put("categoryIds", buildJsonArray { next.forEach { add(JsonPrimitive(it)) } })
+                                        }.categoryIds
+                                    } catch (e: Exception) {
+                                        ids = before
+                                        error = e.message ?: "Could not save."
+                                    } finally {
+                                        busy = false
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Text(
+                        if (u.role == "racer") "Tap the classes they race in. None ticked: their team's categories are used." else "None ticked: all categories.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SnowFaint,
+                    )
+                }
+                ids.isNotEmpty() -> FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    all.filter { it.id in ids }.forEach { CategoryTag(it) }
+                }
+                else -> Text(
+                    if (u.role == "racer") "Not set — their team's categories are used." else "All categories.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SnowFaint,
+                )
             }
         }
     }

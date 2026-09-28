@@ -1,9 +1,13 @@
 import { body, handle, isUuid, str, type Params } from "@/lib/api";
 import { requireUser, revokeAll } from "@/lib/auth";
-import { run } from "@/lib/db";
+import { q, run } from "@/lib/db";
 import { canEdit, isBelow } from "@/lib/hierarchy";
 import { fail, json } from "@/lib/http";
 import { isStatus } from "@/lib/roles";
+import { categoriesOf } from "@/lib/categories";
+import { currentSeason } from "@/lib/seasons";
+import { assignedCategories, syncTeamIds, teamCategories } from "@/lib/teams";
+import { one } from "@/lib/db";
 import { audit, qrUrl, toPublic, userById } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +20,19 @@ export const GET = handle<Params<"id">>(async (_request, { params }) => {
   const user = await userById(id);
   if (!user) return fail("No such person.", 404);
   if (user.id !== me.id && !(await isBelow(me, user.id))) return fail("Not allowed.", 403);
-  return json({ user: toPublic(user), qrUrl: qrUrl(user), canEdit: user.id !== me.id && canEdit(me, user) });
+  const season = (await currentSeason()).id;
+  const team = (await one<{ team_id: string | null }>("SELECT team_id FROM users WHERE id = $1", [id]))?.team_id ?? null;
+  const assignable = user.role === "racer" || user.role === "race_official";
+  return json({
+    user: toPublic(user),
+    qrUrl: qrUrl(user),
+    canEdit: user.id !== me.id && canEdit(me, user),
+    // Race categories: the season's list, the ones given to them, their team's entries, and who may change them.
+    raceCategories: await categoriesOf([season]),
+    categoryIds: assignable ? await assignedCategories(id, season) : [],
+    teamCategoryIds: await teamCategories(team, season),
+    canSetCategories: assignable && user.id !== me.id && (me.role === "admin" || me.role === "coordinator" || canEdit(me, user)),
+  });
 });
 
 /**
@@ -78,7 +94,10 @@ export const PATCH = handle<Params<"id">>(async (request, { params }) => {
   if (changes.team_name !== undefined && user.role === "team_manager") {
     // The team follows the manager: racers and crew carry the same name.
     await run("UPDATE users SET team_name = $2 WHERE parent_id = $1 AND role IN ('racer', 'crew')", [user.id, changes.team_name]);
+    const people = await q<{ id: string }>("SELECT id FROM users WHERE parent_id = $1 AND role IN ('racer', 'crew')", [user.id]);
+    await syncTeamIds(people.map((p) => p.id));
   }
+  if (changes.team_name !== undefined) await syncTeamIds([user.id]);
   await audit(me.id, user.id, "user.updated", { changes, before: toPublic(user) });
   return json({ user: toPublic((await userById(user.id))!) });
 });
