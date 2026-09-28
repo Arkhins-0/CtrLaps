@@ -4,8 +4,10 @@ import { Avatar } from "@/components/Avatar";
 import { PersonPhoto } from "@/components/EditablePhoto";
 import { CopyButton } from "@/components/CopyButton";
 import { PersonActions } from "@/components/PersonActions";
+import { PromoteForm } from "@/components/PromoteForm";
 import { StatusBadge } from "@/components/StatusBadge";
-import { canChat, canEdit, isBelow } from "@/lib/hierarchy";
+import { canChat, canEdit, canPromote, isBelow } from "@/lib/hierarchy";
+import { CREATE_RULES } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 import { qrUrl, toPublic, userById } from "@/lib/users";
 import { q } from "@/lib/db";
@@ -55,6 +57,8 @@ export default async function Person({ params }: { params: Promise<{ id: string 
         </div>
         <div className="w-36 shrink-0 self-center rounded-xl bg-white p-1.5 sm:self-start" dangerouslySetInnerHTML={{ __html: svg }} />
       </section>
+
+      {canPromote(me, user) && <PromoteForm person={p} roles={CREATE_RULES[me.role] ?? []} myRole={me.role} myTeam={me.team_name} />}
 
       <PersonActions
         person={p}
