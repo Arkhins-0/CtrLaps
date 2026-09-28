@@ -82,6 +82,7 @@
                 <data android:pathPrefix="/home?" />
                 <data android:path="/schedule" />
                 <data android:pathPrefix="/w/" />
+                <data android:pathPrefix="/c/" />
                 <data android:path="/chats" />
                 <data android:pathPrefix="/chats/" />
                 <data android:path="/people" />

@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui
 
+import com.arkhins.ctrlaps.ui.screens.CategoryChannelScreen
 import androidx.compose.ui.res.painterResource
 import com.arkhins.ctrlaps.R
 import com.arkhins.ctrlaps.ui.components.IconAction
@@ -259,7 +260,7 @@ private fun MainNav(vm: AppViewModel) {
             // Screens that make sense to come back to; not viewers or forms.
             val concrete = when {
                 pattern in setOf("home", "schedule", "chats", "people", "account") -> pattern
-                pattern.startsWith("weekend/") || pattern.startsWith("person/") || pattern.startsWith("chat/") ->
+                pattern.startsWith("weekend/") || pattern.startsWith("category/") || pattern.startsWith("person/") || pattern.startsWith("chat/") ->
                     pattern.replace("{id}", arguments?.getString("id") ?: return@OnDestinationChangedListener)
                 else -> return@OnDestinationChangedListener
             }
@@ -320,7 +321,7 @@ private fun MainNav(vm: AppViewModel) {
             composable("home") { Tab("home", "CTR[L]APS") { HomeScreen(vm, highlight = null, onOpenWeekend = openWeekend, onOpenChat = openChat, onAllChats = { nav.navigate("chats") { popUpTo("home"); launchSingleTop = true } }, onCompose = { nav.open("compose") }, onView = view) } }
             composable("home?m={m}") { e -> Tab("home", "CTR[L]APS") { HomeScreen(vm, highlight = e.arguments?.getString("m"), onOpenWeekend = openWeekend, onOpenChat = openChat, onAllChats = { nav.navigate("chats") { popUpTo("home"); launchSingleTop = true } }, onCompose = { nav.open("compose") }, onView = view) } }
             composable("schedule") { Tab("schedule", "Schedule") { ScheduleScreen(isAdmin = vm.me?.isAdmin == true, onOpenWeekend = openWeekend, onArchive = { nav.open("archive") }, mine = vm.me?.categoryIds) } }
-            composable("chats") { Tab("chats", "Chats", center = { ChatsHeader(chatsPage) { chatsPage = it } }) { ChatsScreen(vm, page = chatsPage, onPage = { chatsPage = it }, onOpen = openChat, onNewChat = { nav.open("newchat") }, onOpenWeekend = openWeekend) } }
+            composable("chats") { Tab("chats", "Chats", center = { ChatsHeader(chatsPage) { chatsPage = it } }) { ChatsScreen(vm, page = chatsPage, onPage = { chatsPage = it }, onOpen = openChat, onNewChat = { nav.open("newchat") }, onOpenWeekend = openWeekend, onOpenCategory = { nav.open("category/$it") }) } }
             composable("people") { Tab("people", "People") { PeopleScreen(vm.me, onOpen = { nav.open("person/$it") }, onAdd = { nav.open("newperson") }, onEmail = { g -> nav.open(if (g == null) "email" else "email?group=$g") }) } }
             composable("account") {
                 Tab("account", "Account") {
@@ -376,6 +377,7 @@ private fun MainNav(vm: AppViewModel) {
             }
             composable("compose") { Pushed("New message") { ComposeScreen { nav.popBackStack(); vm.changed() } } }
             composable("weekend/{id}") { e -> Pushed("Race weekend") { WeekendScreen(vm, e.arguments?.getString("id") ?: "", view) } }
+            composable("category/{id}") { e -> Pushed("Category channel") { CategoryChannelScreen(vm, e.arguments?.getString("id") ?: "", view) } }
             composable("person/{id}") { e ->
                 var t by remember { mutableStateOf("") }
                 Pushed(t) { PersonScreen(vm.me, e.arguments?.getString("id") ?: "", onOpenChat = openChat) { t = it } }

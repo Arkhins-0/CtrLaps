@@ -6,6 +6,7 @@ import { sendInvite, sendNotice } from "@/lib/email";
 import { canCreateRole, canPromote, chatCandidates, descendants, groupCandidates } from "@/lib/hierarchy";
 import { fail, json } from "@/lib/http";
 import { isRole, ROLE_LABEL } from "@/lib/roles";
+import { categoryRoster } from "@/lib/categoryChannels";
 import { syncTeamIds } from "@/lib/teams";
 import { audit, createUser, toPublic, userByEmail } from "@/lib/users";
 
@@ -14,7 +15,8 @@ export const dynamic = "force-dynamic";
 /**
  * Everyone below the signed-in person — or, with `?chat=1`, everyone they
  * may chat with; with `?group=1`, everyone they may bring into a group,
- * each marked `groupMode` "direct" or "request". `?role=` narrows it.
+ * each marked `groupMode` "direct" or "request". `?role=` narrows it. The plain list also carries this season's
+ * categories with the people tied to each (see categoryRoster), for picking an audience or filtering by category.
  */
 export const GET = handle(async (request) => {
   const user = await requireUser();
@@ -26,7 +28,8 @@ export const GET = handle(async (request) => {
   }
   const base = params.get("chat") === "1" ? await chatCandidates(user) : await descendants(user);
   const people = base.filter((p) => !role || p.role === role);
-  return json({ users: people.map(toPublic) });
+  if (params.get("chat") === "1") return json({ users: people.map(toPublic) });
+  return json({ users: people.map(toPublic), categories: await categoryRoster() });
 });
 
 /**

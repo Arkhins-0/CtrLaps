@@ -26,6 +26,7 @@ object Links {
             "home" -> "home" + (query?.substringAfter("m=", "")?.substringBefore('&')?.takeIf { it.isNotBlank() }?.let { "?m=$it" } ?: "")
             "schedule" -> "schedule"
             "w" -> second?.let { "weekend/$it" }
+            "c" -> second?.let { "category/$it" }
             "chats" -> if (second == null) "chats" else if (second == "new") "newchat" else "chat/$second"
             "people" -> when (second) {
                 null -> "people"

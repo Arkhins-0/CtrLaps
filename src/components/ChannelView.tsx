@@ -18,7 +18,10 @@ const CLOSED_LINE: Record<Exclude<ClosedReason, null>, string> = {
   admin: "This channel was closed by an admin.",
 };
 
-/** The weekend channel: posts from admins, coordinators and the weekend's channel managers, read by everyone. */
+/**
+ * A channel: a weekend's (posts from admins, coordinators and its channel managers, read by everyone), or a race
+ * category's when [url] points at one (posts from admins, coordinators and its race officials, read by its people).
+ */
 export function ChannelView({
   weekendId,
   initial,
@@ -26,6 +29,8 @@ export function ChannelView({
   open,
   closedReason,
   isAdmin,
+  url,
+  placeholder = "Post to everyone for this weekend",
 }: {
   weekendId: string;
   initial: MessageOut[];
@@ -33,7 +38,11 @@ export function ChannelView({
   open: boolean;
   closedReason: ClosedReason;
   isAdmin: boolean;
+  /** The channel's API; the weekend's by default. */
+  url?: string;
+  placeholder?: string;
 }) {
+  const base = url ?? `/api/weekends/${weekendId}/channel`;
   const router = useRouter();
   const [messages, setMessages] = useState(initial);
   const [channel, setChannel] = useState<Channel>({ open, closedReason, canPost });
@@ -45,7 +54,7 @@ export function ChannelView({
 
   const reload = async () => {
     try {
-      const r = await api<{ messages: MessageOut[] } & Channel>(`/api/weekends/${weekendId}/channel`);
+      const r = await api<{ messages: MessageOut[] } & Channel>(base);
       setMessages(r.messages);
       setChannel({ open: r.open, closedReason: r.closedReason, canPost: r.canPost });
     } catch {
@@ -57,7 +66,7 @@ export function ChannelView({
     setBusy(true);
     setError(null);
     try {
-      await api(`/api/weekends/${weekendId}/channel`, { method: "PATCH", json: { open: true } });
+      await api(base, { method: "PATCH", json: { open: true } });
       await reload();
       router.refresh();
     } catch (e) {
@@ -71,16 +80,16 @@ export function ChannelView({
     const timer = setInterval(reload, 20_000);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekendId]);
+  }, [base]);
 
   return (
     <div className="space-y-3">
       {channel.canPost && (
         <MessageComposer
-          placeholder="Post to everyone for this weekend"
+          placeholder={placeholder}
           submitLabel="Post"
           send={async (draft) => {
-            await post(`/api/weekends/${weekendId}/channel`, draft);
+            await post(base, draft);
             await reload();
           }}
         />

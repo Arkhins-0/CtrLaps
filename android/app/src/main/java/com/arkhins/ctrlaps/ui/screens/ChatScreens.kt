@@ -198,12 +198,12 @@ import java.util.Locale
 
 /** The chats tab: the chat list, and a swipe to the left for the broadcast channels. */
 @Composable
-fun ChatsScreen(vm: AppViewModel, page: Int, onPage: (Int) -> Unit, onOpen: (String) -> Unit, onNewChat: () -> Unit, onOpenWeekend: (String) -> Unit) {
+fun ChatsScreen(vm: AppViewModel, page: Int, onPage: (Int) -> Unit, onOpen: (String) -> Unit, onNewChat: () -> Unit, onOpenWeekend: (String) -> Unit, onOpenCategory: (String) -> Unit = {}) {
     val pager = rememberPagerState(initialPage = page) { 2 }
     LaunchedEffect(page) { if (pager.currentPage != page) pager.animateScrollToPage(page) }
     LaunchedEffect(pager.currentPage) { if (pager.currentPage != page) onPage(pager.currentPage) }
     HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { i ->
-        if (i == 0) ChatListPage(vm, onOpen, onNewChat) else ChannelsScreen(vm, onOpenWeekend)
+        if (i == 0) ChatListPage(vm, onOpen, onNewChat) else ChannelsScreen(vm, onOpenWeekend, onOpenCategory)
     }
 }
 
