@@ -87,7 +87,7 @@ fun AuthFrame(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-fun LoginScreen(onSignedIn: (String) -> Unit, onForgot: () -> Unit) {
+fun LoginScreen(onSignedIn: (String) -> Unit, onForgot: () -> Unit, onRegister: () -> Unit) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
@@ -120,8 +120,53 @@ fun LoginScreen(onSignedIn: (String) -> Unit, onForgot: () -> Unit) {
                 }
             }
         }
+        Spacer(Modifier.height(10.dp))
+        GhostButton("Create an account", Modifier.fillMaxWidth(), enabled = !busy, onClick = onRegister)
         Spacer(Modifier.height(12.dp))
         Text("Forgot password", style = MaterialTheme.typography.labelMedium, color = SnowFaint, modifier = Modifier.clickable { onForgot() })
+    }
+}
+
+/** Registering, step one: the email, which gets a link to confirm it before the account is made. */
+@Composable
+fun RegisterScreen(onBack: () -> Unit) {
+    val app = LocalApp.current
+    val scope = rememberCoroutineScope()
+    var email by remember { mutableStateOf("") }
+    var sent by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+
+    AuthFrame("Create an account") {
+        if (sent) {
+            Text("We sent a link to ${email.trim()}. Open it to confirm your email and create your account. It works for 24 hours.", color = SnowSoft, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(8.dp))
+            Text("Nothing arrived? Check your spam folder, or try again in a few minutes.", color = SnowFaint, style = MaterialTheme.typography.labelSmall)
+            Spacer(Modifier.height(16.dp))
+            GhostButton("Back to sign in", Modifier.fillMaxWidth(), onClick = onBack)
+        } else {
+            Text("Enter your email. We'll send a link to confirm it before your account is created.", color = SnowSoft, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(12.dp))
+            ErrorText(error)
+            if (error != null) Spacer(Modifier.height(10.dp))
+            Field(email, { email = it }, "Email", keyboard = KeyboardType.Email, enabled = !busy)
+            Spacer(Modifier.height(16.dp))
+            GoldButton(if (busy) "Sending…" else "Send the link", Modifier.fillMaxWidth(), enabled = !busy && email.isNotBlank()) {
+                busy = true
+                error = null
+                scope.launch {
+                    try {
+                        app.api.post("/api/auth/register", Ok.serializer()) { put("email", email.trim()) }
+                        sent = true
+                    } catch (e: Exception) {
+                        error = e.message ?: "Could not send the link."
+                    }
+                    busy = false
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text("Already have an account? Sign in", style = MaterialTheme.typography.labelMedium, color = SnowFaint, modifier = Modifier.clickable { onBack() })
+        }
     }
 }
 
@@ -155,12 +200,14 @@ fun ForgotScreen(onBack: () -> Unit) {
     }
 }
 
-/** The invite link (choose a first password) and the reset link (choose a new one). */
+/** The invite and registration links (choose a first password, account made) and the reset link (choose a new one). */
 @Composable
 fun SetPasswordScreen(kind: String, token: String, onSignedIn: (String) -> Unit, onDone: () -> Unit, onLegal: (String) -> Unit) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     val invite = kind == "invite"
+    val register = kind == "register"
+    val firstPassword = invite || register
     var email by remember { mutableStateOf<String?>(null) }
     var roleLabel by remember { mutableStateOf("") }
     var loadError by remember { mutableStateOf<String?>(null) }
@@ -177,6 +224,8 @@ fun SetPasswordScreen(kind: String, token: String, onSignedIn: (String) -> Unit,
                 val info = app.api.get("/api/auth/invite/$token", InviteInfo.serializer())
                 email = info.email
                 roleLabel = info.roleLabel
+            } else if (register) {
+                email = app.api.get("/api/auth/register/$token", ResetInfo.serializer()).email
             } else {
                 email = app.api.get("/api/auth/reset/$token", ResetInfo.serializer()).email
             }
@@ -185,7 +234,7 @@ fun SetPasswordScreen(kind: String, token: String, onSignedIn: (String) -> Unit,
         }
     }
 
-    AuthFrame(if (invite) "Set up your account" else "Choose a new password") {
+    AuthFrame(if (invite) "Set up your account" else if (register) "Create your account" else "Choose a new password") {
         when {
             loadError != null -> {
                 ErrorText(loadError)
@@ -199,7 +248,7 @@ fun SetPasswordScreen(kind: String, token: String, onSignedIn: (String) -> Unit,
             }
             email == null -> Loading()
             else -> {
-                Text(if (invite) "$email · $roleLabel" else email!!, color = SnowSoft, style = MaterialTheme.typography.bodyMedium)
+                Text(if (invite) "$email · $roleLabel" else if (register) "$email is confirmed. Choose a password." else email!!, color = SnowSoft, style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(12.dp))
                 ErrorText(error)
                 if (error != null) Spacer(Modifier.height(10.dp))
@@ -208,14 +257,14 @@ fun SetPasswordScreen(kind: String, token: String, onSignedIn: (String) -> Unit,
                 Spacer(Modifier.height(10.dp))
                 Field(again, { again = it }, "Repeat password", password = true, enabled = !busy)
                 Spacer(Modifier.height(16.dp))
-                if (invite) {
+                if (firstPassword) {
                     Agreement(agreed, enabled = !busy, onLegal = onLegal) { agreed = it }
                     Spacer(Modifier.height(12.dp))
                 }
                 GoldButton(
-                    if (busy) "Saving…" else if (invite) "Create account" else "Save password",
+                    if (busy) "Saving…" else if (firstPassword) "Create account" else "Save password",
                     Modifier.fillMaxWidth(),
-                    enabled = !busy && password.length >= 8 && (!invite || agreed),
+                    enabled = !busy && password.length >= 8 && (!firstPassword || agreed),
                 ) {
                     if (password != again) {
                         error = "The passwords do not match."
@@ -225,8 +274,8 @@ fun SetPasswordScreen(kind: String, token: String, onSignedIn: (String) -> Unit,
                     error = null
                     scope.launch {
                         try {
-                            if (invite) {
-                                val r = app.api.post("/api/auth/invite/$token", LoginResponse.serializer()) {
+                            if (firstPassword) {
+                                val r = app.api.post("/api/auth/$kind/$token", LoginResponse.serializer()) {
                                     put("password", password)
                                     put("platform", "android")
                                     put("acceptTerms", true)

@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
  * Where the app should go next, as a site path ("/chats/<id>",
- * "/invite/<token>"): set by a tapped notification or an App Link, read
+ * "/invite/<token>", "/register/<token>"): set by a tapped notification or an App Link, read
  * and cleared by the navigation once it is ready.
  */
 object Links {
@@ -21,6 +21,7 @@ object Links {
         return when (head) {
             "invite" -> second?.let { "setpassword/invite/$it" }
             "reset" -> second?.let { "setpassword/reset/$it" }
+            "register" -> second?.let { "setpassword/register/$it" }
             "v" -> second?.let { "verify/$it" }
             "home" -> "home" + (query?.substringAfter("m=", "")?.substringBefore('&')?.takeIf { it.isNotBlank() }?.let { "?m=$it" } ?: "")
             "schedule" -> "schedule"

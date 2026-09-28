@@ -78,6 +78,7 @@ import com.arkhins.ctrlaps.ui.screens.HomeScreen
 import com.arkhins.ctrlaps.ui.screens.ImageScreen
 import com.arkhins.ctrlaps.ui.screens.GalleryScreen
 import com.arkhins.ctrlaps.ui.screens.LoginScreen
+import com.arkhins.ctrlaps.ui.screens.RegisterScreen
 import com.arkhins.ctrlaps.ui.screens.NewChatScreen
 import com.arkhins.ctrlaps.ui.screens.NewPersonScreen
 import com.arkhins.ctrlaps.ui.screens.OnboardingScreen
@@ -162,7 +163,7 @@ fun CtrlapsApp() {
     }
 }
 
-/** Signed out: sign in, forgot password, and the invite/reset links. */
+/** Signed out: sign in, register, forgot password, and the invite/register/reset links. */
 @Composable
 private fun AuthNav(vm: AppViewModel) {
     val nav = rememberNavController()
@@ -179,7 +180,8 @@ private fun AuthNav(vm: AppViewModel) {
     }
 
     NavHost(nav, startDestination = "login", enterTransition = { fadeIn(tween(120)) }, exitTransition = { fadeOut(tween(90)) }) {
-        composable("login") { LoginScreen(onSignedIn = vm::signedIn, onForgot = { nav.navigate("forgot") }) }
+        composable("login") { LoginScreen(onSignedIn = vm::signedIn, onForgot = { nav.navigate("forgot") }, onRegister = { nav.navigate("register") }) }
+        composable("register") { RegisterScreen(onBack = { nav.popBackStack() }) }
         composable("forgot") { ForgotScreen(onBack = { nav.popBackStack() }) }
         composable("setpassword/{kind}/{token}") { entry ->
             SetPasswordScreen(

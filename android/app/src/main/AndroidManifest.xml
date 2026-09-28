@@ -76,6 +76,7 @@
                 <data android:scheme="https" android:host="${appLinkHost}" />
                 <data android:pathPrefix="/invite/" />
                 <data android:pathPrefix="/reset/" />
+                <data android:pathPrefix="/register/" />
                 <data android:pathPrefix="/v/" />
                 <data android:path="/home" />
                 <data android:pathPrefix="/home?" />
