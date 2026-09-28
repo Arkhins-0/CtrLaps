@@ -199,11 +199,13 @@ fun Attachment(
     onDark: Boolean = true,
     /** Still going up: how far (0f..1f), or below 0 until that is known. Null once it is on the server. */
     uploading: Float? = null,
+    /** Take the whole width given (a channel post or announcement card) instead of a chat bubble's width. */
+    fill: Boolean = false,
 ) {
     when {
-        file.isImage -> ImageAttachment(file, onView, uploading = uploading)
-        file.isAudio -> AudioAttachment(file, onDark, uploading)
-        else -> DocumentAttachment(file, onView, onDark, uploading)
+        file.isImage -> ImageAttachment(file, onView, fill = fill, uploading = uploading)
+        file.isAudio -> AudioAttachment(file, onDark, uploading, fill)
+        else -> DocumentAttachment(file, onView, onDark, uploading, fill)
     }
 }
 
@@ -360,7 +362,7 @@ private fun ImageAttachment(file: FileInfo, onView: (FileView) -> Unit, onLongPr
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .then(if (fill) Modifier.fillMaxWidth() else Modifier.widthIn(max = GRID_WIDTH))
-                .heightIn(min = 120.dp, max = 320.dp)
+                .heightIn(min = 120.dp, max = if (fill) 420.dp else 320.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Night)
                 .combinedClickable(onLongClick = onLongPress) { onView(FileView.Image(file)) },
@@ -487,7 +489,7 @@ private fun PhotoTile(file: FileInfo, modifier: Modifier, more: Int, onClick: ()
 
 /** A voice note or audio file: kept in the app's CTRLAPS_Audios (fetched on first play if not yet), played right here. */
 @Composable
-private fun AudioAttachment(file: FileInfo, onDark: Boolean, uploading: Float? = null) {
+private fun AudioAttachment(file: FileInfo, onDark: Boolean, uploading: Float? = null, fill: Boolean = false) {
     val app = LocalApp.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -540,7 +542,7 @@ private fun AudioAttachment(file: FileInfo, onDark: Boolean, uploading: Float? =
     val fmt = { ms: Int -> String.format(Locale.US, "%d:%02d", ms / 60000, (ms / 1000) % 60) }
     Row(
         Modifier
-            .widthIn(max = 280.dp)
+            .then(if (fill) Modifier else Modifier.widthIn(max = 280.dp))
             .fillMaxWidth()
             .background(if (onDark) Night else Night.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
             .border(1.dp, if (onDark) NightLine else Night.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
@@ -580,7 +582,7 @@ private fun AudioAttachment(file: FileInfo, onDark: Boolean, uploading: Float? =
 /* ───────────────────────────── Documents ─────────────────────────── */
 
 @Composable
-private fun DocumentAttachment(file: FileInfo, onView: (FileView) -> Unit, onDark: Boolean, uploading: Float? = null) {
+private fun DocumentAttachment(file: FileInfo, onView: (FileView) -> Unit, onDark: Boolean, uploading: Float? = null, fill: Boolean = false) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     var saved by remember(file.id) { mutableStateOf(app.documents.find(file)) }
@@ -596,7 +598,7 @@ private fun DocumentAttachment(file: FileInfo, onView: (FileView) -> Unit, onDar
 
     Row(
         Modifier
-            .widthIn(max = 280.dp)
+            .then(if (fill) Modifier else Modifier.widthIn(max = 280.dp))
             .fillMaxWidth()
             .background(if (onDark) Night else Night.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
             .border(1.dp, if (onDark) NightLine else Night.copy(alpha = 0.2f), RoundedCornerShape(12.dp))

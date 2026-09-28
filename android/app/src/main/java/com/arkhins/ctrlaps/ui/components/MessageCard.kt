@@ -91,14 +91,14 @@ fun MessageCard(run: List<Message>, onView: (FileView) -> Unit, showSender: Bool
                 val photos = runPhotos(run)
                 if (photos.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
-                    PhotoGrid(photos, onView)
+                    PhotoGrid(photos, onView, fill = true)
                 }
                 // Documents and audio each with a Save beside it (photos and PDFs have it where they open).
                 val context = LocalContext.current
                 files.filterNot { it.isImage }.forEach { f ->
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.weight(1f)) { Attachment(f, onView) }
+                        Box(Modifier.weight(1f)) { Attachment(f, onView, fill = true) }
                         val sentAt = run.firstOrNull { r -> r.attachments.any { it.id == f.id } }?.createdAt ?: m.createdAt
                         IconButton(onClick = { saveAll(context, app, listOf(f to sentAt)) }, modifier = Modifier.size(40.dp)) {
                             Icon(painterResource(R.drawable.ic_download), contentDescription = "Save ${f.name}", tint = SnowFaint, modifier = Modifier.size(22.dp))
