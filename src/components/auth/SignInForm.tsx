@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/client";
+import { PasswordInput } from "../PasswordInput";
 
 export function SignInForm({ next }: { next?: string }) {
   const router = useRouter();
@@ -39,10 +40,9 @@ export function SignInForm({ next }: { next?: string }) {
         <label className="label" htmlFor="password">
           Password
         </label>
-        <input
+        <PasswordInput
           id="password"
           className="input"
-          type="password"
           autoComplete="current-password"
           required
           value={password}

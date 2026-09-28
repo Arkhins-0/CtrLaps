@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/client";
 import { Scanner } from "./Scanner";
+import { PasswordInput } from "./PasswordInput";
 
 /** The account page's tools: scan a QR / type a code, change password, sign out. */
 export function AccountActions({ appVersion }: { appVersion: string | null }) {
@@ -78,15 +79,15 @@ function ChangePassword({ onDone }: { onDone: () => void }) {
       {error && <p className="error">{error}</p>}
       <label className="block">
         <span className="label">Current password</span>
-        <input className="input" type="password" autoComplete="current-password" required value={current} onChange={(e) => setCurrent(e.target.value)} />
+        <PasswordInput className="input" autoComplete="current-password" required value={current} onChange={(e) => setCurrent(e.target.value)} />
       </label>
       <label className="block">
         <span className="label">New password</span>
-        <input className="input" type="password" autoComplete="new-password" minLength={8} required value={next} onChange={(e) => setNext(e.target.value)} />
+        <PasswordInput className="input" autoComplete="new-password" minLength={8} required value={next} onChange={(e) => setNext(e.target.value)} />
       </label>
       <label className="block">
         <span className="label">Repeat new password</span>
-        <input className="input" type="password" autoComplete="new-password" required value={again} onChange={(e) => setAgain(e.target.value)} />
+        <PasswordInput className="input" autoComplete="new-password" required value={again} onChange={(e) => setAgain(e.target.value)} />
       </label>
       <button className="btn-gold w-full" disabled={busy}>
         {busy ? "Saving…" : "Change password"}
