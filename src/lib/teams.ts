@@ -3,6 +3,7 @@ import "server-only";
 import { one, q, run, tx } from "./db";
 import type { SessionUser } from "./auth";
 import { currentSeason } from "./seasons";
+import { categoriesOf, type Category } from "./categories";
 
 /*
  * Teams as records, the race categories each is entered in (per season, through the categories), and the
@@ -129,6 +130,48 @@ export async function myCategories(user: Pick<SessionUser, "id" | "role"> & { te
     case "race_official":
       ids = await assignedCategories(user.id, season);
       break;
+    case "user":
+      ids = await followedCategories(user.id, season);
+      break;
   }
   return ids.length > 0 ? ids : null;
+}
+
+/** The categories a user (no role yet) follows as a fan this season. */
+export async function followedCategories(userId: string, seasonId: string): Promise<string[]> {
+  const rows = await q<{ category_id: string }>(
+    `SELECT f.category_id FROM category_followers f JOIN categories c ON c.id = f.category_id
+     WHERE f.user_id = $1 AND c.season_id = $2 ORDER BY c.position`,
+    [userId, seasonId],
+  );
+  return rows.map((r) => r.category_id);
+}
+
+/** Replace what a user follows this season with [categoryIds] (unknown or other seasons' ids are ignored). */
+export async function setFollowedCategories(userId: string, seasonId: string, categoryIds: string[]): Promise<string[]> {
+  await tx(async (c) => {
+    await c.query(
+      "DELETE FROM category_followers f USING categories c WHERE c.id = f.category_id AND f.user_id = $1 AND c.season_id = $2",
+      [userId, seasonId],
+    );
+    await c.query(
+      `INSERT INTO category_followers (user_id, category_id)
+       SELECT $1, id FROM categories WHERE season_id = $2 AND id = ANY($3::uuid[]) ON CONFLICT DO NOTHING`,
+      [userId, seasonId, categoryIds],
+    );
+  });
+  return followedCategories(userId, seasonId);
+}
+
+/**
+ * The categories to show as badges on someone's ID card: a racer's, crew's and team manager's (see myCategories) and
+ * a race official's assigned ones. Nothing for roles that cover every class, or for a fan's follows (the card says
+ * where someone belongs, not what they like).
+ */
+export async function categoryBadges(user: Pick<SessionUser, "id" | "role"> & { team_id?: string | null }): Promise<Category[]> {
+  if (user.role === "user") return [];
+  const ids = await myCategories(user);
+  if (!ids) return [];
+  const all = await categoriesOf([(await currentSeason()).id]);
+  return all.filter((c) => ids.includes(c.id));
 }

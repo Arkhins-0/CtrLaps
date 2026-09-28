@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.components
 
+import com.arkhins.ctrlaps.ui.screens.CategoryTag
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -124,6 +125,10 @@ fun IdCard(v: Verified) {
         if (!v.teamName.isNullOrBlank()) {
             Spacer(Modifier.height(2.dp))
             Text(v.teamName, style = MaterialTheme.typography.bodyLarge, color = SnowSoft)
+        }
+        if (v.categories.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { v.categories.forEach { CategoryTag(it) } }
         }
         Spacer(Modifier.height(16.dp))
         Column(Modifier.padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {

@@ -1,5 +1,10 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.data.FollowingResponse
+import com.arkhins.ctrlaps.data.CategoryIdsResponse
+import com.arkhins.ctrlaps.ui.components.Chip
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.putJsonArray
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.mutableStateOf
@@ -123,6 +128,9 @@ fun AccountScreen(
             }
         }
 
+        // Users (no role yet) follow race categories as fans; everyone else has theirs by role.
+        if (u.role == "user") FollowCategoriesPanel(vm)
+
         Panel {
             Column {
                 MenuRow("Account", "Email, date of birth and password", onClick = onDetails)
@@ -199,3 +207,53 @@ fun qrBitmap(text: String, size: Int = 512): Bitmap? = qrCache.get("$size:$text"
     val pixels = IntArray(size * size) { i -> if (matrix[i % size, i / size]) AColor.BLACK else AColor.WHITE }
     Bitmap.createBitmap(pixels, size, size, Bitmap.Config.RGB_565).also { qrCache.put("$size:$text", it) }
 }.getOrNull()
+
+/** A user picks the race categories they follow: those channels' posts come to Home, their sessions show under Mine. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun FollowCategoriesPanel(vm: AppViewModel) {
+    val app = LocalApp.current
+    val scope = rememberCoroutineScope()
+    var data by remember { mutableStateOf<FollowingResponse?>(null) }
+    var ids by remember { mutableStateOf<List<String>>(emptyList()) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        runCatching { app.store.get("/api/me/following", FollowingResponse.serializer()) { data = it; ids = it.categoryIds } }
+            .onSuccess { data = it; ids = it.categoryIds }
+    }
+    val d = data ?: return
+    if (!d.canFollow || d.categories.isEmpty()) return
+    Panel {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Follow categories", style = MaterialTheme.typography.titleMedium, color = Snow)
+            Text("Their channel posts come to your Home, and their sessions show under Mine.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+            error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Danger) }
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                d.categories.forEach { c ->
+                    Chip(c.code, categoryColor(c), filled = c.id in ids) {
+                        if (busy) return@Chip
+                        val before = ids
+                        val next = if (c.id in ids) ids - c.id else ids + c.id
+                        ids = next
+                        busy = true
+                        error = null
+                        scope.launch {
+                            try {
+                                ids = app.api.put("/api/me/following", CategoryIdsResponse.serializer()) {
+                                    putJsonArray("categoryIds") { next.forEach { add(it) } }
+                                }.categoryIds
+                                vm.refreshMe()
+                            } catch (e: Exception) {
+                                ids = before
+                                error = e.message ?: "Could not save."
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

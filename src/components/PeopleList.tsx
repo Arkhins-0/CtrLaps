@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ROLE_LABEL, ROLES, type Role } from "@/lib/roles";
+import type { RosterCategory } from "@/lib/categoryChannels";
 import type { PublicUser } from "@/lib/users";
 import { Avatar } from "./Avatar";
 import { Icon } from "./Icon";
@@ -12,9 +13,11 @@ const KEY = "ctrlaps:people-hidden-roles";
 /** People who registered and have no role yet start hidden. */
 const DEFAULT_HIDDEN: Role[] = ["user"];
 
-/** Everyone below the viewer by role, with a filter to show or hide each role. */
-export function PeopleList({ people, emptyText }: { people: PublicUser[]; emptyText: string }) {
+/** Everyone below the viewer by role, with a filter: which roles show, and one race category or one team. */
+export function PeopleList({ people, emptyText, categories = [] }: { people: PublicUser[]; emptyText: string; categories?: RosterCategory[] }) {
   const [hidden, setHidden] = useState<Role[]>(DEFAULT_HIDDEN);
+  const [category, setCategory] = useState("");
+  const [team, setTeam] = useState("");
   const [open, setOpen] = useState(false);
   const menu = useRef<HTMLDivElement>(null);
 
@@ -37,8 +40,17 @@ export function PeopleList({ people, emptyText }: { people: PublicUser[]; emptyT
     try { localStorage.setItem(KEY, JSON.stringify(next)); } catch {}
   };
 
+  const teams = Array.from(new Set(people.map((p) => p.teamName?.trim()).filter((t): t is string => Boolean(t)))).sort((a, b) => a.localeCompare(b));
+  const inCategory = categories.find((c) => c.id === category)?.memberIds;
+  const kept = people.filter(
+    (p) => (!inCategory || inCategory.includes(p.id)) && (!team || p.teamName?.trim().toLowerCase() === team.toLowerCase()),
+  );
   const present = ROLES.filter((r) => people.some((p) => p.role === r));
-  const groups = present.filter((r) => !hidden.includes(r)).map((r) => ({ role: r, people: people.filter((p) => p.role === r) }));
+  const groups = present
+    .filter((r) => !hidden.includes(r))
+    .map((r) => ({ role: r, people: kept.filter((p) => p.role === r) }))
+    .filter((g) => g.people.length > 0);
+  const narrowed = Boolean(category || team);
 
   return (
     <div className="space-y-5">
@@ -47,6 +59,7 @@ export function PeopleList({ people, emptyText }: { people: PublicUser[]; emptyT
           <button type="button" className="btn-ghost flex items-center gap-2 px-3 py-1.5 text-xs" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
             <Icon name="filter" className="h-4 w-4 text-gold" />
             Filter
+            {narrowed && <span className="h-1.5 w-1.5 rounded-full bg-gold" aria-label="Filtered" />}
           </button>
           {open && (
             <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-xl border border-night-line bg-night-panel p-2 shadow-xl">
@@ -57,6 +70,32 @@ export function PeopleList({ people, emptyText }: { people: PublicUser[]; emptyT
                   {ROLE_LABEL[r]}
                 </label>
               ))}
+              {categories.length > 0 && (
+                <>
+                  <p className="px-2 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-snow-faint">Category</p>
+                  <select className="input py-1.5 text-sm" value={category} onChange={(e) => setCategory(e.target.value)}>
+                    <option value="">Any category</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.code} — {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+              {teams.length > 0 && (
+                <>
+                  <p className="px-2 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-snow-faint">Team</p>
+                  <select className="input py-1.5 text-sm" value={team} onChange={(e) => setTeam(e.target.value)}>
+                    <option value="">Any team</option>
+                    {teams.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -64,7 +103,9 @@ export function PeopleList({ people, emptyText }: { people: PublicUser[]; emptyT
 
       {people.length === 0 && <p className="card text-sm text-snow-faint">{emptyText}</p>}
       {people.length > 0 && groups.length === 0 && (
-        <p className="card text-sm text-snow-faint">Everyone here is hidden by the filter. Use Filter to show them.</p>
+        <p className="card text-sm text-snow-faint">
+          {narrowed ? "Nobody matches this category or team." : "Everyone here is hidden by the filter. Use Filter to show them."}
+        </p>
       )}
 
       {groups.map((g) => (

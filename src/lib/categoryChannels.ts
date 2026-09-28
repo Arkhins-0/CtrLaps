@@ -7,8 +7,8 @@ import { currentSeason, LIVE_SEASON } from "./seasons";
 /*
  * One channel per race category, for the category's season ("ITC 2026"). Who is in it follows from the entries
  * (see teams.ts): admins and coordinators; the category's racers (their own classes, else their team's); crew and team
- * managers of a team entered in it; race officials given it, or given no category that season (they look after all).
- * Admins, coordinators and its race officials post; the rest read.
+ * managers of a team entered in it; race officials given it, or given no category that season (they look after all);
+ * users (no role yet) who follow it as fans. Admins, coordinators and its race officials post; the rest read.
  */
 
 /** The SQL test "user row u is a member of category $cat", for reuse in queries. */
@@ -25,6 +25,7 @@ export const categoryMemberSql = (u: string, cat: string) => `(
       EXISTS (SELECT 1 FROM category_people cp WHERE cp.user_id = ${u}.id AND cp.category_id = ${cat})
       OR NOT EXISTS (SELECT 1 FROM category_people cp JOIN categories c2 ON c2.id = cp.category_id
                      WHERE cp.user_id = ${u}.id AND c2.season_id = (SELECT season_id FROM categories WHERE id = ${cat}))))
+    OR (${u}.role = 'user' AND EXISTS (SELECT 1 FROM category_followers cf WHERE cf.user_id = ${u}.id AND cf.category_id = ${cat}))
   ))`;
 
 /** Everyone in a category's channel, but [except]. */

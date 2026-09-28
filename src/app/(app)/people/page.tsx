@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PeopleList } from "@/components/PeopleList";
+import { categoryRoster } from "@/lib/categoryChannels";
 import { descendants } from "@/lib/hierarchy";
 import { CREATE_RULES } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
@@ -9,7 +10,8 @@ export const metadata = { title: "People" };
 
 export default async function People() {
   const user = await requireProfile();
-  const people = (await descendants(user)).map(toPublic);
+  const [below, categories] = await Promise.all([descendants(user), categoryRoster()]);
+  const people = below.map(toPublic);
   const canCreate = (CREATE_RULES[user.role] ?? []).length > 0;
 
   return (
@@ -45,7 +47,7 @@ export default async function People() {
         </div>
       </div>
 
-      <PeopleList people={people} emptyText={canCreate ? "Nobody yet. Add the first person." : "Nobody reports to you."} />
+      <PeopleList people={people} categories={categories} emptyText={canCreate ? "Nobody yet. Add the first person." : "Nobody reports to you."} />
     </div>
   );
 }

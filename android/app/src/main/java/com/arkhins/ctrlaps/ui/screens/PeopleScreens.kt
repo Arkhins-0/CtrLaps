@@ -1,5 +1,9 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.data.RosterCategory
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.ui.text.font.FontWeight
 import com.arkhins.ctrlaps.data.CategoryIdsResponse
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -120,6 +124,7 @@ val ROLE_LABELS = mapOf(
 fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: (String?) -> Unit) {
     val app = LocalApp.current
     var people by remember { mutableStateOf<List<PublicUser>?>(null) }
+    var roster by remember { mutableStateOf<List<RosterCategory>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
     var mailMenu by remember { mutableStateOf(false) }
@@ -129,10 +134,15 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
     // Only the people starred (on their page, their card or Verify); off to start.
     var starredOnly by rememberSaveable { mutableStateOf(false) }
     val starred by app.verifyHistory.starred.collectAsState()
+    // One race category (its people) and one team; blank is any.
+    var category by rememberSaveable { mutableStateOf("") }
+    var team by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         try {
-            people = app.store.get("/api/users", UsersResponse.serializer()) { people = it.users }.users
+            val r = app.store.get("/api/users", UsersResponse.serializer()) { people = it.users; roster = it.categories }
+            people = r.users
+            roster = r.categories
             error = null
         } catch (e: Exception) {
             if (people == null) error = e.message
@@ -141,8 +151,11 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
 
     val canCreate = me?.canCreate?.isNotEmpty() == true
     val canEmail = me?.canBulkEmail == true || me?.canRelay == true
+    val inCategory = roster.firstOrNull { it.id == category }?.memberIds?.toSet()
+    val teams = people.orEmpty().mapNotNull { it.teamName?.trim()?.takeIf { t -> t.isNotEmpty() } }.distinctBy { it.lowercase() }.sortedBy { it.lowercase() }
     val p = people?.filter { u ->
-        u.role !in hiddenRoles && (!starredOnly || u.id in starred) && (query.isBlank() || "${u.displayName} ${u.roleLabel} ${u.teamName ?: ""}".contains(query.trim(), ignoreCase = true))
+        u.role !in hiddenRoles && (!starredOnly || u.id in starred) &&
+            (inCategory == null || u.id in inCategory) && (team.isBlank() || u.teamName?.trim().equals(team, ignoreCase = true)) && (query.isBlank() || "${u.displayName} ${u.roleLabel} ${u.teamName ?: ""}".contains(query.trim(), ignoreCase = true))
     }
     val presentRoles = ROLE_ORDER.filter { r -> people?.any { it.role == r } == true }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -188,6 +201,44 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
                                     onClick = { hiddenRoles = if (shown) hiddenRoles + r else hiddenRoles - r },
                                 )
                             }
+                            // One category or one team at a time; tapping the chosen one again clears it.
+                            if (roster.isNotEmpty()) {
+                                HorizontalDivider(color = NightLine, modifier = Modifier.padding(vertical = 4.dp))
+                                Text("CATEGORY", style = MaterialTheme.typography.labelSmall, color = SnowFaint, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                                roster.forEach { c ->
+                                    val on = category == c.id
+                                    val color = runCatching { androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(c.color)) }.getOrDefault(Gold)
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                RadioButton(selected = on, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = Gold, unselectedColor = SnowFaint))
+                                                Spacer(Modifier.width(10.dp))
+                                                Text(c.code, color = color, fontWeight = FontWeight.SemiBold)
+                                                Spacer(Modifier.width(6.dp))
+                                                Text(c.name, color = SnowSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            }
+                                        },
+                                        onClick = { category = if (on) "" else c.id },
+                                    )
+                                }
+                            }
+                            if (teams.isNotEmpty()) {
+                                HorizontalDivider(color = NightLine, modifier = Modifier.padding(vertical = 4.dp))
+                                Text("TEAM", style = MaterialTheme.typography.labelSmall, color = SnowFaint, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                                teams.forEach { t ->
+                                    val on = team.equals(t, ignoreCase = true)
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                RadioButton(selected = on, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = Gold, unselectedColor = SnowFaint))
+                                                Spacer(Modifier.width(10.dp))
+                                                Text(t, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            }
+                                        },
+                                        onClick = { team = if (on) "" else t },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -212,6 +263,7 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
                 Empty(
                     when {
                         people?.isEmpty() == true -> if (canCreate) "Nobody yet. Add the first person." else "Nobody reports to you."
+                        (category.isNotBlank() || team.isNotBlank()) && query.isBlank() -> "Nobody matches this category or team."
                         starredOnly && query.isBlank() -> "No starred people here. Star someone from their page, or turn off Starred only."
                         query.isBlank() -> "Everyone here is hidden by the filter. Tap the filter icon to show them."
                         else -> "No one matches."
