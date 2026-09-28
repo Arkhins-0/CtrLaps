@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { openInAppHref } from "@/lib/appLink";
 
-const CHOSE_WEB = "wink:continue-in-web";
+const CHOSE_WEB = "ctrlaps:continue-in-web";
 const QUIET = ["/download", "/privacy", "/terms"];
 
 /**
@@ -48,7 +48,7 @@ export function AppChooser() {
           <Image src="/icon-512.png" alt="" width={48} height={48} className="rounded-xl" />
           <div>
             <h2 id="app-chooser-title" className="text-base font-semibold">
-              Open in the Wink app?
+              Open in the CTR[L]APS app?
             </h2>
             <p className="text-sm text-snow-faint">Messages arrive faster, and it works without signal.</p>
           </div>

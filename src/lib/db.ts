@@ -6,7 +6,7 @@ import { env } from "./env";
 /**
  * The database: Postgres on Neon, through one pool per process.
  *
- * There is no schema yet — that comes with whatever Wink turns out to be.
+ * There is no schema yet — that comes with whatever CTR[L]APS turns out to be.
  * When there is one, apply it from `ready()` so a fresh deployment needs
  * nothing but DATABASE_URL to be usable.
  *
@@ -16,7 +16,7 @@ import { env } from "./env";
 
 declare global {
   // eslint-disable-next-line no-var
-  var __winkPool: Pool | undefined;
+  var __ctrlapsPool: Pool | undefined;
 }
 
 function connectionString(): string {
@@ -26,7 +26,7 @@ function connectionString(): string {
 }
 
 function pool(): Pool {
-  if (!globalThis.__winkPool) {
+  if (!globalThis.__ctrlapsPool) {
     const created = new Pool({
       connectionString: connectionString(),
       ssl: { rejectUnauthorized: true },
@@ -36,9 +36,9 @@ function pool(): Pool {
     // Neon closes connections that sit idle. An idle client in the pool then emits "error"; unhandled,
     // that takes the whole process down. The pool has already dropped the client, so noting it is enough.
     created.on("error", (error) => console.warn("[db] idle connection closed:", error.message));
-    globalThis.__winkPool = created;
+    globalThis.__ctrlapsPool = created;
   }
-  return globalThis.__winkPool;
+  return globalThis.__ctrlapsPool;
 }
 
 /** A connection Neon closed under us: the query never ran, so it is safe to send again on a fresh one. */

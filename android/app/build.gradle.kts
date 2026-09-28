@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.net.URI
 import java.util.Properties
 
 plugins {
@@ -13,8 +14,8 @@ plugins {
 // Four segments. Bump both together for every release: the tag pushed to
 // GitHub is "v" + versionName, and the app compares versionName against the
 // latest release to decide whether to show the update popup.
-val winkVersionName = "0.1.5.1"
-val winkVersionCode = 13
+val ctrlapsVersionName = "0.1.5.1"
+val ctrlapsVersionCode = 13
 
 // --- Build-time configuration --------------------------------------------------
 // Values reach the app through BuildConfig. Each is looked up, in order, as an
@@ -50,42 +51,60 @@ fun setting(envName: String, propName: String, default: String = ""): String =
         ?: project.findProperty(propName)?.toString()?.takeIf { it.isNotBlank() }
         ?: default).trim()
 
-// Release signing: environment / .env first (CI, from secrets), then a keystore
-// file on disk (a developer's machine). Neither is required — a release build
-// with no signing config is simply unsigned.
-val keystorePath = setting("WINK_KEYSTORE_PATH", "wink.keystore.path", "release.keystore.jks")
-val keystoreFile = rootProject.file(keystorePath).let { if (it.isAbsolute) it else file(keystorePath) }
-val hasSigning = keystoreFile.exists()
+// Release signing: every value comes from the environment / .env (CI, from
+// secrets) or local.properties — nothing is hard-coded. Signing is optional: a
+// release build with any of the four missing, or no keystore file, is simply
+// unsigned.
+val keystorePath = setting("CTRLAPS_KEYSTORE_PATH", "ctrlaps.keystore.path")
+val keystorePassword = setting("CTRLAPS_KEYSTORE_PASSWORD", "ctrlaps.keystore.password")
+val keyAliasName = setting("CTRLAPS_KEY_ALIAS", "ctrlaps.key.alias")
+val keyPasswordValue = setting("CTRLAPS_KEY_PASSWORD", "ctrlaps.key.password")
+val keystoreFile = if (keystorePath.isEmpty()) null
+    else rootProject.file(keystorePath).let { if (it.isAbsolute) it else file(keystorePath) }
+val hasSigning = keystoreFile != null && keystoreFile.exists() &&
+    keystorePassword.isNotEmpty() && keyAliasName.isNotEmpty() && keyPasswordValue.isNotEmpty()
 
 // The debug build installs beside the release one under its own id — but
 // only once the Firebase project knows that id (google-services.json lists
 // it), because the Google Services plugin refuses a package it has not seen.
+val baseUrl = setting("CTRLAPS_BASE_URL", "ctrlaps.baseUrl").trimEnd('/')
+val appLinkHost = runCatching { URI(baseUrl).host }.getOrNull().orEmpty()
+tasks.named("preBuild") {
+    doFirst {
+        if (appLinkHost.isEmpty()) throw GradleException(
+            "CTRLAPS_BASE_URL is not set (the server's address, e.g. https://example.com). " +
+                "Put it in the root .env, local.properties (ctrlaps.baseUrl) or the environment."
+        )
+    }
+}
+
 val googleServices = file("google-services.json")
-val debugSuffixKnown = googleServices.exists() && googleServices.readText().contains("\"com.arkhins.wink.debug\"")
+val debugSuffixKnown = googleServices.exists() && googleServices.readText().contains("\"com.arkhins.ctrlaps.debug\"")
 
 android {
-    namespace = "com.arkhins.wink"
+    namespace = "com.arkhins.ctrlaps"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.arkhins.wink"
+        applicationId = "com.arkhins.ctrlaps"
         minSdk = 26
         targetSdk = 35
-        versionCode = winkVersionCode
-        versionName = winkVersionName
+        versionCode = ctrlapsVersionCode
+        versionName = ctrlapsVersionName
 
-        buildConfigField("String", "BASE_URL", "\"${setting("WINK_BASE_URL", "wink.baseUrl", "https://wink.arkhins.com")}\"")
-        buildConfigField("String", "UPDATE_URL", "\"${setting("WINK_UPDATE_URL", "wink.updateUrl")}\"")
-        buildConfigField("String", "GITHUB_REPO", "\"${setting("WINK_GITHUB_REPO", "wink.githubRepo")}\"")
+        buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
+        manifestPlaceholders["appLinkHost"] = appLinkHost
+        buildConfigField("String", "UPDATE_URL", "\"${setting("CTRLAPS_UPDATE_URL", "ctrlaps.updateUrl")}\"")
+        buildConfigField("String", "GITHUB_REPO", "\"${setting("CTRLAPS_GITHUB_REPO", "ctrlaps.githubRepo")}\"")
     }
 
     signingConfigs {
         if (hasSigning) {
             create("release") {
                 storeFile = keystoreFile
-                storePassword = setting("WINK_KEYSTORE_PASSWORD", "wink.keystore.password", "wink-release")
-                keyAlias = setting("WINK_KEY_ALIAS", "wink.key.alias", "wink")
-                keyPassword = setting("WINK_KEY_PASSWORD", "wink.key.password", "wink-release")
+                storePassword = keystorePassword
+                keyAlias = keyAliasName
+                keyPassword = keyPasswordValue
             }
         }
     }

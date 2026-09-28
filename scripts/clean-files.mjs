@@ -51,7 +51,7 @@ try {
     console.log("Nothing deleted. Run with --delete to remove them.");
   } else if (rows.length) {
     const bucket = process.env.S3_BUCKET;
-    const prefix = (process.env.S3_PREFIX ?? "wink").replace(/^\/+|\/+$/g, "");
+    const prefix = (process.env.S3_PREFIX ?? "arkhins").replace(/^\/+|\/+$/g, "");
     if (!bucket) throw new Error("S3_BUCKET is not set.");
     const s3 = new S3Client({
       region: process.env.AWS_REGION || "us-east-2",

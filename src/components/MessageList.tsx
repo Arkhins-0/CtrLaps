@@ -194,7 +194,7 @@ export function MessageItem({ m, showSender = true, highlight = false, inPlace =
           <div className="flex items-baseline gap-2">
             {showSender && (
               <p className="min-w-0 truncate text-sm font-semibold">
-                {m.mine ? "You" : m.sender?.name ?? "Wink"}
+                {m.mine ? "You" : m.sender?.name ?? "CTR[L]APS"}
                 {!m.mine && m.sender?.roleLabel && <span className="font-normal text-snow-faint"> · {m.sender.roleLabel}</span>}
               </p>
             )}

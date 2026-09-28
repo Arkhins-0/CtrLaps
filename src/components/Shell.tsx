@@ -47,7 +47,7 @@ export function Shell({ user, unreadHome, unreadChats, children }: { user: Shell
       <div className={`flex ${fixedHeight ? "h-[100dvh] overflow-hidden" : "min-h-screen"}`}>
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-night-line bg-night-panel/40 lg:flex">
           <Link href="/home" className="flex items-center gap-3 px-6 py-6">
-            <Image src="/ctr-logo.png" alt="" width={44} height={25} priority />
+            <Image src="/logo.png" alt="" width={36} height={36} priority />
             <span className="text-lg font-semibold tracking-tight">{APP_NAME}</span>
           </Link>
           <nav className="flex-1 space-y-1 px-3">
@@ -73,7 +73,7 @@ export function Shell({ user, unreadHome, unreadChats, children }: { user: Shell
           <header className={`sticky top-0 z-30 shrink-0 border-b border-night-line bg-night/90 backdrop-blur ${immersive ? "hidden lg:block" : ""}`}>
             <div className="flex h-14 items-center justify-between gap-3 px-4 sm:px-6">
               <Link href="/home" className="flex items-center gap-2.5 lg:hidden">
-                <Image src="/ctr-logo.png" alt="" width={36} height={20} priority />
+                <Image src="/logo.png" alt="" width={28} height={28} priority />
                 <span className="font-semibold tracking-tight">{APP_NAME}</span>
               </Link>
               <span className="hidden text-sm text-snow-faint lg:block">{NAV.find((n) => active(n.href))?.label ?? (active("/account") ? "Account" : "")}</span>

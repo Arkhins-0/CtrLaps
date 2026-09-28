@@ -5,10 +5,10 @@ import { SITE_URL } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
-const PACKAGE = "com.arkhins.wink";
+const PACKAGE = "com.arkhins.ctrlaps";
 
 /**
- * wink.arkhins.com/download — the one link to share.
+ * <site>/download — the one link to share.
  *
  * On an Android phone it first tries to open the installed app (an intent
  * link to /home, or to `?open=<path>` when the app has that page); only

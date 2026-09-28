@@ -1,0 +1,1419 @@
+package com.arkhins.ctrlaps.ui.screens
+
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.style.TextDecoration
+import com.arkhins.ctrlaps.ui.components.linkRanges
+import com.arkhins.ctrlaps.ui.components.LinkCard
+import com.arkhins.ctrlaps.ui.components.textBesideCard
+import com.arkhins.ctrlaps.ui.components.MessageEvent
+import com.arkhins.ctrlaps.ui.components.putEvent
+import com.arkhins.ctrlaps.ui.components.MessagePoll
+import kotlinx.serialization.json.putJsonObject
+import com.arkhins.ctrlaps.ui.components.TextWithMeta
+import com.arkhins.ctrlaps.ui.components.formatted
+import com.arkhins.ctrlaps.ui.components.plainText
+import com.arkhins.ctrlaps.ui.components.saveAll
+import com.arkhins.ctrlaps.ui.components.stamped
+import androidx.compose.animation.animateContentSize
+import androidx.compose.runtime.mutableStateSetOf
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import java.util.UUID
+import java.time.Instant
+import com.arkhins.ctrlaps.push.Notifications
+import com.arkhins.ctrlaps.data.ChatSent
+import kotlin.math.roundToInt
+import com.arkhins.ctrlaps.ui.components.GalleryPhoto
+import com.arkhins.ctrlaps.ui.components.ComposerBanner
+import com.arkhins.ctrlaps.data.ReplyRef
+import com.arkhins.ctrlaps.data.Ok
+import com.arkhins.ctrlaps.R
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.TextButton
+import android.widget.Toast
+import android.content.Intent
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import com.arkhins.ctrlaps.data.ChatExport
+import com.arkhins.ctrlaps.data.ConversationDetail
+import com.arkhins.ctrlaps.data.Queued
+import com.arkhins.ctrlaps.data.OutgoingFile
+import com.arkhins.ctrlaps.data.Conversation
+import com.arkhins.ctrlaps.data.forwardMessages
+import androidx.compose.runtime.collectAsState
+import com.arkhins.ctrlaps.data.GroupInvite
+import com.arkhins.ctrlaps.data.InviteAnswer
+import com.arkhins.ctrlaps.ui.components.GhostButton
+import com.arkhins.ctrlaps.ui.components.GoldButton
+import androidx.compose.ui.text.style.TextAlign
+import com.arkhins.ctrlaps.data.SavedDocument
+import com.arkhins.ctrlaps.ui.components.IconAction
+import com.arkhins.ctrlaps.ui.logStamp
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.runtime.DisposableEffect
+import com.arkhins.ctrlaps.ui.components.ForwardSheet
+import com.arkhins.ctrlaps.ui.components.MessageInfoSheet
+import com.arkhins.ctrlaps.ui.components.prefetchMessageInfo
+import androidx.compose.material.icons.outlined.Info
+import com.arkhins.ctrlaps.ui.components.SelectionAction
+import com.arkhins.ctrlaps.ui.components.SelectionBar
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.SideEffect
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Create
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.arkhins.ctrlaps.LocalApp
+import com.arkhins.ctrlaps.data.ConversationsResponse
+import com.arkhins.ctrlaps.data.IdResponse
+import com.arkhins.ctrlaps.data.Message
+import com.arkhins.ctrlaps.data.PublicUser
+import com.arkhins.ctrlaps.data.UsersResponse
+import com.arkhins.ctrlaps.ui.AppViewModel
+import com.arkhins.ctrlaps.ui.whenLabel
+import com.arkhins.ctrlaps.ui.components.Attachment
+import com.arkhins.ctrlaps.ui.components.FileView
+import com.arkhins.ctrlaps.data.OtherUser
+import com.arkhins.ctrlaps.ui.components.isImage
+import com.arkhins.ctrlaps.ui.components.Avatar
+import com.arkhins.ctrlaps.ui.components.PreviewLine
+import com.arkhins.ctrlaps.ui.components.Composer
+import com.arkhins.ctrlaps.ui.components.Divider
+import com.arkhins.ctrlaps.ui.components.Empty
+import com.arkhins.ctrlaps.ui.components.ErrorText
+import com.arkhins.ctrlaps.ui.components.Field
+import com.arkhins.ctrlaps.ui.components.Loading
+import com.arkhins.ctrlaps.ui.components.LocationCard
+import com.arkhins.ctrlaps.ui.components.locationIn
+import com.arkhins.ctrlaps.ui.components.PhotoGrid
+import com.arkhins.ctrlaps.ui.components.photoRuns
+import com.arkhins.ctrlaps.ui.components.runPhotos
+import com.arkhins.ctrlaps.ui.components.runText
+import com.arkhins.ctrlaps.ui.components.filesLabel
+import com.arkhins.ctrlaps.ui.components.textOf
+import com.arkhins.ctrlaps.data.FileInfo
+import com.arkhins.ctrlaps.data.attachments
+import com.arkhins.ctrlaps.ui.instant
+import com.arkhins.ctrlaps.ui.localTime
+import com.arkhins.ctrlaps.ui.theme.Danger
+import com.arkhins.ctrlaps.ui.theme.Gold
+import com.arkhins.ctrlaps.ui.theme.Night
+import com.arkhins.ctrlaps.ui.theme.NightLine
+import com.arkhins.ctrlaps.ui.theme.NightPanel
+import com.arkhins.ctrlaps.ui.theme.Snow
+import com.arkhins.ctrlaps.ui.theme.SnowFaint
+import com.arkhins.ctrlaps.ui.theme.SnowSoft
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+/** The chats tab: the chat list, and a swipe to the left for the broadcast channels. */
+@Composable
+fun ChatsScreen(vm: AppViewModel, page: Int, onPage: (Int) -> Unit, onOpen: (String) -> Unit, onNewChat: () -> Unit, onOpenWeekend: (String) -> Unit) {
+    val pager = rememberPagerState(initialPage = page) { 2 }
+    LaunchedEffect(page) { if (pager.currentPage != page) pager.animateScrollToPage(page) }
+    LaunchedEffect(pager.currentPage) { if (pager.currentPage != page) onPage(pager.currentPage) }
+    HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { i ->
+        if (i == 0) ChatListPage(vm, onOpen, onNewChat) else ChannelsScreen(vm, onOpenWeekend)
+    }
+}
+
+/** Private chats this person is part of. The pencil starts a new one with someone below. */
+@Composable
+private fun ChatListPage(vm: AppViewModel, onOpen: (String) -> Unit, onNewChat: () -> Unit) {
+    val app = LocalApp.current
+    var chats by remember { mutableStateOf(app.chatCache.peekList()) }
+    var error by remember { mutableStateOf<String?>(null) }
+    // Pull the list down at the top to slide the filter row out from under the header; push up to put it back.
+    var filters by remember { mutableStateOf(false) }
+    var filter by remember { mutableStateOf("all") }
+    val pull = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (filters && available.y < -4f && source == NestedScrollSource.UserInput) filters = false
+                return Offset.Zero
+            }
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (!filters && available.y > 4f && source == NestedScrollSource.UserInput) filters = true
+                return Offset.Zero
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (chats == null) app.chatCache.loadList()?.let { chats = it }
+        // Every chat's own copy into memory, so each row's last line can come from the phone at once.
+        chats?.forEach { c -> if (app.chatCache.peek(c.id) == null) app.appScope.launch { runCatching { app.chatCache.load(c.id) } } }
+    }
+    // Each chat's rows made ready whenever its copy changes, so tapping it only has to draw them.
+    val cacheVersion by app.chatCache.version.collectAsState()
+    LaunchedEffect(cacheVersion, chats) {
+        chats.orEmpty().forEach { c -> app.chatCache.peek(c.id)?.let { warmChatRows(c.id, it.messages) } }
+    }
+    LaunchedEffect(vm.refreshTick, vm.chatTick) {
+        try {
+            // A chat with nothing said in it yet is not worth a row.
+            val fresh = app.api.get("/api/conversations", ConversationsResponse.serializer()).conversations.filter { it.lastMessageAt != null }
+            val before = chats.orEmpty().associateBy { it.id }
+            chats = fresh
+            app.chatCache.saveList(fresh)
+            // Every chat's saved copy is read into memory now, so any of them opens with its messages already drawn.
+            fresh.forEach { c -> app.appScope.launch { runCatching { app.chatCache.load(c.id) } } }
+            // Every chat that moved (or that the phone has no copy of yet) syncs now, in the background,
+            // so opening it shows everything at once. Nothing is marked read by this.
+            fresh.filter { c -> before[c.id]?.let { it.lastMessageAt != c.lastMessageAt || it.unread != c.unread } ?: true || !app.chatCache.has(c.id) }
+                .forEach { c -> app.appScope.launch { runCatching { app.chatCache.sync(c.id, markRead = false) } } }
+            error = null
+        } catch (e: Exception) {
+            if (chats == null) error = e.message
+        }
+    }
+
+    val canOpen = vm.me?.user?.role != "race_official"
+    // Each row's last line from the phone's own copy when that is newer than the server's list: what was just
+    // sent (still with its clock) or just synced shows at once, without waiting for the list to come back.
+    val c = rememberPhoneLast(chats)
+    val shown = remember(c, filter) {
+        c?.filter {
+            when (filter) {
+                "unread" -> it.unread > 0
+                "groups" -> it.kind == "group"
+                else -> true
+            }
+        }
+    }
+    Box(Modifier.fillMaxSize()) {
+      Column(Modifier.fillMaxSize()) {
+        AnimatedVisibility(
+            visible = filters,
+            enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+            exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
+        ) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("all" to "All", "unread" to "Unread", "groups" to "Groups").forEach { (key, label) ->
+                    val on = filter == key
+                    Box(
+                        Modifier
+                            .background(if (on) Gold else NightPanel, RoundedCornerShape(999.dp))
+                            .border(1.dp, if (on) Gold else NightLine, RoundedCornerShape(999.dp))
+                            .clickable { filter = key }
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                    ) { Text(label, style = MaterialTheme.typography.labelMedium, color = if (on) Night else SnowSoft) }
+                }
+            }
+        }
+        LazyColumn(Modifier.weight(1f).nestedScroll(pull), contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)) {
+            when {
+                error != null && c == null -> item { Box(Modifier.padding(16.dp)) { ErrorText(error) } }
+                c == null || shown == null -> item { Loading() }
+                shown.isEmpty() -> item {
+                    Box(Modifier.padding(16.dp)) {
+                        Empty(
+                            when {
+                                filter == "unread" -> "Nothing unread."
+                                filter == "groups" -> "No groups yet."
+                                canOpen -> "No chats yet. Tap the pencil to start one."
+                                else -> "Race officials do not have private chats."
+                            },
+                        )
+                    }
+                }
+                else -> itemsIndexed(shown, key = { _, chat -> chat.id }) { i, chat ->
+                    if (i > 0) Box(Modifier.padding(start = 76.dp)) { Divider() }
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpen(chat.id) }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Avatar(app.api.absolute(chat.other.photoUrl), chat.other.name, 48)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(chat.other.name, style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                chat.lastStatus?.let { Ticks(it, tint = SnowFaint, modifier = Modifier.padding(end = 4.dp)) }
+                                PreviewLine(chat.lastMessage ?: chat.other.roleLabel, color = if (chat.unread > 0) Snow else SnowFaint, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            chat.lastMessageAt?.let { Text(whenLabel(it), style = MaterialTheme.typography.labelSmall, color = if (chat.unread > 0) Gold else SnowFaint) }
+                            if (chat.unread > 0) {
+                                Spacer(Modifier.height(4.dp))
+                                Box(Modifier.background(Gold, RoundedCornerShape(999.dp)).padding(horizontal = 7.dp, vertical = 2.dp)) {
+                                    Text("${chat.unread}", style = MaterialTheme.typography.labelSmall, color = Night)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+      }
+        if (canOpen) {
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(20.dp)
+                    .size(56.dp)
+                    .background(Gold, RoundedCornerShape(18.dp))
+                    .clickable(onClick = onNewChat),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Outlined.Create, contentDescription = "New chat", tint = Night) }
+        }
+    }
+}
+
+/**
+ * Chats with each row's last line from the phone's own copy when that is newer than the server's list: what was
+ * just sent (still with its clock), deleted or synced shows at once, in the chats list and on Home alike.
+ */
+@Composable
+fun rememberPhoneLast(chats: List<Conversation>?): List<Conversation>? {
+    val app = LocalApp.current
+    val copies by app.chatCache.version.collectAsState()
+    val queued by app.outbox.items.collectAsState()
+    return remember(chats, copies, queued) {
+        val waiting = queued.groupBy { it.conversationId }
+        chats?.map { chat ->
+            val pending = waiting[chat.id].orEmpty().map { if (it.failed) it.message.copy(status = "failed") else it.message }
+            withPhoneLast(chat, app.chatCache.peek(chat.id)?.messages.orEmpty() + pending)
+        }?.sortedByDescending { it.lastMessageAt?.let(::instant) }
+    }
+}
+
+/**
+ * A chat's row with its last line (and time and ticks) from [messages], the
+ * phone's own copy with anything still queued, when that is at least as new
+ * as what the server's list said; the server's row as it is otherwise.
+ */
+internal fun withPhoneLast(chat: Conversation, messages: List<Message>): Conversation {
+    val last = messages.maxByOrNull { instant(it.createdAt) } ?: return chat
+    val at = instant(last.createdAt)
+    val server = chat.lastMessageAt?.let(::instant)
+    if (server != null && server.isAfter(at)) return chat
+    val line = last.event ?: snippet(last)
+    if (line.isBlank()) return chat
+    // A group's line says who, as the server's does; an event line speaks for itself.
+    val who = when {
+        chat.kind != "group" || last.event != null -> ""
+        last.mine -> "You: "
+        else -> last.sender?.name?.let { "$it: " }.orEmpty()
+    }
+    val status = when {
+        !last.mine || last.deleted || last.event != null -> null
+        last.status == "pending" -> "pending"
+        chat.kind == "group" || last.status == "failed" -> null
+        else -> last.status
+    }
+    return chat.copy(lastMessage = who + line, lastMessageAt = if (server == null || at.isAfter(server)) last.createdAt else chat.lastMessageAt, lastStatus = status)
+}
+
+/** Pick someone below you to chat with. */
+@Composable
+fun NewChatScreen(onNewGroup: () -> Unit = {}, onOpened: (String) -> Unit) {
+    val app = LocalApp.current
+    val scope = rememberCoroutineScope()
+    var people by remember { mutableStateOf<List<PublicUser>?>(null) }
+    var filter by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        try {
+            people = app.store.get("/api/users?chat=1", UsersResponse.serializer()) { people = it.users }.users
+        } catch (e: Exception) {
+            error = e.message
+        }
+    }
+
+    val p = people
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(NightPanel)
+                .border(1.dp, NightLine, RoundedCornerShape(14.dp))
+                .clickable(onClick = onNewGroup)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(40.dp).background(Gold, RoundedCornerShape(999.dp)), contentAlignment = Alignment.Center) {
+                Icon(painterResource(R.drawable.ic_tab_people), contentDescription = null, tint = Night, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Text("New group", style = MaterialTheme.typography.titleSmall, color = Snow)
+        }
+        Spacer(Modifier.height(12.dp))
+        Field(filter, { filter = it }, "Search by name, team or role")
+        Spacer(Modifier.height(10.dp))
+        ErrorText(error)
+        when {
+            p == null && error == null -> Loading()
+            p != null && p.isEmpty() -> Empty("There is nobody you can chat with yet.")
+            p != null -> {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    items(p.filter { it.matches(filter) }, key = { it.id }) { u ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = !busy) {
+                                    busy = true
+                                    scope.launch {
+                                        try {
+                                            onOpened(app.api.post("/api/conversations", IdResponse.serializer()) { put("memberId", u.id) }.id)
+                                        } catch (e: Exception) {
+                                            error = e.message ?: "Could not open the chat."
+                                            busy = false
+                                        }
+                                    }
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Avatar(app.api.absolute(u.photoUrl), u.displayName, 44)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(u.displayName, style = MaterialTheme.typography.titleSmall, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(u.roleLabel + (u.teamName?.let { " · $it" } ?: ""), style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val dayHeader: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault())
+
+/** Your own private messages can be edited or deleted for 2 hours after sending (the server holds the same line). */
+private const val EDIT_WINDOW_MS = 2 * 60 * 60 * 1000L
+
+private fun changeable(m: Message): Boolean =
+    m.mine && !m.deleted && !m.id.startsWith("local-") && System.currentTimeMillis() - instant(m.createdAt).toEpochMilli() < EDIT_WINDOW_MS
+
+/** A message as a quote. */
+private fun refOf(m: Message) = m.attachments.firstOrNull().let { f -> ReplyRef(m.id, m.sender?.name ?: "Unknown", m.mine, m.body, f?.name, f?.mime, f?.document == true, m.deleted) }
+
+/**
+ * One line saying what a message was: its text, or what it carried. A quote
+ * only knows its first file; when the whole message is at hand, [files]
+ * lets several be counted ("📷 3 photos").
+ */
+private fun snippet(r: ReplyRef, files: List<FileInfo> = emptyList()): String {
+    val text = plainText(textOf(r.body)).trim()
+    return when {
+        r.deleted -> "This message was deleted"
+        text.isNotBlank() -> text
+        locationIn(r.body) != null -> "📍 Location"
+        files.isNotEmpty() -> filesLabel(files)
+        !r.fileDocument && r.fileMime?.startsWith("image/") == true -> "📷 Photo"
+        !r.fileDocument && r.fileMime?.startsWith("audio/") == true -> "🎤 Voice note"
+        r.fileName != null -> "📄 ${r.fileName}"
+        else -> ""
+    }
+}
+
+/** One line saying what a message was, counting all its files. */
+private fun snippet(m: Message): String = snippet(refOf(m), m.attachments)
+
+/** What the chat's list shows, in order: day separators and messages (a run of photos being one bubble). */
+private sealed interface ChatRow {
+    data class Day(val label: String) : ChatRow
+    data class Msg(val run: List<Message>) : ChatRow {
+        /** The newest of the run: its time and ticks are the bubble's. */
+        val m: Message get() = run.last()
+    }
+}
+
+/**
+ * A chat's rows, worked out ahead: the chat list and Home build them off the main thread (see [warmChatRows]) for
+ * each chat's copy on the phone, so opening a chat only lays them out. Kept per chat for the very list they were
+ * made from; anything else (a newer copy, messages still going) is built on the spot.
+ */
+private val rowsAhead = java.util.concurrent.ConcurrentHashMap<String, Pair<List<Message>, List<ChatRow>>>()
+
+private fun chatRows(conversationId: String, messages: List<Message>, pending: List<Message>): List<ChatRow> {
+    if (pending.isEmpty()) rowsAhead[conversationId]?.let { (from, rows) -> if (from === messages) return rows }
+    val rows = buildList {
+        // One header per day: a phone clock behind the server's could otherwise put a message just sent
+        // under a day already shown, and two rows with the same key would crash the list.
+        val days = mutableSetOf<String>()
+        // Photos sent together (or, from before batches, within a minute) show as one grid.
+        photoRuns(if (pending.isEmpty()) messages else messages + pending).forEach { run ->
+            val day = dayHeader.format(instant(run.first().createdAt).atZone(ZoneId.systemDefault()))
+            if (days.add(day)) add(ChatRow.Day(day))
+            add(ChatRow.Msg(run))
+        }
+    }
+    if (pending.isEmpty()) rowsAhead[conversationId] = messages to rows
+    return rows
+}
+
+/** Build a chat's rows now, off the main thread, for when it is opened. */
+suspend fun warmChatRows(conversationId: String, messages: List<Message>) {
+    if (rowsAhead[conversationId]?.first === messages) return
+    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { chatRows(conversationId, messages, emptyList()) }
+}
+
+/** Ticks on a message you sent that the other person has read. */
+private val ReadBlue = Color(0xFF0B5CAD)
+
+/**
+ * One private chat: bubbles, yours on the right, with day separators and the
+ * composer pinned below. Long-press a message for Reply, Edit and Delete;
+ * swipe it right to left to reply; tap a quote to go to the original.
+ */
+@Composable
+fun ChatScreen(
+    vm: AppViewModel,
+    conversationId: String,
+    onView: (FileView) -> Unit,
+    onSelection: (SelectionBar?) -> Unit = {},
+    searchOpen: Boolean = false,
+    onSearchClose: () -> Unit = {},
+    /** Bumped by the header menu: export this chat. */
+    exportTick: Int = 0,
+    /** Whether this chat may be exported: always a private chat, a group only by its admins. */
+    onCanExport: (Boolean) -> Unit = {},
+    onOpenChat: (String) -> Unit = {},
+    onOther: (OtherUser) -> Unit,
+) {
+    val app = LocalApp.current
+    val scope = rememberCoroutineScope()
+    // What the phone already holds for this chat, from the very first frame: no blank page while it opens.
+    var detail by remember { mutableStateOf(app.chatCache.peek(conversationId)) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var reload by remember { mutableStateOf(0) }
+    var replyTo by remember { mutableStateOf<Message?>(null) }
+    var editing by remember { mutableStateOf<Message?>(null) }
+    var deleting by remember { mutableStateOf<List<Message>?>(null) }
+    // Long-pressed messages; while any are, the header is the selection bar.
+    var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var forwarding by remember { mutableStateOf(false) }
+    // A message whose info (delivered, read, by whom) is open.
+    var infoFor by remember { mutableStateOf<Message?>(null) }
+    // Search: the words looked for, and which of the matching messages is shown.
+    var query by remember { mutableStateOf("") }
+    var hitAt by remember { mutableStateOf(0) }
+    // Export: what it is doing, then the zip it made.
+    var exporting by remember { mutableStateOf<String?>(null) }
+    var exported by remember { mutableStateOf<SavedDocument?>(null) }
+    var flash by remember { mutableStateOf<String?>(null) }
+    var actionError by remember { mutableStateOf<String?>(null) }
+    // Written here, not yet taken by the server: shown at once with a clock, from the outbox, which
+    // keeps them through a lost connection (or a closed app) and sends them when the network is back.
+    val queued by app.outbox.items.collectAsState()
+    val confirmed = remember(detail?.messages) { detail?.messages?.mapNotNull { it.clientId }?.toSet().orEmpty() }
+    val pending = remember(queued, confirmed) {
+        queued.filter { it.conversationId == conversationId && it.message.id !in confirmed }
+            .map { if (it.failed) it.message.copy(status = "failed") else it.message }
+    }
+    // How far each file still going up has got, for the circles over them.
+    val uploads by app.outbox.progress.collectAsState()
+    // One left the queue: the server's copy is in the phone's chat by now.
+    LaunchedEffect(pending.size) { app.chatCache.peek(conversationId)?.let { detail = it } }
+    // The screen follows the phone's copy of this chat, the way a messaging app's chat watches its database:
+    // a forward into it, a server copy swapped in, a background sync — whatever changes it shows at once.
+    val cacheVersion by app.chatCache.version.collectAsState()
+    LaunchedEffect(cacheVersion) {
+        val kept = app.chatCache.peek(conversationId) ?: return@LaunchedEffect
+        if (kept !== detail) detail = kept
+    }
+    val list = rememberLazyListState()
+
+    // The phone's copy first: the chat is there at once, even offline.
+    LaunchedEffect(conversationId) {
+        val cached = detail ?: app.chatCache.load(conversationId)?.also { if (detail == null) detail = it }
+        cached?.let { (it.other ?: it.group?.asOther())?.let(onOther) }
+    }
+    // Then only what changed, once the chat has finished sliding in: an answer landing mid-slide
+    // would redraw the whole list in the middle of the animation.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(conversationId, reload, vm.refreshTick) {
+        lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
+        try {
+            val d = app.chatCache.sync(conversationId, markRead = true)
+            detail = d
+            error = null
+            (d.other ?: d.group?.asOther())?.let(onOther)
+        } catch (e: Exception) {
+            if (detail == null) error = e.message
+        }
+    }
+    // The server nudges when this chat changes (a new message, an edit, ticks); a quick look every few seconds covers the rest.
+    LaunchedEffect(conversationId) {
+        Notifications.syncs.collect { s -> if (s.scope == "chat" && s.id == conversationId) reload++ }
+    }
+    LaunchedEffect(conversationId) {
+        while (true) {
+            delay(5_000)
+            reload++
+        }
+    }
+
+    val d = detail
+    val rows = remember(d?.messages, pending) { chatRows(conversationId, d?.messages.orEmpty(), pending) }
+    val byId = remember(d?.messages) { d?.messages?.associateBy { it.id } ?: emptyMap() }
+    LaunchedEffect(d?.group?.myRole, d != null) { if (d != null) onCanExport(d.group == null || d.group.myRole == "admin") }
+    // The list is laid out from the bottom (newest first, reversed), so a chat opens on its newest message
+    // with no scroll at all. Something new is brought into view when you are at the bottom or it is yours.
+    val shown = rows.asReversed()
+    var lastNewest by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(rows.size) {
+        val newest = (rows.lastOrNull() as? ChatRow.Msg)?.m ?: return@LaunchedEffect
+        val before = lastNewest
+        lastNewest = newest.id
+        if (before != null && before != newest.id && (newest.mine || list.firstVisibleItemIndex <= 2)) list.animateScrollToItem(0)
+    }
+
+    val context = LocalContext.current
+    /** Join or decline a group from its invitation; joining opens the group. */
+    fun answerInvite(inv: GroupInvite, accept: Boolean) {
+        scope.launch {
+            try {
+                app.api.post("/api/groups/invites/${inv.id}", InviteAnswer.serializer()) { put("accept", accept) }
+                reload++
+                if (accept) {
+                    Toast.makeText(context, "You joined ${inv.groupName}", Toast.LENGTH_SHORT).show()
+                    onOpenChat(inv.groupId)
+                }
+            } catch (e: Exception) {
+                actionError = e.message ?: "Could not answer the invitation."
+            }
+        }
+    }
+
+    /** A bubble picked or let go: a grid of several photo messages goes as one. */
+    fun toggle(run: List<Message>) {
+        // An invitation can be selected by whoever sent it, to see who it reached.
+        val ids = run.filterNot { m -> m.deleted || m.id.startsWith("local-") || (m.groupInvite != null && !m.mine) || m.event != null }.map { it.id }
+        if (ids.isEmpty()) return
+        selected = if (ids.all { it in selected }) selected - ids.toSet() else selected + ids
+    }
+    val clipboard = LocalClipboardManager.current
+    val myName = vm.me?.user?.displayName ?: "You"
+    DisposableEffect(Unit) { onDispose { onSelection(null) } }
+    // While this chat is on screen its messages need no notification or popup.
+    DisposableEffect(conversationId) {
+        Notifications.openChat = conversationId
+        onDispose { if (Notifications.openChat == conversationId) Notifications.openChat = null }
+    }
+    // Built in the same frame the selection changes, so the bar is there at once.
+    val bar = remember(selected, d?.messages) {
+        val chosen = d?.messages.orEmpty().filter { it.id in selected }
+        if (chosen.isEmpty()) return@remember null
+        val one = chosen.singleOrNull()
+        // An invitation card has only its info: it is not text to copy, forward, edit or reply to.
+        val invite = chosen.any { it.groupInvite != null }
+        val allMine = chosen.all { it.mine }
+        val allRecent = chosen.all { changeable(it) }
+        fun copy() {
+            // One message: its words alone. Several: each with its time and who said it, the way WhatsApp does.
+            val text = if (one != null) copyText(one)
+            else chosen.sortedBy { it.createdAt }.joinToString("\n") { "[${logStamp(it.createdAt)}] ${if (it.mine) myName else it.sender?.name ?: "Unknown"}: ${copyText(it)}" }
+            clipboard.setText(AnnotatedString(text))
+            Toast.makeText(context, if (one != null) "Copied" else "${chosen.size} messages copied", Toast.LENGTH_SHORT).show()
+            selected = emptySet()
+        }
+        SelectionBar(
+            count = chosen.size,
+            onClose = { selected = emptySet() },
+            actions = buildList {
+                // Your own message: who it reached, and when.
+                if (one != null && one.mine) add(SelectionAction("Info", vector = Icons.Outlined.Info) { infoFor = one; selected = emptySet() })
+                if (invite) return@buildList
+                if (one != null) add(SelectionAction("Reply", drawable = R.drawable.ic_reply) { editing = null; replyTo = one; selected = emptySet() })
+                if (one != null && one.mine) add(SelectionAction("Edit", enabled = allRecent, vector = Icons.Outlined.Edit) { replyTo = null; editing = one; selected = emptySet() })
+                add(SelectionAction("Copy", drawable = R.drawable.ic_copy, onClick = ::copy))
+                if (allMine) add(SelectionAction("Delete", enabled = allRecent, vector = Icons.Outlined.Delete) { deleting = chosen })
+                add(SelectionAction("Forward", drawable = R.drawable.ic_forward) { forwarding = true })
+                // Photos, documents, audio and voice notes, into the phone's own folders (see Saver).
+                val files = chosen.filterNot { it.id.startsWith("local-") }.flatMap { m -> m.attachments.map { it to m.createdAt } }
+                if (files.isNotEmpty()) add(SelectionAction("Save", drawable = R.drawable.ic_download) {
+                    selected = emptySet()
+                    saveAll(context, app, files)
+                })
+            },
+        )
+    }
+    SideEffect { onSelection(bar) }
+    LaunchedEffect(selected) {
+        val one = d?.messages?.singleOrNull { it.id in selected }
+        if (one != null && one.mine) prefetchMessageInfo(app, one.id)
+    }
+    LaunchedEffect(bar, selected) { if (bar == null && selected.isNotEmpty()) selected = emptySet() }
+
+    /** Scroll to a quoted message and light it up for a second. */
+    fun jump(id: String) {
+        val index = shown.indexOfFirst { r -> r is ChatRow.Msg && r.run.any { it.id == id } }
+        if (index < 0) return
+        scope.launch {
+            list.animateScrollToItem(index)
+            flash = id
+            delay(1000)
+            if (flash == id) flash = null
+        }
+    }
+
+    val hits = remember(query, rows) {
+        if (query.isBlank()) emptyList()
+        else rows.filterIsInstance<ChatRow.Msg>().flatMap { it.run }.filter { !it.deleted && it.body.contains(query.trim(), ignoreCase = true) }.map { it.id }
+    }
+    LaunchedEffect(hits) {
+        hitAt = (hits.size - 1).coerceAtLeast(0)
+        hits.lastOrNull()?.let(::jump)
+    }
+    LaunchedEffect(searchOpen) { if (!searchOpen) query = "" }
+    // The tick counts on across chats: only a tap made while this one is open is an export of it.
+    val exportTickAtOpen = remember { exportTick }
+    LaunchedEffect(exportTick) {
+        if (exportTick == exportTickAtOpen) return@LaunchedEffect
+        val other = d?.other ?: d?.group?.asOther() ?: return@LaunchedEffect
+        if (d?.group != null && d.group.myRole != "admin") {
+            actionError = "Only the group's admins can export it."
+            return@LaunchedEffect
+        }
+        exporting = "Fetching the chat…"
+        try {
+            // Everything the server has for this chat, not only the phone's copy.
+            val all = runCatching {
+                app.api.get("/api/conversations/$conversationId?read=0&limit=5000", ConversationDetail.serializer()).messages
+            }.getOrElse { d?.messages.orEmpty() }
+            exported = ChatExport(context, app.chatMedia, app.documents).export(other, myName, all) { exporting = it }
+        } catch (e: Exception) {
+            actionError = e.message ?: "Could not export."
+        }
+        exporting = null
+    }
+
+    Column(Modifier.fillMaxSize().imePadding()) {
+        if (searchOpen) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { Field(query, { query = it }, "Search messages") }
+                Text(
+                    if (query.isBlank()) "" else if (hits.isEmpty()) "0" else "${hitAt + 1}/${hits.size}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = SnowSoft,
+                    modifier = Modifier.padding(horizontal = 6.dp),
+                )
+                IconAction(Icons.Outlined.KeyboardArrowUp, "Older match", if (hitAt > 0) Gold else SnowFaint, enabled = hitAt > 0) {
+                    hitAt--
+                    hits.getOrNull(hitAt)?.let(::jump)
+                }
+                IconAction(Icons.Outlined.KeyboardArrowDown, "Newer match", if (hitAt < hits.size - 1) Gold else SnowFaint, enabled = hitAt < hits.size - 1) {
+                    hitAt++
+                    hits.getOrNull(hitAt)?.let(::jump)
+                }
+                IconAction(Icons.Outlined.Close, "Close search", SnowSoft, onClick = onSearchClose)
+            }
+        }
+        LazyColumn(Modifier.weight(1f), state = list, reverseLayout = true, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            when {
+                error != null && d == null -> item { ErrorText(error) }
+                d == null -> item { Loading() }
+                d.messages.isEmpty() && pending.isEmpty() -> item { Empty("No messages yet. Say hello.") }
+                else -> items(shown, key = { r -> if (r is ChatRow.Msg) r.run.first().id else "day-${(r as ChatRow.Day).label}" }) { r ->
+                    when (r) {
+                        is ChatRow.Day -> DaySeparator(r.label)
+                        is ChatRow.Msg -> if (r.m.event != null) EventLine(r.m.event.orEmpty()) else {
+                            val m = r.m
+                            // A run's quote is its first message's: a reply only ever starts one.
+                            val answers = r.run.first().replyTo
+                            // A quote reads as the original does now, when the phone has it.
+                            val quote = answers?.let { ref -> byId[ref.id]?.let(::refOf) ?: ref }
+                            Bubble(
+                                m = m,
+                                run = r.run,
+                                quote = quote,
+                                quoteText = answers?.let { ref -> byId[ref.id]?.let(::snippet) },
+                                flash = r.run.any { it.id == flash },
+                                selected = r.run.any { it.id in selected },
+                                selecting = selected.isNotEmpty(),
+                                highlight = query.trim().takeIf { q -> q.isNotBlank() && r.run.any { it.id in hits } },
+                                senderName = if (d.group != null && !m.mine) m.sender?.name else null,
+                                onInvite = ::answerInvite,
+                                onToggle = { toggle(r.run) },
+                                onView = onView,
+                                onReply = {
+                                    editing = null
+                                    replyTo = m
+                                },
+                                onQuote = ::jump,
+                                // A run's failed one (a photo of a batch the server turned down) is retried from anywhere on it.
+                                onRetry = r.run.lastOrNull { it.status == "failed" }?.let { f -> { app.outbox.retry(f.id) } },
+                                uploads = uploads,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        actionError?.let { ErrorText(it, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
+        val groupNow = d?.group
+        if (groupNow != null && !groupNow.canSend) {
+            Text(
+                "Only the group's admins can send here.",
+                style = MaterialTheme.typography.bodySmall,
+                color = SnowFaint,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+            )
+        } else Box(Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp)) {
+            val editingNow = editing
+            val replyingTo = replyTo
+            Composer(
+                placeholder = "Message",
+                polls = detail?.group != null,
+                banner = when {
+                    editingNow != null -> ComposerBanner("Edit message", snippet(editingNow)) { editing = null }
+                    replyingTo != null -> ComposerBanner(
+                        "Replying to ${if (replyingTo.mine) "yourself" else replyingTo.sender?.name ?: "message"}",
+                        snippet(replyingTo),
+                    ) { replyTo = null }
+                    else -> null
+                },
+                editText = editingNow?.body,
+                sendFiles = { files, caption, urgent ->
+                    actionError = null
+                    // Each file its own message, all on screen at once with a clock and a circle; the outbox copies
+                    // them onto the phone, uploads them and posts them in the background, even with the chat closed.
+                    val batch = UUID.randomUUID().toString()
+                    val now = Instant.now().toString()
+                    val items = files.mapIndexed { i, p ->
+                        val file = FileInfo("local-" + UUID.randomUUID(), p.name, p.mime, p.size, document = p.document)
+                        Queued(
+                            conversationId,
+                            Message(
+                                id = "local-" + UUID.randomUUID(),
+                                conversationId = conversationId,
+                                kind = "direct",
+                                // The words and the reply ride with the first.
+                                body = p.caption.ifBlank { if (i == 0) caption else "" },
+                                files = listOf(file),
+                                urgent = urgent,
+                                createdAt = now,
+                                mine = true,
+                                replyTo = if (i == 0) replyingTo?.let(::refOf) else null,
+                                status = "pending",
+                                batchId = if (files.size > 1) batch else null,
+                                batchPos = if (files.size > 1) i else null,
+                            ),
+                            replyToId = if (i == 0) replyingTo?.id else null,
+                            file = OutgoingFile(app.chatMedia.pathFor(file).path, p.name, p.mime, p.size, hd = p.hd),
+                            batch = batch,
+                            ready = false,
+                        )
+                    }
+                    app.outbox.sendFiles(items, files.map { it.uri })
+                    replyTo = null
+                },
+            ) { draft ->
+                actionError = null
+                // A poll or an event goes straight to the server (it needs its answer to show its card).
+                if (draft.poll != null || draft.event != null) {
+                    val r = app.api.post("/api/conversations/$conversationId", ChatSent.serializer()) {
+                        draft.poll?.let { p ->
+                            putJsonObject("poll") {
+                                put("question", p.question)
+                                putJsonArray("options") { p.options.forEach { add(it) } }
+                                put("multiple", p.multiple)
+                            }
+                        }
+                        draft.event?.let { putEvent(it) }
+                        put("clientId", "local-" + UUID.randomUUID())
+                    }
+                    r.message?.let { m -> app.chatCache.add(conversationId, m)?.let { detail = it } }
+                    if (draft.event != null) app.refreshEventReminders()
+                    reload++
+                    return@Composer
+                }
+                if (editingNow != null) {
+                    app.api.patch("/api/messages/${editingNow.id}", Ok.serializer()) { put("body", draft.body) }
+                    editing = null
+                } else if (draft.fileIds.isEmpty()) {
+                    // Text goes on screen at once; sending carries on even if the chat is closed.
+                    val local = Message(
+                        id = "local-" + UUID.randomUUID(),
+                        conversationId = conversationId,
+                        kind = "direct",
+                        body = draft.body,
+                        urgent = draft.urgent,
+                        createdAt = Instant.now().toString(),
+                        mine = true,
+                        replyTo = replyingTo?.let(::refOf),
+                        status = "pending",
+                        linkPreview = draft.link,
+                    )
+                    app.outbox.send(Queued(conversationId, local, replyingTo?.id))
+                    replyTo = null
+                    return@Composer
+                } else {
+                    val r = app.api.post("/api/conversations/$conversationId", ChatSent.serializer()) {
+                        put("body", draft.body)
+                        putJsonArray("fileIds") { draft.fileIds.forEach { add(it) } }
+                        put("urgent", draft.urgent)
+                        if (replyingTo != null) put("replyToId", replyingTo.id)
+                    }
+                    replyTo = null
+                    r.message?.let { m -> app.chatCache.add(conversationId, m)?.let { detail = it } }
+                }
+                reload++
+            }
+        }
+    }
+
+    deleting?.let { chosen ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            containerColor = NightPanel,
+            title = { Text(if (chosen.size == 1) "Delete message?" else "Delete ${chosen.size} messages?", color = Snow) },
+            text = { Text(if (chosen.size == 1) "It will be deleted for both of you." else "They will be deleted for both of you.", color = SnowSoft) },
+            confirmButton = {
+                TextButton(onClick = {
+                    deleting = null
+                    selected = emptySet()
+                    val ids = chosen.map { it.id }.toSet()
+                    if (editing?.id in ids) editing = null
+                    if (replyTo?.id in ids) replyTo = null
+                    detail = detail?.let { it.copy(messages = it.messages.map { m -> if (m.id in ids) m.copy(body = "", file = null, files = emptyList(), deleted = true) else m }) }
+                    app.appScope.launch {
+                        // On the phone first (the chats list and Home follow at once), then the server.
+                        app.chatCache.deleteLocally(conversationId, ids)
+                        // All at once; each is its own request, so the order doesn't matter.
+                        val failed = chosen.map { m -> async { runCatching { app.api.delete("/api/messages/${m.id}") }.isFailure } }.awaitAll().count { it }
+                        // The server's copy says deleted now (or, for one that failed, not: it comes back, as it should).
+                        app.chatCache.deleteDone(ids)
+                        runCatching { app.chatCache.sync(conversationId, markRead = true) }.getOrNull()?.let { fresh -> withContext(Dispatchers.Main) { detail = fresh } }
+                        withContext(Dispatchers.Main) {
+                            if (failed > 0) actionError = if (failed == 1) "One message could not be deleted." else "$failed messages could not be deleted."
+                            reload++
+                        }
+                    }
+                }) { Text("Delete", color = Danger) }
+            },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel", color = SnowFaint) } },
+        )
+    }
+    exporting?.let { status ->
+        AlertDialog(
+            onDismissRequest = {},
+            containerColor = NightPanel,
+            title = { Text("Exporting chat", color = Snow) },
+            text = { Row(verticalAlignment = Alignment.CenterVertically) { Loading(Modifier.width(48.dp)); Text(status, color = SnowSoft) } },
+            confirmButton = {},
+        )
+    }
+    exported?.let { doc ->
+        AlertDialog(
+            onDismissRequest = { exported = null },
+            containerColor = NightPanel,
+            title = { Text("Chat exported", color = Snow) },
+            text = { Text("Saved in CTRLAPS_Documents as ${doc.name}. Use Save or Share to keep a copy elsewhere. Inside: chat.html, chat.txt and the images, audio and documents.", color = SnowSoft) },
+            confirmButton = {
+                TextButton(onClick = {
+                    exported = null
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/zip"
+                        putExtra(Intent.EXTRA_STREAM, doc.uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    runCatching { context.startActivity(Intent.createChooser(send, "Share chat export")) }
+                }) { Text("Share", color = Gold) }
+            },
+            dismissButton = { TextButton(onClick = { exported = null }) { Text("Done", color = SnowFaint) } },
+        )
+    }
+    infoFor?.let { m -> MessageInfoSheet(m.id, conversationId, snippet(m)) { infoFor = null } }
+    if (forwarding) {
+        val chosen = d?.messages.orEmpty().filter { it.id in selected }.sortedBy { it.createdAt }
+        ForwardSheet(chosen.size, onDismiss = { forwarding = false }) { targets ->
+            forwarding = false
+            selected = emptySet()
+            Toast.makeText(context, if (targets.size == 1) "Forwarding to ${targets[0].other.name}" else "Forwarding to ${targets.size} chats", Toast.LENGTH_SHORT).show()
+            // Each target chat gets a clock copy at once, swapped in place for the server's (see forwardMessages).
+            app.appScope.launch {
+                val failed = forwardMessages(app.chatCache, app.api, chosen, targets.map { it.id })
+                withContext(Dispatchers.Main) {
+                    targets.filter { it.id in failed }.forEach { c -> Toast.makeText(context, "Could not forward to ${c.other.name}", Toast.LENGTH_SHORT).show() }
+                    if (targets.any { it.id == conversationId }) app.chatCache.peek(conversationId)?.let { detail = it }
+                    reload++
+                }
+            }
+        }
+    }
+}
+
+/** What copying a message puts on the clipboard: its words, or what it carried. */
+private fun copyText(m: Message): String = plainText(m.body).trim().ifBlank { snippet(m) }
+
+/** The message text with every match of the search lit up. */
+private fun highlighted(body: String, needle: String?, mine: Boolean) = buildAnnotatedString {
+    // Bold, italic, underline and strikethrough first (see Formatting.kt), then the search's matches over the words.
+    val shown = formatted(body)
+    append(shown)
+    // Every link underlined and tappable (it opens in the browser), as chat apps show them.
+    linkRanges(shown.text).forEach { (url, range) ->
+        addLink(LinkAnnotation.Url(url, TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline))), range.first, range.last + 1)
+    }
+    if (needle.isNullOrBlank()) return@buildAnnotatedString
+    val lit = SpanStyle(background = if (mine) Night.copy(alpha = 0.25f) else Gold.copy(alpha = 0.45f), color = if (mine) Night else Snow)
+    var from = 0
+    while (true) {
+        val at = shown.text.indexOf(needle, from, ignoreCase = true)
+        if (at < 0) break
+        addStyle(lit, at, at + needle.length)
+        from = at + needle.length
+    }
+}
+
+/** A line in a group chat about the group itself: who joined, left, was removed. */
+@Composable
+private fun EventLine(text: String) {
+    Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.background(NightPanel.copy(alpha = 0.7f), RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 4.dp)) {
+            Text(text, style = MaterialTheme.typography.labelSmall, color = SnowSoft, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+private fun DaySeparator(day: String) {
+    Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.background(NightPanel, RoundedCornerShape(999.dp)).border(1.dp, NightLine, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 4.dp)) {
+            Text(day, style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+        }
+    }
+}
+
+/**
+ * A chat bubble: gold on the right for what you sent, dark on the left for
+ * what came in. Long press opens its menu; dragging it right to left past
+ * the reply icon answers it; it glows for a second when a quote jumps here.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun Bubble(
+    m: Message,
+    /** Photo messages shown as this one bubble's grid, [m] being the last; just [m] otherwise. */
+    run: List<Message> = listOf(m),
+    quote: ReplyRef?,
+    /** The quote's line when the original is on the phone, counting all its files. */
+    quoteText: String? = null,
+    flash: Boolean,
+    selected: Boolean,
+    selecting: Boolean,
+    highlight: String? = null,
+    /** In a group: who said it (not shown for your own). */
+    senderName: String? = null,
+    onInvite: ((GroupInvite, Boolean) -> Unit)? = null,
+    onToggle: () -> Unit,
+    onView: (FileView) -> Unit,
+    onReply: () -> Unit,
+    onQuote: (String) -> Unit,
+    onRetry: (() -> Unit)?,
+    /** Upload progress of files still going up, by message id (see [com.arkhins.ctrlaps.data.Outbox.progress]). */
+    uploads: Map<String, Float> = emptyMap(),
+) {
+    val mine = m.mine
+    // Not yet on the server: nothing to reply to, edit or delete.
+    val local = m.id.startsWith("local-")
+    val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    val trigger = with(density) { 64.dp.toPx() }
+    val furthest = with(density) { 96.dp.toPx() }
+    val slide = remember { Animatable(0f) }
+    var armed by remember { mutableStateOf(false) }
+    val glow by animateColorAsState(if (flash) Gold.copy(alpha = 0.22f) else Color.Transparent, tween(350), label = "glow")
+    val shape = RoundedCornerShape(
+        topStart = 18.dp,
+        topEnd = 18.dp,
+        bottomStart = if (mine) 18.dp else 4.dp,
+        bottomEnd = if (mine) 4.dp else 18.dp,
+    )
+
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .background(if (selected) Gold.copy(alpha = 0.18f) else glow, RoundedCornerShape(12.dp))
+            // The whole row, not only the bubble: a long press anywhere beside it selects it too.
+            .combinedClickable(
+                enabled = !m.deleted && !local,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = { if (selecting) onToggle() },
+                onLongClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onToggle()
+                },
+            )
+            .pointerInput(m.id, m.deleted, selecting) {
+                if (m.deleted || local || selecting) return@pointerInput
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        if (slide.value <= -trigger) onReply()
+                        armed = false
+                        scope.launch { slide.animateTo(0f) }
+                    },
+                    onDragCancel = {
+                        armed = false
+                        scope.launch { slide.animateTo(0f) }
+                    },
+                ) { change, amount ->
+                    val next = (slide.value + amount).coerceIn(-furthest, 0f)
+                    if (next != slide.value) change.consume()
+                    scope.launch { slide.snapTo(next) }
+                    if (!armed && next <= -trigger) {
+                        armed = true
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    } else if (armed && next > -trigger) {
+                        armed = false
+                    }
+                }
+            },
+    ) {
+        if (slide.value < 0f) {
+            Icon(
+                painterResource(R.drawable.ic_reply),
+                contentDescription = null,
+                tint = Gold.copy(alpha = (-slide.value / trigger).coerceIn(0f, 1f)),
+                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp).size(22.dp),
+            )
+        }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(slide.value.roundToInt(), 0) },
+            horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
+        ) {
+            // Pictures sit in a thin frame; the caption, quote, files and time keep the usual inset.
+            val owned = if (run.size > 1) run.flatMap { r -> r.attachments.map { r to it } } else m.attachments.map { m to it }
+            val files = owned.map { it.second }
+            val photos = runPhotos(run)
+            // A file still going up: how far (below 0 until known); null for one on the server, or one turned down.
+            fun uploading(msg: Message): Float? =
+                if (msg.status == "pending" && msg.attachments.firstOrNull()?.id?.startsWith("local-") == true) uploads[msg.id] ?: -1f else null
+            // A link card is framed like a picture: a hairline of bubble round it.
+            val picture = !m.deleted && (photos.isNotEmpty() || m.linkPreview != null)
+            val inset = if (picture) Modifier.padding(horizontal = 9.dp) else Modifier
+            /** When it was sent (edited), the ticks, a failed send, the urgent mark: at the bubble's bottom right. */
+            val meta: @Composable () -> Unit = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        (if (m.editedAt != null && !m.deleted) "edited · " else "") + localTime(m.createdAt),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (mine) Night.copy(alpha = 0.6f) else SnowFaint,
+                    )
+                    when {
+                        run.any { it.status == "failed" } -> Text("  Not sent · tap to retry", style = MaterialTheme.typography.labelSmall, color = Danger)
+                        m.status != null && !m.deleted -> Ticks(m.status)
+                    }
+                    // Marked urgent: it also went out by email.
+                    if (run.any { it.urgent } && !m.deleted) Icon(Icons.Outlined.Email, contentDescription = "Also sent by email", tint = Danger, modifier = Modifier.padding(start = 4.dp).size(13.dp))
+                }
+            }
+            // A poll's message is its card, not its words.
+            // A card says the link: a message that is only the link shows the card alone.
+            val bodyText = if (m.poll != null || m.calendarEvent != null) "" else if (run.size > 1) runText(run) else textBesideCard(textOf(m.body), m.linkPreview)
+            val bodyLoc = if (run.size > 1) null else locationIn(m.body)
+            // The words come last (no location card after them): the time sits in their last line, as in WhatsApp.
+            val metaInline = m.deleted || (bodyText.isNotBlank() && m.groupInvite == null && bodyLoc == null)
+            Box {
+                Column(
+                    Modifier
+                        .widthIn(max = 300.dp)
+                        // With pictures the bubble is as wide as its widest part, and the grid fills it: no gap beside it.
+                        .then(if (picture) Modifier.width(IntrinsicSize.Max) else Modifier)
+                        // A message deleted, edited or with a photo taken out eases to its new size instead of snapping,
+                        // so the chat around it never jumps.
+                        .animateContentSize()
+                        .clip(shape)
+                        .background(if (mine) Gold else NightPanel)
+                        .border(1.dp, if (mine) Gold else NightLine, shape)
+                        .combinedClickable(
+                            enabled = !m.deleted && (!local || onRetry != null || selecting),
+                            onClick = { if (selecting) onToggle() else onRetry?.invoke() },
+                            onLongClick = {
+                                if (local) return@combinedClickable
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onToggle()
+                            },
+                        )
+                        .then(if (picture) Modifier.padding(start = 3.dp, end = 3.dp, top = 3.dp, bottom = 6.dp) else Modifier.padding(horizontal = 12.dp, vertical = 8.dp)),
+                ) {
+                    if (m.deleted) {
+                        TextWithMeta(
+                            AnnotatedString("This message was deleted"),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic, color = if (mine) Night.copy(alpha = 0.7f) else SnowFaint),
+                            meta = meta,
+                        )
+                    } else {
+                        if (senderName != null) {
+                            Text(senderName, style = MaterialTheme.typography.labelMedium, color = Gold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = inset)
+                            Spacer(Modifier.height(2.dp))
+                        }
+                        if (m.forwarded) {
+                            Row(inset, verticalAlignment = Alignment.CenterVertically) {
+                                Icon(painterResource(R.drawable.ic_forward), contentDescription = null, tint = if (mine) Night.copy(alpha = 0.6f) else SnowFaint, modifier = Modifier.size(13.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Forwarded", style = MaterialTheme.typography.labelSmall, fontStyle = FontStyle.Italic, color = if (mine) Night.copy(alpha = 0.6f) else SnowFaint)
+                            }
+                            Spacer(Modifier.height(2.dp))
+                        }
+                        quote?.let {
+                            Box(inset) { Quote(it, quoteText ?: snippet(it), onDark = !mine) { onQuote(it.id) } }
+                            Spacer(Modifier.height(4.dp))
+                        }
+                        m.groupInvite?.let { inv ->
+                            val open = inv.status == "pending" && (inv.expiresAt == null || instant(inv.expiresAt).toEpochMilli() > System.currentTimeMillis())
+                            InviteCard(inv, open = open, mine = mine, onDark = !mine, onAnswer = if (!mine && open && onInvite != null) ({ ok -> onInvite(inv, ok) }) else null)
+                        }
+                        // While messages are being picked, a tap on a photo picks this one too instead of opening it.
+                        // One still going up is not on the server yet: a tap on it opens nothing (or retries it, when
+                        // it failed). A grid opens with the photos that are sent; those still on their way are left out.
+                        val view: (FileView) -> Unit = { v ->
+                            val failedTap = when (v) {
+                                is FileView.Gallery -> v.photos[v.start].message.status == "failed"
+                                is FileView.Image -> run.any { r -> r.status == "failed" && r.attachments.any { it.id == v.file.id } }
+                                else -> false
+                            }
+                            when {
+                                selecting -> onToggle()
+                                failedTap && onRetry != null -> onRetry()
+                                else -> onView(v.stamped(run))
+                            }
+                        }
+                        PhotoGrid(
+                            photos,
+                            view,
+                            onLongPress = if (local) null else ({
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onToggle()
+                            }),
+                            fill = true,
+                            uploading = { uploading(it.message) },
+                        )
+                        owned.filterNot { it.second.isImage }.forEachIndexed { i, (msg, f) ->
+                            if (i > 0 || photos.isNotEmpty()) Spacer(Modifier.height(6.dp))
+                            Box(inset) { Attachment(f, view, onDark = !mine, uploading = uploading(msg)) }
+                        }
+                        // The words, then the place they point to: a Maps link on the last line becomes a card.
+                        val loc = bodyLoc
+                        val text = bodyText
+                        m.linkPreview?.let { card ->
+                            if (files.isNotEmpty()) Spacer(Modifier.height(6.dp))
+                            LinkCard(card, onDark = !mine, onLongPress = if (local) null else ({
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onToggle()
+                            }))
+                            if (text.isNotBlank()) Spacer(Modifier.height(4.dp))
+                        }
+                        if (text.isNotBlank() && m.groupInvite == null) {
+                            if (files.isNotEmpty()) Spacer(Modifier.height(6.dp))
+                            // Parsed once per text, not on every redraw of the bubble.
+                            val words = remember(text, highlight, mine) { highlighted(text, highlight, mine) }
+                            val wordsStyle = MaterialTheme.typography.bodyMedium.copy(color = if (mine) Night else Snow)
+                            if (metaInline) TextWithMeta(words, style = wordsStyle, meta = meta, modifier = inset)
+                            else Text(words, style = wordsStyle, modifier = inset)
+                        }
+                        m.poll?.let { Box(inset) { MessagePoll(m, onDark = !mine) } }
+                        m.calendarEvent?.let { Box(inset) { MessageEvent(m, onDark = !mine) } }
+                        if (loc != null) {
+                            if (files.isNotEmpty() || text.isNotBlank()) Spacer(Modifier.height(6.dp))
+                            Box(inset) { LocationCard(loc.first, loc.second, onDark = !mine) }
+                        }
+                    }
+                    // Text last: the time went in beside its last line (TextWithMeta). Otherwise it gets its own row.
+                    if (!metaInline) {
+                        Spacer(Modifier.height(2.dp))
+                        Row(Modifier.align(Alignment.End).then(inset)) { meta() }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A group invitation inside its bubble: the group's name, and Join / Decline for the person invited. */
+@Composable
+private fun InviteCard(inv: GroupInvite, open: Boolean, mine: Boolean, onDark: Boolean, onAnswer: ((Boolean) -> Unit)?) {
+    Column(
+        Modifier
+            .widthIn(min = 200.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (onDark) Night else Night.copy(alpha = 0.1f))
+            .padding(10.dp),
+    ) {
+        Text(if (inv.upward) "JOIN REQUEST" else "GROUP INVITATION", style = MaterialTheme.typography.labelSmall, color = if (onDark) Gold else Night.copy(alpha = 0.6f))
+        Text(inv.groupName, style = MaterialTheme.typography.titleMedium, color = if (onDark) Snow else Night)
+        Spacer(Modifier.height(6.dp))
+        val note = if (onDark) SnowSoft else Night.copy(alpha = 0.7f)
+        when {
+            inv.status == "accepted" -> Text("Joined", style = MaterialTheme.typography.labelMedium, color = note)
+            inv.status == "declined" -> Text("Declined", style = MaterialTheme.typography.labelMedium, color = note)
+            inv.status == "revoked" -> Text("Revoked", style = MaterialTheme.typography.labelMedium, color = note)
+            !open -> Text("Expired · good for 2 days", style = MaterialTheme.typography.labelMedium, color = note)
+            onAnswer == null -> Text(if (mine) "Waiting for an answer" else "Open", style = MaterialTheme.typography.labelMedium, color = note)
+            else -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GoldButton("Join") { onAnswer(true) }
+                GhostButton("Decline") { onAnswer(false) }
+            }
+        }
+    }
+}
+
+/** The message a reply answers, inside its bubble. Tapping it goes there. */
+@Composable
+private fun Quote(r: ReplyRef, text: String, onDark: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .widthIn(min = 120.dp)
+            .height(IntrinsicSize.Min)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (onDark) Night else Night.copy(alpha = 0.1f))
+            .clickable(onClick = onClick),
+    ) {
+        Box(Modifier.width(4.dp).fillMaxHeight().background(if (onDark) Gold else Night.copy(alpha = 0.5f)))
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+            Text(
+                if (r.mine) "You" else r.senderName,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (onDark) Gold else Night,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text,
+                style = MaterialTheme.typography.bodySmall,
+                fontStyle = if (r.deleted) FontStyle.Italic else FontStyle.Normal,
+                color = if (onDark) SnowSoft else Night.copy(alpha = 0.7f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** One tick sent, two delivered, three read (the read ones in blue). */
+@Composable
+private fun Ticks(status: String, tint: Color = Night.copy(alpha = 0.6f), modifier: Modifier = Modifier.padding(start = 4.dp)) {
+    val n = when (status) {
+        "read" -> 3
+        "delivered" -> 2
+        else -> 1
+    }
+    val color = if (status == "read") ReadBlue else tint
+    if (status == "pending") {
+        Canvas(modifier.size(11.dp)) {
+            val stroke = Stroke(width = size.width * 0.12f, cap = StrokeCap.Round)
+            val c = center
+            drawCircle(color, radius = size.width * 0.44f, style = stroke)
+            drawLine(color, c, c.copy(y = size.height * 0.24f), strokeWidth = stroke.width, cap = StrokeCap.Round)
+            drawLine(color, c, c.copy(x = size.width * 0.72f), strokeWidth = stroke.width, cap = StrokeCap.Round)
+        }
+        return
+    }
+    Canvas(modifier.size(width = ((10 + (n - 1) * 5) * 1.1f).dp, height = 11.dp)) {
+        val unit = size.height / 10f
+        repeat(n) { i ->
+            val x = i * 5f
+            val path = Path().apply {
+                moveTo((1f + x) * unit, 5.5f * unit)
+                lineTo((3.5f + x) * unit, 8f * unit)
+                lineTo((9f + x) * unit, 2f * unit)
+            }
+            drawPath(path, color, style = Stroke(width = 1.6f * unit, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+    }
+}

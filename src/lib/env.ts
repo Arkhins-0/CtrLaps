@@ -21,7 +21,7 @@ export const env = {
     region: read("AWS_REGION", "us-east-2"),
     bucket: read("S3_BUCKET"),
     /** The "folder" at the bucket's root that everything sits under. */
-    prefix: read("S3_PREFIX", "wink").replace(/^\/+|\/+$/g, ""),
+    prefix: read("S3_PREFIX", "arkhins").replace(/^\/+|\/+$/g, ""),
   },
 
   /** Transactional email. Only Brevo is implemented; a blank key disables email. */
@@ -29,7 +29,7 @@ export const env = {
     provider: read("EMAIL_PROVIDER", "brevo"),
     brevoApiKey: read("BREVO_API_KEY"),
     from: read("EMAIL_FROM"),
-    fromName: read("EMAIL_FROM_NAME", "Wink"),
+    fromName: read("EMAIL_FROM_NAME", "CTR[L]APS"),
   },
 
   /**
@@ -42,7 +42,12 @@ export const env = {
   },
 
   /** GitHub "owner/name" whose Releases carry the Android APKs. */
-  githubRepo: read("WINK_GITHUB_REPO", "Arkhins-0/wink").replace(/^\/+|\/+$/g, ""),
+  githubRepo: read(
+    "CTRLAPS_GITHUB_REPO",
+    process.env.VERCEL_GIT_REPO_OWNER && process.env.VERCEL_GIT_REPO_SLUG
+      ? `${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}`
+      : "",
+  ).replace(/^\/+|\/+$/g, ""),
   /** Optional token so release checks are not limited to 60 an hour. */
   githubToken: read("GITHUB_TOKEN"),
 };

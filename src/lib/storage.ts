@@ -18,7 +18,7 @@ import { env, isStorageConfigured } from "./env";
  * configured, the local `data/` directory otherwise (development without
  * credentials). Same operations either way, keyed by a relative path such
  * as `uploads/<id>/file.png`. Objects sit under one prefix (`S3_PREFIX`,
- * default `wink`).
+ * default `arkhins`).
  */
 
 export type Stored = { body: Buffer; contentType: string };
@@ -158,10 +158,10 @@ function s3(): Storage {
 
 declare global {
   // eslint-disable-next-line no-var
-  var __winkStorage: Storage | undefined;
+  var __ctrlapsStorage: Storage | undefined;
 }
 
 export function storage(): Storage {
-  if (!globalThis.__winkStorage) globalThis.__winkStorage = isStorageConfigured() ? s3() : local();
-  return globalThis.__winkStorage;
+  if (!globalThis.__ctrlapsStorage) globalThis.__ctrlapsStorage = isStorageConfigured() ? s3() : local();
+  return globalThis.__ctrlapsStorage;
 }

@@ -1,7 +1,7 @@
-# Wink for Android
+# CTR[L]APS for Android
 
-The Android app, in `android/` of the Wink repository. The website and API it
-talks to live one level up and deploy to `https://wink.arkhins.com`; see the
+The Android app, in `android/` of the CTR[L]APS repository. The website and API it
+talks to live one level up and deploy to the site set in `CTRLAPS_BASE_URL`; see the
 root README for what the app does.
 
 Kotlin, Jetpack Compose, Material 3. Minimum Android 8.0 (API 26), targets
@@ -14,7 +14,7 @@ What is inside:
 - **Permission gate.** Notifications (Android 13+) and storage (Android 9 and
   older) are asked for before anything else; the app does not continue until
   both are allowed and asks again after a refusal.
-- **Sign in, invite and reset links.** `https://wink.arkhins.com/invite/…`,
+- **Sign in, invite and reset links.** `<site>/invite/…`,
   `/reset/…` and `/v/…` open in the app when it is installed (App Links,
   verified against the site's `assetlinks.json`).
 - **Onboarding** once: photo (from the photo picker, shrunk before upload),
@@ -26,7 +26,7 @@ What is inside:
 - **Popups.** Firebase delivers messages as heads-up notifications; in the
   foreground they also show as a card at the top of the screen. Tapping either
   opens the right chat, weekend or message.
-- **Documents** are saved to `Downloads/Wink` the moment they are opened;
+- **Documents** are saved to `Downloads/CTRLAPS` the moment they are opened;
   PDFs read in the app, everything else opens with the app that handles it.
 - **In-app updates**, unchanged: a newer GitHub Release is offered as a popup
   and installed from inside the app.
@@ -43,9 +43,9 @@ sdk.dir=C:/Users/you/AppData/Local/Android/Sdk
 ```
 
 `app/google-services.json` (Firebase console → project settings → Android app
-`com.arkhins.wink`) must be present; it is gitignored, so download it once per
+`com.arkhins.ctrlaps`) must be present; it is gitignored, so download it once per
 machine. The debug build keeps its `.debug` application-id suffix only once
-that file also lists `com.arkhins.wink.debug` — add a second Android app with
+that file also lists `com.arkhins.ctrlaps.debug` — add a second Android app with
 that package in Firebase and re-download the file.
 
 ```bash
@@ -62,17 +62,17 @@ same key in the repository's root `.env`, `local.properties`, then
 
 | `.env` / environment  | Gradle property   | Default                                 | What it is |
 |-----------------------|-------------------|-----------------------------------------|------------|
-| `WINK_BASE_URL`       | `wink.baseUrl`    | `https://wink.arkhins.com`              | The Wink server. All API calls go through it. |
-| `WINK_UPDATE_URL`     | `wink.updateUrl`  | `<baseUrl>/api/app-version`             | Reports the latest release. |
-| `WINK_GITHUB_REPO`    | `wink.githubRepo` | `Arkhins-0/wink`                        | `owner/name` whose Releases carry the APKs. |
+| `CTRLAPS_BASE_URL`       | `ctrlaps.baseUrl`    | none: required                          | The CTR[L]APS server. All API calls go through it. |
+| `CTRLAPS_UPDATE_URL`     | `ctrlaps.updateUrl`  | `<baseUrl>/api/app-version`             | Reports the latest release. |
+| `CTRLAPS_GITHUB_REPO`    | `ctrlaps.githubRepo` | blank: no GitHub fallback               | `owner/name` whose Releases carry the APKs. |
 
 The session token lives in DataStore (`data/SessionStore.kt`) and is sent as a
-bearer header by `data/Api.kt` — only to `WINK_BASE_URL`, never to the storage
+bearer header by `data/Api.kt` — only to `CTRLAPS_BASE_URL`, never to the storage
 bucket a document download redirects to.
 
 ## Release
 
-Push a tag `vX.Y.Z.W` matching `winkVersionName` in `app/build.gradle.kts`.
+Push a tag `vX.Y.Z.W` matching `ctrlapsVersionName` in `app/build.gradle.kts`.
 `.github/workflows/release.yml` builds and signs the APKs and publishes the
 GitHub Release. Repository secrets: `ANDROID_KEYSTORE_BASE64`,
 `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`, and
@@ -85,11 +85,11 @@ The release certificate's SHA-256 is listed in the site's
 ## Layout
 
 ```
-app/src/main/java/com/arkhins/wink/
-  Config.kt, WinkApplication.kt, MainActivity.kt
+app/src/main/java/com/arkhins/ctrlaps/
+  Config.kt, CtrlapsApplication.kt, MainActivity.kt
   data/   SessionStore, Api (+ApiModels), Documents, UpdateChecker, AppUpdater
-  push/   Notifications (channel, heads-up), WinkMessagingService
-  ui/     WinkApp (permission gate → auth → main navigation), AppViewModel,
+  push/   Notifications (channel, heads-up), CtrlapsMessagingService
+  ui/     CtrlapsApp (permission gate → auth → main navigation), AppViewModel,
           Links (deep links → routes), Format (times)
     components/  Common, Frame (top bar, countdown chip, popup, bottom nav),
                  MessageCard (+ document sheet), Composer, UpdateAvailableDialog

@@ -1,4 +1,4 @@
--- Wink schema. Applied by `npm run migrate` (scripts/migrate.mjs), in order,
+-- CTR[L]APS schema. Applied by `npm run migrate` (scripts/migrate.mjs), in order,
 -- once each. Never edit an applied migration; add a new file.
 
 -- Every account. The hierarchy is the parent_id chain: the person who

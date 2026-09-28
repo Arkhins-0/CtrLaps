@@ -32,11 +32,11 @@ export function MessageInfoDialog({ messageId, preview, onClose }: { messageId: 
         .catch((e) => live && setError(e instanceof Error ? e.message : "Could not load the message info."));
     load();
     const timer = setInterval(load, 4_000);
-    window.addEventListener("wink:push", load);
+    window.addEventListener("ctrlaps:push", load);
     return () => {
       live = false;
       clearInterval(timer);
-      window.removeEventListener("wink:push", load);
+      window.removeEventListener("ctrlaps:push", load);
     };
   }, [messageId]);
 

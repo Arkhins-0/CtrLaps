@@ -57,7 +57,7 @@ export function LegalPage({ doc }: { doc: LegalDoc }) {
   return (
     <main className="mx-auto max-w-3xl px-5 py-10 sm:py-14">
       <Link href="/" className="mb-10 inline-flex items-center gap-3">
-        <Image src="/ctr-logo.png" alt="" width={48} height={28} priority />
+        <Image src="/logo.png" alt="" width={40} height={39} priority />
         <span className="text-xl font-bold tracking-tight">{APP_NAME}</span>
       </Link>
       <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{doc.title}</h1>

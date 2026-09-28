@@ -21,7 +21,12 @@ if (!url) {
   console.error("DATABASE_URL is not set.");
   process.exit(1);
 }
-const site = (process.env.NEXT_PUBLIC_SITE_URL || "https://wink.arkhins.com").replace(/\/+$/, "");
+const siteEnv = process.env.NEXT_PUBLIC_SITE_URL;
+if (!siteEnv) {
+  console.error("NEXT_PUBLIC_SITE_URL is not set (the site's address, e.g. https://example.com).");
+  process.exit(1);
+}
+const site = siteEnv.replace(/\/+$/, "");
 
 const ALPHABET = "ACDEFGHJKLMNPQRSTUVWXYZ2345679";
 const code = () => {
@@ -65,10 +70,10 @@ try {
       method: "POST",
       headers: { "api-key": process.env.BREVO_API_KEY, "content-type": "application/json" },
       body: JSON.stringify({
-        sender: { email: process.env.EMAIL_FROM, name: process.env.EMAIL_FROM_NAME || "Wink" },
+        sender: { email: process.env.EMAIL_FROM, name: process.env.EMAIL_FROM_NAME || "CTR[L]APS" },
         to: [{ email }],
-        subject: "Your Wink admin account",
-        htmlContent: `<p>Your Wink admin account is ready. Open the link to choose a password:</p><p><a href="${link}">${link}</a></p><p>It works for 7 days.</p>`,
+        subject: "Your CTR[L]APS admin account",
+        htmlContent: `<p>Your CTR[L]APS admin account is ready. Open the link to choose a password:</p><p><a href="${link}">${link}</a></p><p>It works for 7 days.</p>`,
       }),
     });
     console.log(response.ok ? "invite emailed" : `email failed: ${response.status} ${await response.text()}`);

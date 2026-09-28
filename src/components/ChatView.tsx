@@ -119,11 +119,11 @@ export function ChatView({
   useEffect(() => {
     const look = () => document.visibilityState === "visible" && reload();
     const timer = setInterval(look, 4_000);
-    window.addEventListener("wink:push", reload);
+    window.addEventListener("ctrlaps:push", reload);
     document.addEventListener("visibilitychange", look);
     return () => {
       clearInterval(timer);
-      window.removeEventListener("wink:push", reload);
+      window.removeEventListener("ctrlaps:push", reload);
       document.removeEventListener("visibilitychange", look);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
