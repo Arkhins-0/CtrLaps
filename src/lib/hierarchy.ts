@@ -104,7 +104,7 @@ type ChatParty = Pick<UserRow, "id" | "role" | "parent_id">;
 
 /**
  * Private chats run in both directions between almost anyone. The
- * exceptions: race officials and unassigned users have no private chat; a volunteer reaches
+ * exceptions: unassigned users have no private chat; a volunteer reaches
  * only other volunteers and their own coordinator; security reaches only
  * coordinators. Admins reach everyone that has a chat at all.
  */
@@ -140,9 +140,9 @@ const LEVEL: Record<Role, number> = {
  * at all). Straight in go people at your own level and those your role
  * looks after: an admin brings coordinators; a coordinator brings team
  * managers, security heads and their own volunteers; a team manager their
- * own racers and crew; a security head their own security. Racers, crew
- * and security bring their own teammates. Race officials and unassigned
- * users have no chats, so no groups either.
+ * own racers and crew; a security head their own security. Race officials
+ * bring race officials; racers, crew and security their own teammates.
+ * Unassigned users have no chats, so no groups either.
  */
 export function groupAddMode(actor: ChatParty, target: ChatParty): "direct" | "request" | null {
   if (actor.id === target.id || !hasChats(actor.role) || !hasChats(target.role)) return null;
@@ -161,6 +161,8 @@ export function groupAddMode(actor: ChatParty, target: ChatParty): "direct" | "r
     case "security_head":
       if (target.role === "security_head") return "direct";
       return target.role === "security" && target.parent_id === actor.id ? "direct" : null;
+    case "race_official":
+      return target.role === "race_official" ? "direct" : null;
     case "volunteer":
       return target.role === "volunteer" ? "direct" : null;
     case "racer":

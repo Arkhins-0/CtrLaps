@@ -51,8 +51,8 @@ export const CREATE_RULES: Partial<Record<Role, Role[]>> = {
   security_head: ["security"],
 };
 
-/** Roles with no private chats or groups: they read announcements and race-weekend channels only. */
-export const NO_CHAT_ROLES: Role[] = ["race_official", "user"];
+/** Roles with no private chats or groups, and no Chats tab: they read announcements and race-weekend channels only. */
+export const NO_CHAT_ROLES: Role[] = ["user"];
 export const hasChats = (role: Role): boolean => !NO_CHAT_ROLES.includes(role);
 
 export const canCreate = (creator: Role, role: Role): boolean => (CREATE_RULES[creator] ?? []).includes(role);

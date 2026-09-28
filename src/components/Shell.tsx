@@ -19,7 +19,7 @@ const NAV: { href: string; label: string; icon: IconName }[] = [
   { href: "/archive", label: "Archive", icon: "archive" },
 ];
 
-export type ShellUser = { name: string; roleLabel: string; photoUrl: string | null };
+export type ShellUser = { name: string; roleLabel: string; photoUrl: string | null; hasChats: boolean };
 
 /**
  * The signed-in frame. On a laptop: a sidebar with the navigation and the
@@ -31,6 +31,8 @@ export function Shell({ user, unreadHome, unreadChats, children }: { user: Shell
   const pathname = usePathname();
   const [badges, setBadges] = useState({ home: unreadHome, chats: unreadChats });
   const onUnread = useCallback((home: number, chats: number) => setBadges({ home, chats }), []);
+  // No Chats tab for someone without chats: their channels are on Schedule and Home.
+  const nav = NAV.filter((n) => n.href !== "/chats" || user.hasChats);
   const active = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const badge = (href: string) => (href === "/home" ? badges.home : href === "/chats" ? badges.chats : 0);
   // A chat thread wants the whole phone screen: no bottom bar under the composer.
@@ -51,7 +53,7 @@ export function Shell({ user, unreadHome, unreadChats, children }: { user: Shell
             <span className="text-lg font-semibold tracking-tight">{APP_NAME}</span>
           </Link>
           <nav className="flex-1 space-y-1 px-3">
-            {NAV.map((item) => (
+            {nav.map((item) => (
               <Link key={item.href} href={item.href} className={`nav-link ${active(item.href) ? "nav-link-active" : ""}`}>
                 <Icon name={item.icon} className={`h-5 w-5 ${active(item.href) ? "text-gold" : ""}`} />
                 <span className="flex-1">{item.label}</span>
@@ -96,7 +98,7 @@ export function Shell({ user, unreadHome, unreadChats, children }: { user: Shell
       {!immersive && (
         <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-night-line bg-night/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
           <div className="flex items-center justify-around py-2">
-            {NAV.filter((n) => n.href !== "/archive").map((item) => (
+            {nav.filter((n) => n.href !== "/archive").map((item) => (
               <Link key={item.href} href={item.href} aria-label={item.label} className={`relative rounded-2xl p-3 ${active(item.href) ? "bg-snow/10 text-gold" : "text-snow-faint"}`}>
                 <Icon name={item.icon} className="h-6 w-6" />
                 {badge(item.href) > 0 && <span className="badge absolute -right-1 -top-1">{badge(item.href) > 99 ? "99+" : badge(item.href)}</span>}

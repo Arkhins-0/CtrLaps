@@ -285,6 +285,7 @@ private fun MainNav(vm: AppViewModel) {
                 unreadChats = vm.unreadChats,
                 photoUrl = app.api.absolute(vm.me?.user?.photoUrl),
                 name = vm.me?.user?.displayName ?: "?",
+                showChats = vm.me?.user?.role != "user",
             ) { dest ->
                 nav.navigate(dest) {
                     popUpTo("home") { inclusive = dest == "home" }

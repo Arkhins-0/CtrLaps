@@ -227,11 +227,12 @@ fun CountdownChip(onOpenWeekend: (String) -> Unit) {
  * photo. Unread counts sit on Home and Chats.
  */
 @Composable
-fun BottomNav(current: String, unreadHome: Int, unreadChats: Int, photoUrl: String?, name: String, onSelect: (String) -> Unit) {
-    val tabs = listOf(
+fun BottomNav(current: String, unreadHome: Int, unreadChats: Int, photoUrl: String?, name: String, showChats: Boolean, onSelect: (String) -> Unit) {
+    // No Chats tab for someone without chats: their channels are on Schedule and Home.
+    val tabs = listOfNotNull(
         Triple("home", R.drawable.ic_tab_home, "Home"),
         Triple("schedule", R.drawable.ic_tab_calendar, "Schedule"),
-        Triple("chats", R.drawable.ic_tab_chat, "Chats"),
+        Triple("chats", R.drawable.ic_tab_chat, "Chats").takeIf { showChats },
         Triple("people", R.drawable.ic_tab_people, "People"),
     )
     Row(
