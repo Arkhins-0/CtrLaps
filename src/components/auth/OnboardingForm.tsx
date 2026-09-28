@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, shrinkImage } from "@/lib/client";
 
-/** Photo, name, date of birth, contact number — once. */
-export function OnboardingForm() {
+/** Photo, name, date of birth, contact number — once. A photo the person's manager already set can be kept. */
+export function OnboardingForm({ existingPhotoUrl }: { existingPhotoUrl: string | null }) {
   const router = useRouter();
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export function OnboardingForm() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!photo) return setError("Add a photo of yourself.");
+    if (!photo && !existingPhotoUrl) return setError("Add a photo of yourself.");
     setBusy(true);
     setError(null);
     try {
@@ -33,7 +33,7 @@ export function OnboardingForm() {
       form.set("name", name);
       form.set("dob", dob);
       form.set("phone", phone);
-      form.set("photo", await shrinkImage(photo), "photo.jpg");
+      if (photo) form.set("photo", await shrinkImage(photo), "photo.jpg");
       await api("/api/me/profile", { method: "POST", body: form });
       router.replace("/home");
       router.refresh();
@@ -48,14 +48,14 @@ export function OnboardingForm() {
       <p className="text-sm text-snow-soft">These details go on your account and cannot be changed by you afterwards.</p>
       {error && <p className="error">{error}</p>}
       <label className="flex cursor-pointer items-center gap-4">
-        {preview ? (
-          <img src={preview} alt="" className="h-20 w-20 rounded-full border border-night-line object-cover" />
+        {preview || existingPhotoUrl ? (
+          <img src={preview ?? existingPhotoUrl!} alt="" className="h-20 w-20 rounded-full border border-night-line object-cover" />
         ) : (
           <span className="flex h-20 w-20 items-center justify-center rounded-full border border-dashed border-snow/30 text-xs text-snow-faint">
             Photo
           </span>
         )}
-        <span className="btn-ghost text-xs">{photo ? "Change photo" : "Add photo"}</span>
+        <span className="btn-ghost text-xs">{photo || existingPhotoUrl ? "Change photo" : "Add photo"}</span>
         <input type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
       </label>
       <div>

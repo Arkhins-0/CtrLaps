@@ -11,7 +11,7 @@ export default async function Onboarding() {
   if (user.profile_completed_at) redirect("/home");
   return (
     <AuthCard title="Your profile">
-      <OnboardingForm />
+      <OnboardingForm existingPhotoUrl={user.photo_key ? `/api/users/${user.id}/photo` : null} />
     </AuthCard>
   );
 }
