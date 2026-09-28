@@ -52,6 +52,9 @@ export function SignInForm({ next }: { next?: string }) {
       <button className="btn-gold w-full" disabled={busy}>
         {busy ? "Signing in…" : "Sign in"}
       </button>
+      <Link href="/register" className="btn-ghost w-full">
+        Create an account
+      </Link>
       <div className="flex justify-between text-xs text-snow-faint">
         <Link href="/forgot" className="hover:text-snow">
           Forgot password

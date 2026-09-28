@@ -4,6 +4,7 @@ import { Icon } from "@/components/Icon";
 import { NewGroupForm } from "@/components/groups/NewGroupForm";
 import { pickPerson } from "@/components/groups/people";
 import { groupCandidates } from "@/lib/hierarchy";
+import { hasChats } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 import { toPublic } from "@/lib/users";
 
@@ -12,7 +13,7 @@ export const metadata = { title: "New group" };
 /** Name a group and pick who is in it: everyone you may bring in, the ones higher up marked. */
 export default async function NewGroup() {
   const user = await requireProfile();
-  if (user.role === "race_official") notFound();
+  if (!hasChats(user.role)) notFound();
   const people = (await groupCandidates(user)).map((x) => pickPerson({ ...toPublic(x.user), groupMode: x.mode }));
   return (
     <div className="h-full min-h-0 space-y-4 overflow-y-auto pb-4">

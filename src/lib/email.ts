@@ -101,6 +101,32 @@ export async function sendInvite(to: Recipient, token: string, invitedBy: string
   );
 }
 
+export async function sendSignup(email: string, token: string) {
+  const url = `${SITE_URL}/register/${token}`;
+  await sendEmail(
+    [{ email }],
+    `Confirm your email for ${APP_NAME}`,
+    layout(
+      "Confirm your email",
+      `Open the link to confirm this is your email, choose a password and create your ${APP_NAME} account. It works for 24 hours. If you did not ask for this, ignore this mail.`,
+      { label: "Create my account", url },
+    ),
+  );
+}
+
+/** Someone tried to register with an email that already has an account. */
+export async function sendAlreadyRegistered(email: string) {
+  await sendEmail(
+    [{ email }],
+    `You already have a ${APP_NAME} account`,
+    layout(
+      "You already have an account",
+      `Someone asked to register this email, but it already has a ${APP_NAME} account. Sign in, or choose a new password if you have forgotten it. If this was not you, ignore this mail.`,
+      { label: "Choose a new password", url: `${SITE_URL}/forgot` },
+    ),
+  );
+}
+
 export async function sendReset(to: Recipient, token: string) {
   const url = `${SITE_URL}/reset/${token}`;
   await sendEmail(

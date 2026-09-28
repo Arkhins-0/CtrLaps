@@ -7,6 +7,7 @@ import { groupAddMode } from "./hierarchy";
 import { groupEvent, personCard, popupData, sendGroupInvite, type PersonCard, type PersonRow } from "./messages";
 import { storeImage } from "./profile";
 import { pushSync, pushTo } from "./push";
+import { hasChats } from "./roles";
 import { userById, usersByIds } from "./users";
 
 /*
@@ -94,7 +95,7 @@ export async function groupInfo(user: SessionUser, id: string): Promise<GroupInf
 
 /** A new group with its maker as admin; everyone named is invited. */
 export async function createGroup(user: SessionUser, name: string, memberIds: string[]): Promise<{ id: string; skipped: string[] }> {
-  if (user.role === "race_official") throw new AuthError(403, "Race officials do not have chats.");
+  if (!hasChats(user.role)) throw new AuthError(403, "Your account does not have chats.");
   const clean = name.trim().slice(0, 80);
   if (clean.length < 2) throw new AuthError(400, "Give the group a name.");
   const row = await one<{ id: string }>(
