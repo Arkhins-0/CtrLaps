@@ -1,5 +1,12 @@
 package com.arkhins.ctrlaps.ui.components
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.res.painterResource
+import com.arkhins.ctrlaps.R
 import com.arkhins.ctrlaps.ui.theme.OnGold
 import com.arkhins.ctrlaps.ui.theme.Danger
 import androidx.compose.foundation.background
@@ -66,6 +73,20 @@ fun IdCard(v: Verified) {
             Text(Config.APP_NAME.uppercase(), style = MaterialTheme.typography.labelMedium, color = Gold, letterSpacing = 3.sp)
             Spacer(Modifier.weight(1f))
             Text(v.roleLabel.uppercase(), style = MaterialTheme.typography.labelMedium, color = SnowSoft, letterSpacing = 1.sp)
+            // The same star as Verify's list: starred people are pinned there.
+            val starred by app.verifyHistory.starred.collectAsState()
+            val on = v.id in starred
+            Box(
+                Modifier.padding(start = 8.dp).size(32.dp).clip(CircleShape).clickable { app.verifyHistory.toggleStar(v) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painterResource(if (on) R.drawable.ic_star else R.drawable.ic_star_border),
+                    contentDescription = if (on) "Unstar" else "Star",
+                    tint = if (on) Gold else SnowFaint,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
         Spacer(Modifier.height(20.dp))
         val photo = app.api.absolute(v.photoUrl)

@@ -39,6 +39,16 @@ class VerifyHistory(context: Context) {
         prefs.edit().putString(STARRED, json.encodeToString(SetSerializer(String.serializer()), _starred.value)).apply()
     }
 
+    /** Star or unstar someone from their own page: starring keeps them on Verify's list even if never checked there. */
+    fun toggleStar(person: Verified) {
+        val starring = person.id !in _starred.value
+        toggleStar(person.id)
+        if (starring && _checks.value.none { it.person.id == person.id }) {
+            _checks.value = listOf(RecentCheck(person, System.currentTimeMillis())) + _checks.value
+            save()
+        }
+    }
+
     /** Forget the checks that are not starred. */
     fun clearUnstarred() {
         _checks.value = _checks.value.filter { it.person.id in _starred.value }
