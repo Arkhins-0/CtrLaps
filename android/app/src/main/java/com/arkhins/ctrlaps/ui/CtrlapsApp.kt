@@ -374,7 +374,7 @@ private fun MainNav(vm: AppViewModel) {
                 var t by remember { mutableStateOf("") }
                 Pushed(t) { PersonScreen(vm.me, e.arguments?.getString("id") ?: "", onOpenChat = openChat) { t = it } }
             }
-            composable("newperson") { Pushed("Add person") { NewPersonScreen(vm.me) { id -> nav.navigate("person/$id") { popUpTo("people") } } } }
+            composable("newperson") { Pushed("Add or promote") { NewPersonScreen(vm.me) { id -> nav.navigate("person/$id") { popUpTo("people") } } } }
             composable("email") { Pushed("Email") { EmailScreen(null) { nav.popBackStack() } } }
             composable("email?group={group}") { e -> Pushed("Email") { EmailScreen(e.arguments?.getString("group")) { nav.popBackStack() } } }
 

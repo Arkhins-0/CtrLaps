@@ -1,5 +1,29 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.res.painterResource
+import com.arkhins.ctrlaps.R
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import com.arkhins.ctrlaps.ui.theme.Night
+import com.arkhins.ctrlaps.ui.theme.NightLine
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import com.arkhins.ctrlaps.ui.components.SquareCropDialog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -91,6 +115,9 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
     var error by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
     var mailMenu by remember { mutableStateOf(false) }
+    var filterMenu by remember { mutableStateOf(false) }
+    // Roles left out of the list; people who registered and have no role yet start hidden.
+    var hiddenRoles by rememberSaveable { mutableStateOf(listOf("user")) }
 
     LaunchedEffect(Unit) {
         try {
@@ -104,12 +131,38 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
     val canCreate = me?.canCreate?.isNotEmpty() == true
     val canEmail = me?.canBulkEmail == true || me?.canRelay == true
     val p = people?.filter { u ->
-        query.isBlank() || "${u.displayName} ${u.roleLabel} ${u.teamName ?: ""}".contains(query.trim(), ignoreCase = true)
+        u.role !in hiddenRoles && (query.isBlank() || "${u.displayName} ${u.roleLabel} ${u.teamName ?: ""}".contains(query.trim(), ignoreCase = true))
     }
+    val presentRoles = ROLE_ORDER.filter { r -> people?.any { it.role == r } == true }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Field(query, { query = it }, "Search", modifier = Modifier.weight(1f), placeholder = "Name, designation or team")
+                if (presentRoles.isNotEmpty()) {
+                    Box {
+                        IconAction(painterResource(R.drawable.ic_filter), "Filter by role", Gold) { filterMenu = true }
+                        DropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }, containerColor = NightPanel) {
+                            Text("SHOW", style = MaterialTheme.typography.labelSmall, color = SnowFaint, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                            presentRoles.forEach { r ->
+                                val shown = r !in hiddenRoles
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Checkbox(
+                                                checked = shown,
+                                                onCheckedChange = null,
+                                                colors = CheckboxDefaults.colors(checkedColor = Gold, checkmarkColor = Night, uncheckedColor = SnowFaint),
+                                            )
+                                            Spacer(Modifier.width(10.dp))
+                                            Text(ROLE_LABELS[r] ?: r, color = Snow)
+                                        }
+                                    },
+                                    onClick = { hiddenRoles = if (shown) hiddenRoles + r else hiddenRoles - r },
+                                )
+                            }
+                        }
+                    }
+                }
                 if (canCreate) IconAction(Icons.Outlined.Add, "Add person", Gold, onClick = onAdd)
                 if (canEmail) {
                     Box {
@@ -127,7 +180,15 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
         when {
             error != null && p == null -> item { ErrorText(error) }
             p == null -> item { Loading() }
-            p.isEmpty() -> item { Empty(if (people?.isEmpty() == true) (if (canCreate) "Nobody yet. Add the first person." else "Nobody reports to you.") else "No one matches.") }
+            p.isEmpty() -> item {
+                Empty(
+                    when {
+                        people?.isEmpty() == true -> if (canCreate) "Nobody yet. Add the first person." else "Nobody reports to you."
+                        query.isBlank() -> "Everyone here is hidden by the filter. Tap the filter icon to show them."
+                        else -> "No one matches."
+                    },
+                )
+            }
             else -> {
                 val groups = ROLE_ORDER.mapNotNull { r -> p.filter { it.role == r }.takeIf { it.isNotEmpty() }?.let { r to it } }
                 items(groups, key = { it.first }) { (role, list) ->
@@ -180,6 +241,13 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
     var busy by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var reload by remember { mutableStateOf(0) }
+    val context = LocalContext.current
+    var cropping by remember { mutableStateOf<Bitmap?>(null) }
+    // A photo picked while the edit form is open waits for Save; otherwise it is saved at once.
+    var newPhoto by remember { mutableStateOf<Bitmap?>(null) }
+    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch { cropping = withContext(Dispatchers.IO) { loadShrunk(context, uri, 1600) } }
+    }
 
     LaunchedEffect(userId, reload) {
         try {
@@ -210,6 +278,25 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
     }
 
     val d = data
+    cropping?.let { src ->
+        SquareCropDialog(src, onCancel = { cropping = null }) { square ->
+            cropping = null
+            if (editing) {
+                newPhoto = square
+                return@SquareCropDialog
+            }
+            run("Photo changed.") {
+                val file = withContext(Dispatchers.IO) {
+                    File(context.cacheDir, "photo.jpg").also { f -> f.outputStream().use { square.compress(Bitmap.CompressFormat.JPEG, 85, it) } }
+                }
+                try {
+                    app.api.postForm("/api/users/$userId/photo", emptyMap(), "photo" to file, "image/jpeg", Ok.serializer())
+                } finally {
+                    file.delete()
+                }
+            }
+        }
+    }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (d == null) {
             item { if (error != null) ErrorText(error) else Loading() }
@@ -219,7 +306,9 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
         item {
             Panel {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(app.api.absolute(u.photoUrl), u.displayName, 64)
+                    EditablePhoto(app.api.absolute(u.photoUrl), null, u.displayName, 64, editable = d.canEdit && !busy) {
+                        pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
                     Spacer(Modifier.width(14.dp))
                     Column {
                         Text(u.displayName, style = MaterialTheme.typography.titleLarge, color = Snow)
@@ -283,7 +372,14 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
         }
         if (editing) {
             item {
-                EditProfilePanel(u, busy = busy, onCancel = { editing = false }) { name, dob, phone, team ->
+                EditProfilePanel(
+                    u,
+                    photoUrl = app.api.absolute(u.photoUrl),
+                    newPhoto = newPhoto,
+                    busy = busy,
+                    onPickPhoto = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    onCancel = { editing = false; newPhoto = null },
+                ) { name, dob, phone, team ->
                     run("Saved.") {
                         app.api.patch("/api/users/${u.id}", UserResponse.serializer()) {
                             put("name", name)
@@ -291,6 +387,17 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
                             put("phone", phone)
                             if (u.role == "team_manager") put("teamName", team)
                         }
+                        newPhoto?.let { square ->
+                            val file = withContext(Dispatchers.IO) {
+                                File(context.cacheDir, "photo.jpg").also { f -> f.outputStream().use { square.compress(Bitmap.CompressFormat.JPEG, 85, it) } }
+                            }
+                            try {
+                                app.api.postForm("/api/users/${u.id}/photo", emptyMap(), "photo" to file, "image/jpeg", Ok.serializer())
+                            } finally {
+                                file.delete()
+                            }
+                        }
+                        newPhoto = null
                         editing = false
                     }
                 }
@@ -300,13 +407,26 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
 }
 
 @Composable
-private fun EditProfilePanel(u: PublicUser, busy: Boolean, onCancel: () -> Unit, onSave: (String, String, String, String) -> Unit) {
+private fun EditProfilePanel(
+    u: PublicUser,
+    photoUrl: String?,
+    newPhoto: Bitmap?,
+    busy: Boolean,
+    onPickPhoto: () -> Unit,
+    onCancel: () -> Unit,
+    onSave: (String, String, String, String) -> Unit,
+) {
     var name by remember { mutableStateOf(u.name ?: "") }
     var dob by remember { mutableStateOf(u.dob ?: "") }
     var phone by remember { mutableStateOf(u.phone ?: "") }
     var team by remember { mutableStateOf(u.teamName ?: "") }
     Panel {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                EditablePhoto(photoUrl, newPhoto, u.displayName, 72, editable = !busy, onClick = onPickPhoto)
+                Spacer(Modifier.width(14.dp))
+                Text("Tap the photo to change it.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+            }
             Field(name, { name = it }, "Full name", enabled = !busy)
             DateField(dob, { dob = it }, "Date of birth", enabled = !busy, maxToday = true)
             Field(phone, { phone = it }, "Contact number", keyboard = KeyboardType.Phone, enabled = !busy)
@@ -319,48 +439,111 @@ private fun EditProfilePanel(u: PublicUser, busy: Boolean, onCancel: () -> Unit,
     }
 }
 
-/** An email and a role; the invite goes out at once. */
+/** An email, a role and optionally a photo: a new email gets an invite, one that already has an account is promoted. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun NewPersonScreen(me: Me?, onCreated: (String) -> Unit) {
     val app = LocalApp.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val roles = me?.canCreate ?: emptyList()
+    val iAmTeamManager = me?.user?.role == "team_manager"
     var email by remember { mutableStateOf("") }
     var role by remember { mutableStateOf(roles.firstOrNull() ?: "") }
     var team by remember { mutableStateOf("") }
+    var photo by remember { mutableStateOf<Bitmap?>(null) }
+    var cropping by remember { mutableStateOf<Bitmap?>(null) }
+    var createdId by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch { cropping = withContext(Dispatchers.IO) { loadShrunk(context, uri, 1600) } }
+    }
+    fun choosePhoto() = pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    cropping?.let { src -> SquareCropDialog(src, onCancel = { cropping = null }) { photo = it; cropping = null } }
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Panel {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 ErrorText(error)
-                Field(email, { email = it }, "Email", keyboard = KeyboardType.Email, enabled = !busy)
-                Column {
-                    SectionTitle("ROLE")
-                    Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        roles.forEach { r -> Chip(ROLE_LABELS[r] ?: r, Gold, filled = role == r) { role = r } }
+                createdId?.let { id -> GhostButton("Open their page", Modifier.fillMaxWidth()) { onCreated(id) } }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(Night)
+                            .border(1.dp, NightLine, CircleShape)
+                            .clickable(enabled = !busy && createdId == null) { choosePhoto() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        val bmp = photo
+                        if (bmp != null) Image(bmp.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(72.dp))
+                        else Text("Photo", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        GhostButton(if (photo == null) "Add photo" else "Change photo", enabled = !busy && createdId == null) { choosePhoto() }
+                        Text("Optional. They can add their own when they set up.", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                     }
                 }
-                if (role == "team_manager") Field(team, { team = it }, "Team", enabled = !busy)
-                if ((role == "racer" || role == "crew") && me?.user?.teamName != null) Text("Team: ${me.user.teamName}", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
-                Text("They get an email with a link to choose a password and fill in their profile.", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
-                GoldButton(if (busy) "Sending invite…" else "Create and send invite", Modifier.fillMaxWidth(), enabled = !busy && email.isNotBlank() && role.isNotBlank()) {
+
+                Field(email, { email = it }, "Email", keyboard = KeyboardType.Email, enabled = !busy && createdId == null)
+
+                Column {
+                    SectionTitle("ROLE")
+                    Spacer(Modifier.height(8.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        roles.forEach { r -> Chip(ROLE_LABELS[r] ?: r, Gold, filled = role == r) { if (!busy && createdId == null) role = r } }
+                    }
+                }
+
+                if (role == "team_manager") Field(team, { team = it }, "Team", enabled = !busy && createdId == null)
+                if (role == "racer" || role == "crew") {
+                    if (iAmTeamManager) me?.user?.teamName?.let { Text("Team: $it", style = MaterialTheme.typography.labelSmall, color = SnowFaint) }
+                    else Field(team, { team = it }, "Team (optional)", enabled = !busy && createdId == null)
+                }
+
+                Text(
+                    "A new email gets a link to choose a password and fill in their profile. If the email already has an account, they are given this role and told by email.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SnowFaint,
+                )
+
+                GoldButton(if (busy) "Saving…" else "Give role", Modifier.fillMaxWidth(), enabled = !busy && createdId == null && email.isNotBlank() && role.isNotBlank()) {
                     busy = true
                     error = null
                     scope.launch {
-                        try {
-                            val r = app.api.post("/api/users", UserResponse.serializer()) {
+                        val id = try {
+                            app.api.post("/api/users", UserResponse.serializer()) {
                                 put("email", email.trim())
                                 put("role", role)
                                 put("teamName", team.trim())
-                            }
-                            onCreated(r.user.id)
+                            }.user.id
                         } catch (e: Exception) {
-                            error = e.message ?: "Could not create."
+                            error = e.message ?: "Could not save."
                             busy = false
+                            return@launch
                         }
+                        val bmp = photo
+                        if (bmp != null) {
+                            val file = withContext(Dispatchers.IO) {
+                                File(context.cacheDir, "photo.jpg").also { f -> f.outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 85, it) } }
+                            }
+                            try {
+                                app.api.postForm("/api/users/$id/photo", emptyMap(), "photo" to file, "image/jpeg", Ok.serializer())
+                            } catch (e: Exception) {
+                                createdId = id
+                                error = "The role was given, but the photo didn't upload: ${e.message ?: "unknown error"}. Add it from their page."
+                                busy = false
+                                return@launch
+                            } finally {
+                                file.delete()
+                            }
+                        }
+                        onCreated(id)
                     }
                 }
             }
@@ -420,6 +603,21 @@ fun EmailScreen(group: String?, onSent: () -> Unit) {
                 }
             }
             sent = r.delivered
+        }
+    }
+}
+
+/** A round photo; when [editable], tapping it picks a new one, and a small pencil says so. */
+@Composable
+private fun EditablePhoto(url: String?, picked: Bitmap?, name: String, size: Int, editable: Boolean, onClick: () -> Unit) {
+    Box(Modifier.size(size.dp).then(if (editable) Modifier.clip(CircleShape).clickable(onClick = onClick) else Modifier)) {
+        if (picked != null) Image(picked.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(size.dp).clip(CircleShape))
+        else Avatar(url, name, size)
+        if (editable) {
+            Box(
+                Modifier.align(Alignment.BottomEnd).size(22.dp).background(Gold, CircleShape).border(2.dp, NightPanel, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Outlined.Edit, contentDescription = "Change photo", tint = Night, modifier = Modifier.size(12.dp)) }
         }
     }
 }

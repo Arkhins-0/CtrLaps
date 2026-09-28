@@ -44,6 +44,7 @@ import com.arkhins.ctrlaps.ui.components.ErrorText
 import com.arkhins.ctrlaps.ui.components.Field
 import com.arkhins.ctrlaps.ui.components.GhostButton
 import com.arkhins.ctrlaps.ui.components.GoldButton
+import com.arkhins.ctrlaps.ui.components.SquareCropDialog
 import com.arkhins.ctrlaps.ui.theme.Night
 import com.arkhins.ctrlaps.ui.theme.NightLine
 import com.arkhins.ctrlaps.ui.theme.SnowFaint
@@ -60,6 +61,7 @@ fun OnboardingScreen(onDone: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var photo by remember { mutableStateOf<Bitmap?>(null) }
+    var cropping by remember { mutableStateOf<Bitmap?>(null) }
     var name by remember { mutableStateOf("") }
     var dob by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
@@ -67,9 +69,10 @@ fun OnboardingScreen(onDone: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
 
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) scope.launch { photo = withContext(Dispatchers.IO) { loadShrunk(context, uri) } }
+        if (uri != null) scope.launch { cropping = withContext(Dispatchers.IO) { loadShrunk(context, uri, 1600) } }
     }
 
+    cropping?.let { src -> SquareCropDialog(src, onCancel = { cropping = null }) { photo = it; cropping = null } }
     AuthFrame("Your profile") {
         Text("These details go on your account and cannot be changed by you afterwards.", color = SnowSoft, style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(14.dp))

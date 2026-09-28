@@ -48,6 +48,7 @@ import com.arkhins.ctrlaps.ui.components.GhostButton
 import com.arkhins.ctrlaps.ui.components.GoldButton
 import com.arkhins.ctrlaps.ui.components.KeyValue
 import com.arkhins.ctrlaps.ui.components.Panel
+import com.arkhins.ctrlaps.ui.components.SquareCropDialog
 import com.arkhins.ctrlaps.ui.theme.Snow
 import com.arkhins.ctrlaps.ui.theme.SnowFaint
 import com.arkhins.ctrlaps.ui.theme.SnowSoft
@@ -196,12 +197,14 @@ private fun EditProfilePanel(vm: AppViewModel) {
     var dob by remember(u) { mutableStateOf(u.dob ?: "") }
     var phone by remember(u) { mutableStateOf(u.phone ?: "") }
     var photo by remember { mutableStateOf<Bitmap?>(null) }
+    var cropping by remember { mutableStateOf<Bitmap?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) scope.launch { photo = withContext(Dispatchers.IO) { loadShrunk(context, uri) } }
+        if (uri != null) scope.launch { cropping = withContext(Dispatchers.IO) { loadShrunk(context, uri, 1600) } }
     }
 
+    cropping?.let { src -> SquareCropDialog(src, onCancel = { cropping = null }) { photo = it; cropping = null } }
     Panel {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Your details", style = MaterialTheme.typography.titleMedium, color = Snow)

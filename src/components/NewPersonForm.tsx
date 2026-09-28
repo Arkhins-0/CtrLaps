@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, shrinkImage } from "@/lib/client";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
+import { PhotoCropDialog } from "./PhotoCropDialog";
 
 /** An email, a role and optionally a photo. A new email gets an invite; one that already has an account is promoted. */
 export function NewPersonForm({ roles, teamName, creatorRole }: { roles: Role[]; teamName: string | null; creatorRole: Role }) {
@@ -14,6 +15,7 @@ export function NewPersonForm({ roles, teamName, creatorRole }: { roles: Role[];
   const [role, setRole] = useState<Role>(roles[0]);
   const [team, setTeam] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
+  const [cropping, setCropping] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
@@ -56,6 +58,7 @@ export function NewPersonForm({ roles, teamName, creatorRole }: { roles: Role[];
 
   return (
     <form onSubmit={submit} className="card max-w-md space-y-4">
+      {cropping && <PhotoCropDialog file={cropping} onCancel={() => setCropping(null)} onDone={(f) => { setCropping(null); setPhoto(f); }} />}
       {error && (
         <p className="error">
           {error}
@@ -82,7 +85,7 @@ export function NewPersonForm({ roles, teamName, creatorRole }: { roles: Role[];
           <span className="btn-ghost text-xs">{photo ? "Change photo" : "Add photo"}</span>
           <span className="text-xs text-snow-faint">Optional. They can add their own when they set up.</span>
         </span>
-        <input type="file" accept="image/*" className="hidden" disabled={busy || createdId !== null} onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+        <input type="file" accept="image/*" className="hidden" disabled={busy || createdId !== null} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) setCropping(f); }} />
       </label>
       <div>
         <label className="label" htmlFor="email">

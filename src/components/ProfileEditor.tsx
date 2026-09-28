@@ -4,6 +4,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, shrinkImage } from "@/lib/client";
+import { PhotoCropDialog } from "./PhotoCropDialog";
 
 type Profile = { name: string; dob: string; phone: string; email: string; photoUrl: string | null };
 
@@ -13,6 +14,7 @@ export function ProfileEditor({ profile }: { profile: Profile }) {
   const [editing, setEditing] = useState(false);
   const [f, setF] = useState({ name: profile.name, dob: profile.dob, phone: profile.phone });
   const [photo, setPhoto] = useState<File | null>(null);
+  const [cropping, setCropping] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [emailSentTo, setEmailSentTo] = useState<string | null>(null);
@@ -65,6 +67,7 @@ export function ProfileEditor({ profile }: { profile: Profile }) {
 
   return (
     <section className="card space-y-5">
+      {cropping && <PhotoCropDialog file={cropping} onCancel={() => setCropping(null)} onDone={(f) => { setCropping(null); setPhoto(f); }} />}
       {editing ? (
         <form onSubmit={save} className="space-y-4">
           <h2 className="font-semibold">Edit profile</h2>
@@ -76,7 +79,7 @@ export function ProfileEditor({ profile }: { profile: Profile }) {
               <span className="flex h-20 w-20 items-center justify-center rounded-full border border-dashed border-snow/30 text-xs text-snow-faint">Photo</span>
             )}
             <span className="btn-ghost text-xs">Change photo</span>
-            <input type="file" accept="image/*" className="hidden" disabled={busy} onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+            <input type="file" accept="image/*" className="hidden" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) setCropping(f); }} />
           </label>
           <div>
             <label className="label" htmlFor="pe-name">Full name</label>

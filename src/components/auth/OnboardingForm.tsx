@@ -4,11 +4,13 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, shrinkImage } from "@/lib/client";
+import { PhotoCropDialog } from "../PhotoCropDialog";
 
 /** Photo, name, date of birth, contact number — once. A photo the person's manager already set can be kept. */
 export function OnboardingForm({ existingPhotoUrl }: { existingPhotoUrl: string | null }) {
   const router = useRouter();
   const [photo, setPhoto] = useState<File | null>(null);
+  const [cropping, setCropping] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
@@ -45,6 +47,7 @@ export function OnboardingForm({ existingPhotoUrl }: { existingPhotoUrl: string 
 
   return (
     <form onSubmit={submit} className="space-y-4">
+      {cropping && <PhotoCropDialog file={cropping} onCancel={() => setCropping(null)} onDone={(f) => { setCropping(null); setPhoto(f); }} />}
       <p className="text-sm text-snow-soft">These details go on your account and cannot be changed by you afterwards.</p>
       {error && <p className="error">{error}</p>}
       <label className="flex cursor-pointer items-center gap-4">
@@ -56,7 +59,7 @@ export function OnboardingForm({ existingPhotoUrl }: { existingPhotoUrl: string 
           </span>
         )}
         <span className="btn-ghost text-xs">{photo || existingPhotoUrl ? "Change photo" : "Add photo"}</span>
-        <input type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+        <input type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) setCropping(f); }} />
       </label>
       <div>
         <label className="label" htmlFor="name">

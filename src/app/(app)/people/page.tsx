@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { Avatar } from "@/components/Avatar";
-import { StatusBadge } from "@/components/StatusBadge";
+import { PeopleList } from "@/components/PeopleList";
 import { descendants } from "@/lib/hierarchy";
-import { CREATE_RULES, ROLE_LABEL, ROLES, type Role } from "@/lib/roles";
+import { CREATE_RULES } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 import { toPublic } from "@/lib/users";
 
@@ -12,7 +11,6 @@ export default async function People() {
   const user = await requireProfile();
   const people = (await descendants(user)).map(toPublic);
   const canCreate = (CREATE_RULES[user.role] ?? []).length > 0;
-  const groups = ROLES.map((r) => ({ role: r as Role, people: people.filter((p) => p.role === r) })).filter((g) => g.people.length > 0);
 
   return (
     <div className="space-y-5">
@@ -36,38 +34,13 @@ export default async function People() {
           )}
           {canCreate && (
             <Link href="/people/new" className="btn-gold px-4 py-1.5 text-xs">
-              Add person
+              Add or promote
             </Link>
           )}
         </div>
       </div>
 
-      {people.length === 0 && (
-        <p className="card text-sm text-snow-faint">{canCreate ? "Nobody yet. Add the first person." : "Nobody reports to you."}</p>
-      )}
-
-      {groups.map((g) => (
-        <section key={g.role}>
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-snow-faint">
-            {ROLE_LABEL[g.role]}s · {g.people.length}
-          </h2>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {g.people.map((p) => (
-              <Link key={p.id} href={`/people/${p.id}`} className="row border border-night-line bg-night-panel/60 hover:border-gold/40">
-                <Avatar src={p.photoUrl} name={p.name ?? p.email} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{p.name ?? p.email}</span>
-                  <span className="block truncate text-xs text-snow-faint">
-                    {p.name ? p.email : "Invite not accepted"}
-                    {p.teamName ? ` · ${p.teamName}` : ""}
-                  </span>
-                </span>
-                <StatusBadge status={p.status} />
-              </Link>
-            ))}
-          </div>
-        </section>
-      ))}
+      <PeopleList people={people} emptyText={canCreate ? "Nobody yet. Add the first person." : "Nobody reports to you."} />
     </div>
   );
 }
