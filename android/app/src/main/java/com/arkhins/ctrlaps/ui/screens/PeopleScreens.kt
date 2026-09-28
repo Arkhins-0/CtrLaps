@@ -1,5 +1,8 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.data.Verified
+import androidx.compose.runtime.collectAsState
+import androidx.compose.material3.IconButton
 import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Icon
@@ -312,11 +315,29 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
                         pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     }
                     Spacer(Modifier.width(14.dp))
-                    Column {
+                    Column(Modifier.weight(1f)) {
                         Text(u.displayName, style = MaterialTheme.typography.titleLarge, color = Snow)
                         Text(u.roleLabel + (u.teamName?.let { " · $it" } ?: ""), style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
                         Spacer(Modifier.height(4.dp))
                         StatusChip(u.status, u.statusLabel)
+                    }
+                    // The same star as Verify's list: starred people are pinned there.
+                    val starred by app.verifyHistory.starred.collectAsState()
+                    val on = u.id in starred
+                    IconButton(
+                        onClick = {
+                            app.verifyHistory.toggleStar(
+                                Verified(u.id, u.name, u.role, u.roleLabel, u.teamName, u.status, u.statusLabel, u.verifyCode, u.photoUrl, u.profileComplete),
+                            )
+                        },
+                        modifier = Modifier.align(Alignment.Top),
+                    ) {
+                        Icon(
+                            painterResource(if (on) R.drawable.ic_star else R.drawable.ic_star_border),
+                            contentDescription = if (on) "Unstar" else "Star",
+                            tint = if (on) Gold else SnowFaint,
+                            modifier = Modifier.size(24.dp),
+                        )
                     }
                 }
             }
