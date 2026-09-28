@@ -1,5 +1,22 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import android.os.Environment
+import android.os.StatFs
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import com.arkhins.ctrlaps.ui.theme.NightLine
+import com.arkhins.ctrlaps.ui.theme.SnowSoft
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -64,15 +81,41 @@ fun StorageScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        val phoneSize = remember { runCatching { advertisedSize(StatFs(Environment.getDataDirectory().path).totalBytes) }.getOrNull() }
+        val parts = listOf(
+            Triple("Chat messages", kept.chats, ChatsColor),
+            Triple("Photos, documents and voice notes", kept.media, MediaColor),
+            Triple("Announcements, channels, schedule and people", kept.pages, PagesColor),
+        )
         Panel {
             Column(Modifier.fillMaxWidth()) {
-                Text(bytes(kept.total), style = MaterialTheme.typography.headlineMedium, color = Snow)
-                Text("Kept on this phone", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
-                Spacer(Modifier.height(12.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    KeyValue("Chat messages", bytes(kept.chats))
-                    KeyValue("Photos, documents and voice notes", bytes(kept.media))
-                    KeyValue("Announcements, channels, schedule and people", bytes(kept.pages))
+                Row(verticalAlignment = Alignment.Top) {
+                    Column(Modifier.weight(1f)) {
+                        Text(bytes(kept.total), style = MaterialTheme.typography.headlineMedium, color = Snow)
+                        Text("Kept on this phone", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                        Spacer(Modifier.height(14.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            parts.forEach { (label, size, color) ->
+                                Column {
+                                    Text(label, style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                                    Text(bytes(size), style = MaterialTheme.typography.bodyMedium, color = Snow)
+                                    Spacer(Modifier.height(4.dp))
+                                    Box(Modifier.width(40.dp).height(4.dp).background(color, RoundedCornerShape(2.dp)))
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Donut(parts.map { it.second to it.third }, bytes(kept.total))
+                }
+                if (phoneSize != null) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "${bytes(kept.total)} of $phoneSize",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = SnowSoft,
+                        modifier = Modifier.align(Alignment.End),
+                    )
                 }
             }
         }
@@ -93,4 +136,48 @@ fun StorageScreen() {
             }
         }
     }
+}
+
+private val ChatsColor = Color(0xFF4ADE80)
+private val MediaColor = Color(0xFF3B82F6)
+private val PagesColor = Color(0xFFA855F7)
+
+/** A ring split by size, each part in its colour with a small gap, the total in the middle. */
+@Composable
+private fun Donut(parts: List<Pair<Long, Color>>, center: String) {
+    val total = parts.sumOf { it.first }.toFloat()
+    Box(Modifier.size(128.dp), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(128.dp)) {
+            val stroke = 14.dp.toPx()
+            val inset = stroke / 2f
+            val arcSize = Size(size.width - stroke, size.height - stroke)
+            if (total <= 0f) {
+                drawArc(NightLine, 0f, 360f, useCenter = false, topLeft = Offset(inset, inset), size = arcSize, style = Stroke(stroke))
+                return@Canvas
+            }
+            val shown = parts.filter { it.first > 0 }
+            val gap = if (shown.size > 1) 4f else 0f
+            // Every part that holds anything gets at least a visible sliver; the rest share what is left.
+            val raw = shown.map { maxOf(it.first / total * 360f, 10f) }
+            val scale = 360f / raw.sum()
+            var start = -90f
+            shown.forEachIndexed { i, (_, color) ->
+                val sweep = raw[i] * scale
+                drawArc(color, start + gap / 2f, sweep - gap, useCenter = false, topLeft = Offset(inset, inset), size = arcSize, style = Stroke(stroke, cap = StrokeCap.Butt))
+                start += sweep
+            }
+        }
+        Text(center, style = MaterialTheme.typography.titleSmall, color = Snow)
+    }
+}
+
+/**
+ * The phone's size as it is sold (128 GB, 256 GB…), the way Android's own Settings shows it: the space
+ * apps can use, rounded up to the next power of two in decimal gigabytes.
+ */
+private fun advertisedSize(dataBytes: Long): String {
+    val gb = dataBytes / 1_000_000_000.0
+    var size = 1L
+    while (size < gb) size *= 2
+    return if (size >= 1000) "${size / 1000} TB" else "$size GB"
 }
