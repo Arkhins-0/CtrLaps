@@ -62,7 +62,15 @@ data class Sender(val id: String, val name: String, val role: String, val roleLa
 
 @Serializable
 /** [document]: sent through "Document", so it shows, opens and saves as a document whatever its type. */
-data class FileInfo(val id: String, val name: String, val mime: String, val size: Long = 0, val document: Boolean = false)
+data class FileInfo(
+    val id: String,
+    val name: String,
+    val mime: String,
+    val size: Long = 0,
+    val document: Boolean = false,
+    /** A photo's tiny preview (base64 JPEG), shown blurred until the photo is on the phone. */
+    val thumb: String? = null,
+)
 
 @Serializable
 data class Message(

@@ -256,9 +256,15 @@ class ChatMedia(context: Context, private val api: CtrlapsApi) {
     /** Bumps whenever a file lands, so screens can swap the network copy for the local one. */
     val version: StateFlow<Int> = _version
 
-    /** Every attachment — pictures, audio and documents — is fetched in the background as soon as it arrives. */
-    @Suppress("UNUSED_PARAMETER")
-    fun wanted(file: FileInfo): Boolean = true
+    /** Which kinds are fetched by themselves as they arrive (Storage → Automatic downloads). */
+    val auto = AutoDownload(context)
+
+    /** Whether an attachment is fetched in the background as soon as it arrives; otherwise it waits for a tap. */
+    fun wanted(file: FileInfo): Boolean = when (folderFor(file)) {
+        folders[0] -> auto.photos.value
+        folders[1] -> auto.audio.value
+        else -> auto.documents.value
+    }
 
     /** The folder for a file's kind: photos, audio (voice notes too), or any other file. */
     private fun folderFor(file: FileInfo): File = when {
@@ -320,7 +326,7 @@ class ChatMedia(context: Context, private val api: CtrlapsApi) {
 
     /** Something this phone just sent: keep the bytes it already has. */
     suspend fun put(file: FileInfo, source: File) = withContext(Dispatchers.IO) {
-        if (!wanted(file) || local(file) != null) return@withContext
+        if (local(file) != null) return@withContext
         runCatching { source.copyTo(target(file), overwrite = true) }
         _version.value++
     }

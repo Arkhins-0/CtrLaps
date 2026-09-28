@@ -1,5 +1,8 @@
 package com.arkhins.ctrlaps.data
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
 import android.content.Context
 import android.net.Uri
 import kotlinx.coroutines.CancellationException
@@ -313,11 +316,13 @@ suspend fun uploadFile(
     asDocument: Boolean = false,
     onProgress: (Float) -> Unit = {},
 ): FileInfo = withContext(Dispatchers.IO) {
+    val thumb = if (!asDocument && mime.startsWith("image/") && mime != "image/svg+xml") tinyThumb(source) else null
     val slot: UploadSlot = api.post("/api/files", UploadSlot.serializer()) {
         put("name", name)
         put("mime", mime)
         put("size", source.length())
         if (asDocument) put("asDocument", true)
+        if (thumb != null) put("thumb", thumb)
     }
     try {
         api.putBytes(slot.uploadUrl, source, mime, onProgress)
@@ -326,8 +331,24 @@ suspend fun uploadFile(
         api.putBytes(api.url("/api/files/${slot.id}/content"), source, mime, onProgress)
     }
     api.post("/api/files/${slot.id}/ready", Ok.serializer())
-    val info = FileInfo(slot.id, name, mime, source.length(), document = asDocument)
+    val info = FileInfo(slot.id, name, mime, source.length(), document = asDocument, thumb = thumb)
     runCatching { media.put(info, source) }
     if (asDocument || (!mime.startsWith("image/") && !mime.startsWith("audio/"))) runCatching { documents.keepSent(info, source) }
     info
 }
+
+/** A photo's tiny preview: 24 px on its long side, JPEG, base64. Other phones show it blurred until they download the photo. */
+private fun tinyThumb(source: File): String? = runCatching {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(source.path, bounds)
+    val long = maxOf(bounds.outWidth, bounds.outHeight)
+    if (long <= 0) return null
+    var sample = 1
+    while (long / (sample * 2) >= 96) sample *= 2
+    val decoded = BitmapFactory.decodeFile(source.path, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
+    val scale = 24f / maxOf(decoded.width, decoded.height)
+    val small = Bitmap.createScaledBitmap(decoded, maxOf(1, (decoded.width * scale).toInt()), maxOf(1, (decoded.height * scale).toInt()), true)
+    val out = java.io.ByteArrayOutputStream()
+    small.compress(Bitmap.CompressFormat.JPEG, 50, out)
+    Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+}.getOrNull()

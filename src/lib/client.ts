@@ -37,9 +37,10 @@ export async function api<T = unknown>(path: string, init: RequestInit & { json?
  * storage, or through the server), then confirm. Returns the file id.
  */
 export async function uploadFile(file: File, onProgress?: (fraction: number) => void): Promise<string> {
+  const thumb = file.type.startsWith("image/") && file.type !== "image/svg+xml" ? await tinyThumb(file) : null;
   const slot = await api<{ id: string; uploadUrl: string; direct: boolean; maxProxyBytes: number }>("/api/files", {
     method: "POST",
-    json: { name: file.name, mime: file.type || "application/octet-stream", size: file.size },
+    json: { name: file.name, mime: file.type || "application/octet-stream", size: file.size, thumb },
   });
   const put = (url: string) =>
     new Promise<void>((resolve, reject) => {
@@ -66,6 +67,19 @@ export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** A photo's tiny preview (24 px on its long side, JPEG, base64): phones show it blurred until the photo is downloaded. */
+async function tinyThumb(file: File): Promise<string | null> {
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (!bitmap) return null;
+  const scale = 24 / Math.max(bitmap.width, bitmap.height);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const url = canvas.toDataURL("image/jpeg", 0.5);
+  return url.slice(url.indexOf(",") + 1) || null;
 }
 
 /** A photo shrunk to fit 900px and re-encoded as JPEG, so uploads are small. */
