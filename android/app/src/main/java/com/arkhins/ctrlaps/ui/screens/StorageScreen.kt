@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.ui.geometry.CornerRadius
+import com.arkhins.ctrlaps.ui.theme.Gold
 import android.os.Environment
 import android.os.StatFs
 import androidx.compose.foundation.Canvas
@@ -81,7 +83,8 @@ fun StorageScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        val phoneSize = remember { runCatching { advertisedSize(StatFs(Environment.getDataDirectory().path).totalBytes) }.getOrNull() }
+        // The phone as a whole, measured once: its size, and how much of it is free.
+        val phone = remember(kept) { runCatching { StatFs(Environment.getDataDirectory().path).let { it.totalBytes to it.availableBytes } }.getOrNull() }
         val parts = listOf(
             Triple("Chat messages", kept.chats, ChatsColor),
             Triple("Photos, documents and voice notes", kept.media, MediaColor),
@@ -108,14 +111,9 @@ fun StorageScreen() {
                     Spacer(Modifier.width(12.dp))
                     Donut(parts.map { it.second to it.third }, bytes(kept.total))
                 }
-                if (phoneSize != null) {
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        "${bytes(kept.total)} of $phoneSize",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = SnowSoft,
-                        modifier = Modifier.align(Alignment.End),
-                    )
+                if (phone != null) {
+                    Spacer(Modifier.height(18.dp))
+                    PhoneBar(total = phone.first, free = phone.second, ours = kept.total)
                 }
             }
         }
@@ -180,4 +178,47 @@ private fun advertisedSize(dataBytes: Long): String {
     var size = 1L
     while (size < gb) size *= 2
     return if (size >= 1000) "${size / 1000} TB" else "$size GB"
+}
+
+private val OtherColor = Color(0xFF6B6B73)
+
+/**
+ * The whole phone as one bar: CTR[L]APS in gold (always at least a sliver, so it can be found),
+ * everything else in grey, the free space empty. Under it, what each part is and the phone's size.
+ */
+@Composable
+private fun PhoneBar(total: Long, free: Long, ours: Long) {
+    if (total <= 0) return
+    val used = (total - free).coerceIn(0, total)
+    val others = (used - ours).coerceAtLeast(0)
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Phone storage", style = MaterialTheme.typography.labelMedium, color = SnowSoft, modifier = Modifier.weight(1f))
+            Text("${bytes(ours)} of ${advertisedSize(total)}", style = MaterialTheme.typography.labelMedium, color = Snow)
+        }
+        Spacer(Modifier.height(8.dp))
+        Canvas(Modifier.fillMaxWidth().height(12.dp)) {
+            val r = CornerRadius(size.height / 2f)
+            drawRoundRect(NightLine, cornerRadius = r)
+            val usedW = size.width * used / total
+            if (usedW > 0f) drawRoundRect(OtherColor, size = Size(usedW, size.height), cornerRadius = r)
+            val oursW = maxOf(size.width * ours / total, if (ours > 0) 6.dp.toPx() else 0f)
+            if (oursW > 0f) drawRoundRect(Gold, size = Size(oursW, size.height), cornerRadius = r)
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Legend(Gold, "CTR[L]APS ${bytes(ours)}")
+            Legend(OtherColor, "Other ${bytes(others)}")
+            Legend(NightLine, "Free ${bytes(free)}")
+        }
+    }
+}
+
+@Composable
+private fun Legend(color: Color, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(8.dp).background(color, RoundedCornerShape(2.dp)))
+        Spacer(Modifier.width(5.dp))
+        Text(text, style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+    }
 }
