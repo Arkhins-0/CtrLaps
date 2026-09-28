@@ -6,6 +6,7 @@ import { sendInvite, sendNotice } from "@/lib/email";
 import { canCreateRole, canPromote, chatCandidates, descendants, groupCandidates } from "@/lib/hierarchy";
 import { fail, json } from "@/lib/http";
 import { isRole, ROLE_LABEL } from "@/lib/roles";
+import { syncTeamIds } from "@/lib/teams";
 import { audit, createUser, toPublic, userByEmail } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -59,6 +60,7 @@ export const POST = handle(async (request) => {
       `UPDATE users SET role = $2, parent_id = $3, team_name = $4 WHERE id = $1 RETURNING ${USER_COLUMNS}`,
       [existing.id, role, creator.id, teamFor(existing.team_name)],
     );
+    await syncTeamIds([existing.id]);
     await audit(creator.id, existing.id, "user.promoted", { from: existing.role, to: role });
     await sendNotice(
       [{ email: existing.email, name: existing.name }],
@@ -71,6 +73,7 @@ export const POST = handle(async (request) => {
   }
 
   const user = await createUser({ email, role, parentId: creator.id, createdBy: creator.id, teamName: teamFor(null) });
+  await syncTeamIds([user.id]);
   const token = await issueToken(user.id, "invite", 24 * 7);
   await sendInvite({ email: user.email }, token, creator.name || creator.email, ROLE_LABEL[role]).catch((error) =>
     console.error("[invite]", error),

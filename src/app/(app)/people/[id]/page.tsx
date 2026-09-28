@@ -10,7 +10,11 @@ import { canChat, canEdit, canPromote, isBelow } from "@/lib/hierarchy";
 import { CREATE_RULES } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 import { qrUrl, toPublic, userById } from "@/lib/users";
-import { q } from "@/lib/db";
+import { one, q } from "@/lib/db";
+import { RaceCategories } from "@/components/RaceCategories";
+import { categoriesOf } from "@/lib/categories";
+import { currentSeason } from "@/lib/seasons";
+import { assignedCategories, teamCategories } from "@/lib/teams";
 
 export const metadata = { title: "Person" };
 
@@ -22,6 +26,14 @@ export default async function Person({ params }: { params: Promise<{ id: string 
   if (!user || (user.id !== me.id && !(await isBelow(me, user.id)))) notFound();
   const p = toPublic(user);
   const editable = user.id !== me.id && canEdit(me, user);
+  const season = (await currentSeason()).id;
+  const teamRow = await one<{ team_id: string | null }>("SELECT team_id FROM users WHERE id = $1", [user.id]);
+  const [raceCategories, assigned, teamIds] = await Promise.all([
+    categoriesOf([season]),
+    assignedCategories(user.id, season),
+    teamCategories(teamRow?.team_id ?? null, season),
+  ]);
+  const teamNames = (await q<{ name: string }>("SELECT name FROM teams ORDER BY lower(name)")).map((t) => t.name);
   const svg = await QRCode.toString(qrUrl(user), { type: "svg", margin: 1, color: { dark: "#0B0B0C", light: "#FFFFFF" } });
   const coordinators =
     me.role === "admin" && user.role === "volunteer"
@@ -58,7 +70,16 @@ export default async function Person({ params }: { params: Promise<{ id: string 
         <div className="w-36 shrink-0 self-center rounded-xl bg-white p-1.5 sm:self-start" dangerouslySetInnerHTML={{ __html: svg }} />
       </section>
 
-      {canPromote(me, user) && <PromoteForm person={p} roles={CREATE_RULES[me.role] ?? []} myRole={me.role} myTeam={me.team_name} />}
+      {canPromote(me, user) && <PromoteForm person={p} roles={CREATE_RULES[me.role] ?? []} myRole={me.role} myTeam={me.team_name} teamNames={teamNames} />}
+
+      <RaceCategories
+        userId={p.id}
+        role={user.role}
+        categories={raceCategories}
+        initial={assigned}
+        teamIds={teamIds}
+        canSet={(user.role === "racer" || user.role === "race_official") && user.id !== me.id && (me.role === "admin" || me.role === "coordinator" || canEdit(me, user))}
+      />
 
       <PersonActions
         person={p}

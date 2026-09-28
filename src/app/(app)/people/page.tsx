@@ -27,6 +27,11 @@ export default async function People() {
               </Link>
             </>
           )}
+          {(user.role === "admin" || user.role === "coordinator") && (
+            <Link href="/people/teams" className="btn-ghost px-3 py-1.5 text-xs">
+              Teams
+            </Link>
+          )}
           {user.role === "admin" && (
             <Link href="/people/email" className="btn-ghost px-3 py-1.5 text-xs">
               Email everyone

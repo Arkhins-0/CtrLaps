@@ -13,12 +13,35 @@ export function CategoryTag({ category, title }: { category: Pick<Category, "cod
   );
 }
 
-/** "All" and a chip per category: which category's sessions the schedule shows. */
-export function CategoryChips({ categories, value, onChange }: { categories: Category[]; value: string | null; onChange: (id: string | null) => void }) {
+/** What the schedule shows: everything (null), "mine" (the person's own categories), or one category's id. */
+export type CategoryFilter = string | null;
+
+/** The categories a filter keeps, or null for everything. */
+export const filterIds = (value: CategoryFilter, mine: string[] | null | undefined): string[] | null =>
+  value === null ? null : value === "mine" ? (mine ?? null) : [value];
+
+/** "Mine" (when the person has categories), "All" and a chip per category. */
+export function CategoryChips({
+  categories,
+  value,
+  onChange,
+  mine,
+}: {
+  categories: Category[];
+  value: CategoryFilter;
+  onChange: (value: CategoryFilter) => void;
+  mine?: string[] | null;
+}) {
   if (categories.length === 0) return null;
+  const chip = (on: boolean) => `chip ${on ? "border-gold bg-gold text-night" : "hover:border-snow/40"}`;
   return (
     <div className="flex flex-wrap gap-2" role="group" aria-label="Show sessions of">
-      <button className={`chip ${value === null ? "border-gold bg-gold text-night" : "hover:border-snow/40"}`} onClick={() => onChange(null)}>
+      {mine && mine.length > 0 && (
+        <button className={chip(value === "mine")} onClick={() => onChange("mine")} title={categories.filter((c) => mine.includes(c.id)).map((c) => c.code).join(", ")}>
+          Mine
+        </button>
+      )}
+      <button className={chip(value === null)} onClick={() => onChange(null)}>
         All
       </button>
       {categories.map((c) => {

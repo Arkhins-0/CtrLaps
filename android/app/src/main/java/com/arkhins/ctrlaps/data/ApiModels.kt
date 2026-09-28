@@ -46,6 +46,8 @@ data class Me(
     val unreadChats: Int = 0,
     val unreadHome: Int = 0,
     val pushConfigured: Boolean = false,
+    /** "My categories" this season; null = everything. */
+    val categoryIds: List<String>? = null,
 )
 
 @Serializable
@@ -390,7 +392,19 @@ data class NextRace(
 data class UsersResponse(val users: List<PublicUser>)
 
 @Serializable
-data class UserResponse(val user: PublicUser, val qrUrl: String? = null, val canEdit: Boolean = false)
+data class UserResponse(
+    val user: PublicUser,
+    val qrUrl: String? = null,
+    val canEdit: Boolean = false,
+    /** The current season's race categories, the ones given to this person, their team's entries, and whether the viewer may change theirs. */
+    val raceCategories: List<Category> = emptyList(),
+    val categoryIds: List<String> = emptyList(),
+    val teamCategoryIds: List<String> = emptyList(),
+    val canSetCategories: Boolean = false,
+)
+
+@Serializable
+data class CategoryIdsResponse(val categoryIds: List<String> = emptyList())
 
 @Serializable
 data class IdResponse(val id: String)

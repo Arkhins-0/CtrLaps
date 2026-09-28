@@ -4,6 +4,7 @@ import { json } from "@/lib/http";
 import { unread } from "@/lib/messages";
 import { isPushConfigured } from "@/lib/push";
 import { CREATE_RULES, CHANNEL_POSTERS, ROLE_LABEL } from "@/lib/roles";
+import { myCategories } from "@/lib/teams";
 import { qrUrl, toPublic, userById } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -26,5 +27,7 @@ export const GET = handle(async () => {
     unreadChats: counts.chats,
     unreadHome: counts.home,
     pushConfigured: isPushConfigured(),
+    /** "My categories" this season; null = everything. */
+    categoryIds: await myCategories(user),
   });
 });

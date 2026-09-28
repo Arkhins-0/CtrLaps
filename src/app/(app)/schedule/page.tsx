@@ -5,6 +5,7 @@ import { categoriesOf } from "@/lib/categories";
 import { listWeekends } from "@/lib/races";
 import { currentSeason, listSeasons } from "@/lib/seasons";
 import { requireProfile } from "@/lib/session";
+import { myCategories } from "@/lib/teams";
 
 export const metadata = { title: "Schedule" };
 
@@ -26,7 +27,7 @@ export default async function Schedule() {
         <>
           <h1 className="page-title">Schedule</h1>
           {weekends.length === 0 && <p className="card text-sm text-snow-faint">No race weekend has been scheduled yet.</p>}
-          <ScheduleList upcoming={upcoming} past={past} categories={categories} />
+          <ScheduleList upcoming={upcoming} past={past} categories={categories} mine={await myCategories(user)} />
         </>
       )}
     </div>

@@ -11,6 +11,7 @@ import { CREATE_RULES } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 import { formatIn } from "@/lib/time";
 import { timeAgo } from "@/lib/client";
+import { myCategories } from "@/lib/teams";
 
 export const metadata = { title: "Home" };
 
@@ -21,7 +22,7 @@ export const metadata = { title: "Home" };
 export default async function Home({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
   const user = await requireProfile();
   const today = new Date().toISOString().slice(0, 10);
-  const [messages, next, chats, weekends, events, { m }] = await Promise.all([inbox(user), nextRace(), myConversations(user), listWeekends(), upcoming(user), searchParams]);
+  const [messages, next, chats, weekends, events, { m }] = await Promise.all([inbox(user), myCategories(user).then(nextRace), myConversations(user), listWeekends(), upcoming(user), searchParams]);
   const announcements = messages.filter((x) => x.kind === "broadcast");
   const recentChats = chats.filter((c) => c.lastMessageAt).slice(0, 3);
   const active = weekends.filter((w) => w.endsOn >= today).sort((a, b) => a.startsOn.localeCompare(b.startsOn));
