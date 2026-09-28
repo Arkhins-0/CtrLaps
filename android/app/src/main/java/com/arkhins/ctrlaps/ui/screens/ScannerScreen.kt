@@ -1,5 +1,17 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.arkhins.ctrlaps.ui.theme.Gold
+import com.arkhins.ctrlaps.ui.theme.NightLine
+import com.arkhins.ctrlaps.ui.theme.NightPanel
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -67,9 +79,13 @@ import kotlinx.serialization.json.put
 import java.net.URLEncoder
 import java.util.concurrent.Executors
 
-/** Point the camera at someone's QR, or type their code; the result is who they are and their status. */
+/**
+ * Point the camera at someone's QR, or type their code; the result is who they are and their status.
+ * Tapping the code box turns the screen into code entry ([typing]): the camera closes, eight boxes take
+ * the code, and the header's scan icon brings the camera back.
+ */
 @Composable
-fun ScannerScreen(initialToken: String? = null, onOpenChat: (String) -> Unit = {}) {
+fun ScannerScreen(initialToken: String? = null, typing: Boolean, onTyping: (Boolean) -> Unit, onOpenChat: (String) -> Unit = {}) {
     val app = LocalApp.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -102,7 +118,16 @@ fun ScannerScreen(initialToken: String? = null, onOpenChat: (String) -> Unit = {
     LaunchedEffect(initialToken) { if (initialToken != null) lookup("token=${URLEncoder.encode(initialToken, "UTF-8")}") }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (scanning && granted) {
+        if (typing) {
+            Text("Type the 8-character account code shown under their QR on their Account page.", style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
+            Spacer(Modifier.height(8.dp))
+            CodeBoxes(code, enabled = !busy) { typed ->
+                code = typed
+                error = null
+                if (typed.length == 8) lookup("code=${URLEncoder.encode(typed.take(4) + "-" + typed.drop(4), "UTF-8")}")
+            }
+            if (busy) Text("Checking…", style = MaterialTheme.typography.labelMedium, color = SnowFaint, modifier = Modifier.align(Alignment.CenterHorizontally))
+        } else if (scanning && granted) {
             CameraPreview(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(16.dp))) { value ->
                 val token = Regex("/v/([A-Za-z0-9_-]+)").find(value)?.groupValues?.get(1)
                 lookup(if (token != null) "token=${URLEncoder.encode(token, "UTF-8")}" else "code=${URLEncoder.encode(value, "UTF-8")}")
@@ -118,10 +143,16 @@ fun ScannerScreen(initialToken: String? = null, onOpenChat: (String) -> Unit = {
         } else {
             GhostButton("Scan again") { result = null; error = null; scanning = true }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) { Field(code, { code = it.uppercase() }, "Account code", placeholder = "XXXX-XXXX", keyboard = KeyboardType.Ascii, enabled = !busy) }
-            Spacer(Modifier.width(8.dp))
-            GoldButton("Check", enabled = !busy && code.isNotBlank()) { lookup("code=${URLEncoder.encode(code, "UTF-8")}") }
+        if (!typing) {
+            // Looks like a text box; a tap turns the screen into code entry.
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(1.dp, NightLine, RoundedCornerShape(12.dp))
+                    .clickable { code = ""; error = null; result = null; onTyping(true) }
+                    .padding(horizontal = 16.dp, vertical = 18.dp),
+            ) { Text("Account code", style = MaterialTheme.typography.bodyLarge, color = SnowFaint) }
         }
         ErrorText(error)
         result?.let { v ->
@@ -220,3 +251,39 @@ private fun analyse(scanner: BarcodeScanner, image: ImageProxy, onValue: (String
 
 /** The signed-in person's id, from the session the app keeps; blank when unknown. */
 private fun vm_me_id(app: com.arkhins.ctrlaps.CtrlapsApplication): String = app.currentUserId ?: ""
+
+/**
+ * Eight boxes for an account code, a dash between the fourth and fifth, as WhatsApp asks for a linking
+ * code: one hidden text field takes the typing (letters and digits, upper-cased) and the boxes show it,
+ * the next one to fill outlined in gold. The keyboard opens at once.
+ */
+@Composable
+private fun CodeBoxes(code: String, enabled: Boolean, onChange: (String) -> Unit) {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    BasicTextField(
+        value = code,
+        onValueChange = { v -> onChange(v.uppercase().filter { it in 'A'..'Z' || it in '0'..'9' }.take(8)) },
+        enabled = enabled,
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, keyboardType = KeyboardType.Ascii, autoCorrectEnabled = false),
+        modifier = Modifier.fillMaxWidth().focusRequester(focus),
+        decorationBox = {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                for (i in 0 until 8) {
+                    if (i == 4) Text("-", style = MaterialTheme.typography.titleLarge, color = Snow, modifier = Modifier.padding(horizontal = 8.dp))
+                    val ch = code.getOrNull(i)
+                    val current = i == code.length && enabled
+                    Box(
+                        Modifier
+                            .padding(horizontal = 3.dp)
+                            .size(width = 34.dp, height = 44.dp)
+                            .background(NightPanel, RoundedCornerShape(8.dp))
+                            .border(if (current) 2.dp else 1.dp, if (current) Gold else NightLine, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) { if (ch != null) Text(ch.toString(), style = MaterialTheme.typography.titleLarge, color = Snow) }
+                }
+            }
+        },
+    )
+}
