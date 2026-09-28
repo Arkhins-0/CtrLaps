@@ -1,6 +1,6 @@
 import { Shell } from "@/components/Shell";
 import { unread } from "@/lib/messages";
-import { ROLE_LABEL } from "@/lib/roles";
+import { hasChats, ROLE_LABEL } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const counts = await unread(user.id);
   return (
     <Shell
-      user={{ name: user.name || user.email, roleLabel: ROLE_LABEL[user.role], photoUrl: user.photo_key ? `/api/users/${user.id}/photo` : null }}
+      user={{ name: user.name || user.email, roleLabel: ROLE_LABEL[user.role], photoUrl: user.photo_key ? `/api/users/${user.id}/photo` : null, hasChats: hasChats(user.role) }}
       unreadHome={counts.home}
       unreadChats={counts.chats}
     >

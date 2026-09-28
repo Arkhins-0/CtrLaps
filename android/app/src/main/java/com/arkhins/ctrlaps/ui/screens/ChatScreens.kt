@@ -257,7 +257,7 @@ private fun ChatListPage(vm: AppViewModel, onOpen: (String) -> Unit, onNewChat: 
         }
     }
 
-    val canOpen = vm.me?.user?.role.let { it != "race_official" && it != "user" }
+    val canOpen = vm.me?.user?.role != "user"
     // Each row's last line from the phone's own copy when that is newer than the server's list: what was just
     // sent (still with its clock) or just synced shows at once, without waiting for the list to come back.
     val c = rememberPhoneLast(chats)
