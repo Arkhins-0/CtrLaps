@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -151,7 +152,7 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
                                             Checkbox(
                                                 checked = shown,
                                                 onCheckedChange = null,
-                                                colors = CheckboxDefaults.colors(checkedColor = Gold, checkmarkColor = Night, uncheckedColor = SnowFaint),
+                                                colors = CheckboxDefaults.colors(checkedColor = Gold, checkmarkColor = OnGold, uncheckedColor = SnowFaint),
                                             )
                                             Spacer(Modifier.width(10.dp))
                                             Text(ROLE_LABELS[r] ?: r, color = Snow)
@@ -617,7 +618,7 @@ private fun EditablePhoto(url: String?, picked: Bitmap?, name: String, size: Int
             Box(
                 Modifier.align(Alignment.BottomEnd).size(22.dp).background(Gold, CircleShape).border(2.dp, NightPanel, CircleShape),
                 contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Outlined.Edit, contentDescription = "Change photo", tint = Night, modifier = Modifier.size(12.dp)) }
+            ) { Icon(Icons.Outlined.Edit, contentDescription = "Change photo", tint = OnGold, modifier = Modifier.size(12.dp)) }
         }
     }
 }

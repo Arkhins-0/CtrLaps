@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.components
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.foundation.Image
@@ -247,8 +248,8 @@ fun LocationCard(lat: Double, lng: Double, onDark: Boolean = true) {
         Modifier
             .widthIn(max = 280.dp)
             .fillMaxWidth()
-            .background(if (onDark) Night else Night.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
-            .border(1.dp, if (onDark) NightLine else Night.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+            .background(if (onDark) Night else OnGold.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+            .border(1.dp, if (onDark) NightLine else OnGold.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
             .clickable {
                 val geo = Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng(Shared location)"))
                 val web = Intent(Intent.ACTION_VIEW, Uri.parse("https://maps.google.com/?q=$lat,$lng"))
@@ -257,13 +258,13 @@ fun LocationCard(lat: Double, lng: Double, onDark: Boolean = true) {
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(40.dp).background(if (onDark) Gold.copy(alpha = 0.15f) else Night.copy(alpha = 0.12f), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
-            Icon(Icons.Outlined.Place, contentDescription = null, tint = if (onDark) Gold else Night)
+        Box(Modifier.size(40.dp).background(if (onDark) Gold.copy(alpha = 0.15f) else OnGold.copy(alpha = 0.12f), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Outlined.Place, contentDescription = null, tint = if (onDark) Gold else OnGold)
         }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text("Location", style = MaterialTheme.typography.bodyMedium, color = if (onDark) Snow else Night)
-            Text(String.format(Locale.US, "%.5f, %.5f · tap to open in Maps", lat, lng), style = MaterialTheme.typography.labelSmall, color = if (onDark) SnowFaint else Night.copy(alpha = 0.6f))
+            Text("Location", style = MaterialTheme.typography.bodyMedium, color = if (onDark) Snow else OnGold)
+            Text(String.format(Locale.US, "%.5f, %.5f · tap to open in Maps", lat, lng), style = MaterialTheme.typography.labelSmall, color = if (onDark) SnowFaint else OnGold.copy(alpha = 0.6f))
         }
     }
 }
@@ -544,18 +545,18 @@ private fun AudioAttachment(file: FileInfo, onDark: Boolean, uploading: Float? =
         Modifier
             .then(if (fill) Modifier else Modifier.widthIn(max = 280.dp))
             .fillMaxWidth()
-            .background(if (onDark) Night else Night.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
-            .border(1.dp, if (onDark) NightLine else Night.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+            .background(if (onDark) Night else OnGold.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+            .border(1.dp, if (onDark) NightLine else OnGold.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(40.dp).background(Gold, CircleShape).clickable(enabled = !loading && uploading == null) { toggle() }, contentAlignment = Alignment.Center) {
             when {
                 // Still going up: the circle shows how far.
-                uploading != null && uploading >= 0f -> CircularProgressIndicator(progress = { uploading }, modifier = Modifier.size(24.dp), color = Night, strokeWidth = 2.5.dp, trackColor = Night.copy(alpha = 0.2f))
-                uploading != null || loading -> CircularProgressIndicator(Modifier.size(20.dp), color = Night, strokeWidth = 2.dp)
-                playing -> Icon(painterResource(R.drawable.ic_pause), contentDescription = "Pause", tint = Night)
-                else -> Icon(Icons.Outlined.PlayArrow, contentDescription = "Play", tint = Night)
+                uploading != null && uploading >= 0f -> CircularProgressIndicator(progress = { uploading }, modifier = Modifier.size(24.dp), color = OnGold, strokeWidth = 2.5.dp, trackColor = OnGold.copy(alpha = 0.2f))
+                uploading != null || loading -> CircularProgressIndicator(Modifier.size(20.dp), color = OnGold, strokeWidth = 2.dp)
+                playing -> Icon(painterResource(R.drawable.ic_pause), contentDescription = "Pause", tint = OnGold)
+                else -> Icon(Icons.Outlined.PlayArrow, contentDescription = "Play", tint = OnGold)
             }
         }
         Spacer(Modifier.width(10.dp))
@@ -564,14 +565,14 @@ private fun AudioAttachment(file: FileInfo, onDark: Boolean, uploading: Float? =
                 progress = { if (duration > 0) position.toFloat() / duration else if (loading) progress else 0f },
                 modifier = Modifier.fillMaxWidth(),
                 color = Gold,
-                trackColor = if (onDark) NightLine else Night.copy(alpha = 0.2f),
+                trackColor = if (onDark) NightLine else OnGold.copy(alpha = 0.2f),
             )
             Spacer(Modifier.padding(2.dp))
             Text(
                 error ?: if (uploading != null) "Sending…" + (if (uploading >= 0f) " ${(uploading * 100).toInt()}%" else "")
                 else if (duration > 0) "${fmt(position)} / ${fmt(duration)}" else file.name.substringBeforeLast('.').ifBlank { "Audio" } + " · " + bytes(file.size),
                 style = MaterialTheme.typography.labelSmall,
-                color = if (error != null) Danger else if (onDark) SnowFaint else Night.copy(alpha = 0.6f),
+                color = if (error != null) Danger else if (onDark) SnowFaint else OnGold.copy(alpha = 0.6f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -600,8 +601,8 @@ private fun DocumentAttachment(file: FileInfo, onView: (FileView) -> Unit, onDar
         Modifier
             .then(if (fill) Modifier else Modifier.widthIn(max = 280.dp))
             .fillMaxWidth()
-            .background(if (onDark) Night else Night.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
-            .border(1.dp, if (onDark) NightLine else Night.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+            .background(if (onDark) Night else OnGold.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+            .border(1.dp, if (onDark) NightLine else OnGold.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
             // One still on its way is not on the server to download: a tap goes to the bubble (to retry, if it failed).
             .clickable(enabled = !busy && !file.id.startsWith("local-")) {
                 val doc = saved
@@ -628,7 +629,7 @@ private fun DocumentAttachment(file: FileInfo, onView: (FileView) -> Unit, onDar
     ) {
         // Gold on a dark bubble; dark on your own gold bubble, where gold would vanish.
         val mark = if (onDark) Gold else Night
-        Box(Modifier.size(40.dp).background(if (onDark) Gold.copy(alpha = 0.15f) else Night.copy(alpha = 0.12f), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(40.dp).background(if (onDark) Gold.copy(alpha = 0.15f) else OnGold.copy(alpha = 0.12f), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
             if (uploading != null) {
                 if (uploading >= 0f) CircularProgressIndicator(progress = { uploading }, modifier = Modifier.size(24.dp), color = mark, strokeWidth = 2.dp, trackColor = mark.copy(alpha = 0.2f))
                 else CircularProgressIndicator(modifier = Modifier.size(24.dp), color = mark, strokeWidth = 2.dp)
@@ -641,7 +642,7 @@ private fun DocumentAttachment(file: FileInfo, onView: (FileView) -> Unit, onDar
         }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(file.name, style = MaterialTheme.typography.bodyMedium, color = if (onDark) Snow else Night, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+            Text(file.name, style = MaterialTheme.typography.bodyMedium, color = if (onDark) Snow else OnGold, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
             Text(
                 when {
                     error != null -> error!!
@@ -652,7 +653,7 @@ private fun DocumentAttachment(file: FileInfo, onView: (FileView) -> Unit, onDar
                     else -> "${bytes(file.size)} · tap to download"
                 },
                 style = MaterialTheme.typography.labelSmall,
-                color = if (error != null) Danger else if (onDark) SnowFaint else Night.copy(alpha = 0.6f),
+                color = if (error != null) Danger else if (onDark) SnowFaint else OnGold.copy(alpha = 0.6f),
             )
         }
     }

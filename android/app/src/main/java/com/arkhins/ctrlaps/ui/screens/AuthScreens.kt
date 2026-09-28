@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import com.arkhins.ctrlaps.ui.theme.Night
 import com.arkhins.ctrlaps.ui.theme.Gold
 import androidx.compose.ui.text.style.TextDecoration
@@ -305,7 +306,7 @@ private fun Agreement(checked: Boolean, enabled: Boolean, onLegal: (String) -> U
             checked = checked,
             onCheckedChange = onChange,
             enabled = enabled,
-            colors = CheckboxDefaults.colors(checkedColor = Gold, checkmarkColor = Night, uncheckedColor = SnowFaint),
+            colors = CheckboxDefaults.colors(checkedColor = Gold, checkmarkColor = OnGold, uncheckedColor = SnowFaint),
         )
         Text(
             buildAnnotatedString {

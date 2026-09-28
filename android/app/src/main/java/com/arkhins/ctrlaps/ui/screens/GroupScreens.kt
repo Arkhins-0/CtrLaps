@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -172,7 +173,7 @@ fun PeoplePicker(people: List<PublicUser>, picked: Set<String>, filter: String, 
                 Checkbox(
                     checked = on,
                     onCheckedChange = { onPicked(if (on) picked - u.id else picked + u.id) },
-                    colors = CheckboxDefaults.colors(checkedColor = Gold, checkmarkColor = Night, uncheckedColor = SnowFaint),
+                    colors = CheckboxDefaults.colors(checkedColor = Gold, checkmarkColor = OnGold, uncheckedColor = SnowFaint),
                 )
             }
         }
@@ -281,7 +282,7 @@ fun GroupScreen(vm: AppViewModel, groupId: String, onOpenChat: (String) -> Unit,
                                         .border(1.dp, if (on) Gold else NightLine, RoundedCornerShape(999.dp))
                                         .clickable(enabled = !busy && !on) { run { app.api.patch("/api/groups/$groupId", GroupResponse.serializer()) { put("sendPolicy", key) } } }
                                         .padding(horizontal = 14.dp, vertical = 6.dp),
-                                ) { Text(label, style = MaterialTheme.typography.labelMedium, color = if (on) Night else SnowSoft) }
+                                ) { Text(label, style = MaterialTheme.typography.labelMedium, color = if (on) OnGold else SnowSoft) }
                             }
                         }
                     }

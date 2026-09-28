@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.components
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -98,7 +99,7 @@ internal fun PhotoStrip(images: List<Picked>, enabled: Boolean, onRemove: (Picke
                         .align(Alignment.TopEnd)
                         .padding(3.dp)
                         .size(20.dp)
-                        .background(Night.copy(alpha = 0.75f), CircleShape)
+                        .background(OnGold.copy(alpha = 0.75f), CircleShape)
                         .clickable(enabled = enabled) { onRemove(p) },
                     contentAlignment = Alignment.Center,
                 ) { Icon(Icons.Outlined.Close, contentDescription = "Remove", tint = Snow, modifier = Modifier.size(14.dp)) }

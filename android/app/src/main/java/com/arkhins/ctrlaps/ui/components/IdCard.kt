@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.components
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import com.arkhins.ctrlaps.ui.theme.Danger
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -94,7 +95,7 @@ fun IdCard(v: Verified) {
         Spacer(Modifier.height(4.dp))
         if (v.role == "user") {
             Box(Modifier.background(Danger, RoundedCornerShape(999.dp)).padding(horizontal = 14.dp, vertical = 4.dp)) {
-                Text(v.roleLabel, style = MaterialTheme.typography.titleMedium, color = Night, fontWeight = FontWeight.Bold)
+                Text(v.roleLabel, style = MaterialTheme.typography.titleMedium, color = OnGold, fontWeight = FontWeight.Bold)
             }
         } else {
             Text(v.roleLabel, style = MaterialTheme.typography.titleMedium, color = Gold)
@@ -119,7 +120,7 @@ fun IdCard(v: Verified) {
             Text(
                 if (good) "ACTIVE" else v.statusLabel.uppercase(),
                 style = MaterialTheme.typography.titleLarge,
-                color = Night,
+                color = OnGold,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.sp,
             )

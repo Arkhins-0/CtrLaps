@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.components
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -88,7 +89,7 @@ fun ForwardSheet(count: Int, onDismiss: () -> Unit, what: String? = null, onSend
                             Checkbox(
                                 checked = on,
                                 onCheckedChange = { picked = if (on) picked - c.id else picked + c.id },
-                                colors = CheckboxDefaults.colors(checkedColor = Gold, checkmarkColor = Night, uncheckedColor = SnowFaint),
+                                colors = CheckboxDefaults.colors(checkedColor = Gold, checkmarkColor = OnGold, uncheckedColor = SnowFaint),
                             )
                         }
                     }

@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.components
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.putJsonArray
 import androidx.activity.compose.BackHandler
@@ -113,7 +114,7 @@ fun CreatePollScreen(onClose: () -> Unit, onSend: suspend (NewPoll) -> Unit) {
                         Switch(
                             checked = multiple,
                             onCheckedChange = { multiple = it },
-                            colors = SwitchDefaults.colors(checkedThumbColor = Night, checkedTrackColor = Gold, uncheckedThumbColor = SnowFaint, uncheckedTrackColor = NightPanel),
+                            colors = SwitchDefaults.colors(checkedThumbColor = OnGold, checkedTrackColor = Gold, uncheckedThumbColor = SnowFaint, uncheckedTrackColor = NightPanel),
                         )
                     }
                     error?.let { Text(it, color = Danger, style = MaterialTheme.typography.bodySmall) }
@@ -138,8 +139,8 @@ fun CreatePollScreen(onClose: () -> Unit, onSend: suspend (NewPoll) -> Unit) {
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                if (busy) CircularProgressIndicator(Modifier.size(24.dp), color = Night, strokeWidth = 2.dp)
-                else Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Send", tint = if (ready) Night else SnowFaint)
+                if (busy) CircularProgressIndicator(Modifier.size(24.dp), color = OnGold, strokeWidth = 2.dp)
+                else Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Send", tint = if (ready) OnGold else SnowFaint)
             }
         }
     }
@@ -184,7 +185,7 @@ fun PollCard(poll: Poll, onDark: Boolean, vote: suspend (List<String>) -> Poll?)
     // Only the answer to the latest tap counts: taps close together can come back out of order.
     var taps by remember { mutableStateOf(0) }
     val ink = if (onDark) Snow else Night
-    val soft = if (onDark) SnowFaint else Night.copy(alpha = 0.6f)
+    val soft = if (onDark) SnowFaint else OnGold.copy(alpha = 0.6f)
     val accent = if (onDark) Gold else Night
 
     fun pick(optionId: String) {
@@ -224,7 +225,7 @@ fun PollCard(poll: Poll, onDark: Boolean, vote: suspend (List<String>) -> Poll?)
                         .background(if (o.mine) accent else Color.Transparent, if (shown.multiple) RoundedCornerShape(5.dp) else CircleShape)
                         .border(2.dp, if (o.mine) accent else soft, if (shown.multiple) RoundedCornerShape(5.dp) else CircleShape),
                     contentAlignment = Alignment.Center,
-                ) { if (o.mine) Icon(Icons.Outlined.Check, contentDescription = null, tint = if (onDark) Night else Gold, modifier = Modifier.size(16.dp)) }
+                ) { if (o.mine) Icon(Icons.Outlined.Check, contentDescription = null, tint = if (onDark) OnGold else Gold, modifier = Modifier.size(16.dp)) }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

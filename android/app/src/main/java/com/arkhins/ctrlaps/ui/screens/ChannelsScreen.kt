@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -130,7 +131,7 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit) {
                             if (w.unread > 0) {
                                 Spacer(Modifier.height(4.dp))
                                 Box(Modifier.background(Gold, RoundedCornerShape(999.dp)).padding(horizontal = 7.dp, vertical = 2.dp)) {
-                                    Text("${w.unread}", style = MaterialTheme.typography.labelSmall, color = Night)
+                                    Text("${w.unread}", style = MaterialTheme.typography.labelSmall, color = OnGold)
                                 }
                             }
                             if (isAdmin) {

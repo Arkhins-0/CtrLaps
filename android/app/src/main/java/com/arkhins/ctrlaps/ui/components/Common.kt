@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.components
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.compose.ui.res.painterResource
 import com.arkhins.ctrlaps.R
 import androidx.compose.ui.text.TextStyle
@@ -89,7 +90,7 @@ fun GoldButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = t
         onClick = onClick,
         enabled = enabled,
         modifier = modifier,
-        colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Night, disabledContainerColor = Gold.copy(alpha = 0.4f), disabledContentColor = Night),
+        colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = OnGold, disabledContainerColor = Gold.copy(alpha = 0.4f), disabledContentColor = OnGold),
         shape = RoundedCornerShape(999.dp),
     ) { Text(text, style = MaterialTheme.typography.labelLarge) }
 }
@@ -241,7 +242,7 @@ fun Chip(text: String, tone: Color = SnowSoft, filled: Boolean = false, onClick:
         .border(1.dp, if (filled) tone else tone.copy(alpha = 0.4f), shape)
     val clickable = if (onClick != null) base.clickable(onClick = onClick) else base
     Box(clickable.padding(horizontal = 10.dp, vertical = 4.dp)) {
-        Text(text, style = MaterialTheme.typography.labelSmall, color = if (filled) Night else tone)
+        Text(text, style = MaterialTheme.typography.labelSmall, color = if (filled) OnGold else tone)
     }
 }
 

@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.components
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -218,7 +219,7 @@ fun CountdownChip(onOpenWeekend: (String) -> Unit) {
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = if (live) Night else Gold)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = if (live) OnGold else Gold)
     }
 }
 
@@ -268,7 +269,7 @@ fun BottomNav(current: String, unreadHome: Int, unreadChats: Int, photoUrl: Stri
                             .background(Gold, RoundedCornerShape(999.dp))
                             .padding(horizontal = 5.dp, vertical = 1.dp),
                     ) {
-                        Text(if (badge > 99) "99+" else "$badge", style = MaterialTheme.typography.labelSmall, color = Night)
+                        Text(if (badge > 99) "99+" else "$badge", style = MaterialTheme.typography.labelSmall, color = OnGold)
                     }
                 }
             }

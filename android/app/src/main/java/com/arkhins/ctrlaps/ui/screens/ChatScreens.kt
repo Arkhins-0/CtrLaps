@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.style.TextDecoration
@@ -286,7 +287,7 @@ private fun ChatListPage(vm: AppViewModel, onOpen: (String) -> Unit, onNewChat: 
                             .border(1.dp, if (on) Gold else NightLine, RoundedCornerShape(999.dp))
                             .clickable { filter = key }
                             .padding(horizontal = 14.dp, vertical = 6.dp),
-                    ) { Text(label, style = MaterialTheme.typography.labelMedium, color = if (on) Night else SnowSoft) }
+                    ) { Text(label, style = MaterialTheme.typography.labelMedium, color = if (on) OnGold else SnowSoft) }
                 }
             }
         }
@@ -329,7 +330,7 @@ private fun ChatListPage(vm: AppViewModel, onOpen: (String) -> Unit, onNewChat: 
                             if (chat.unread > 0) {
                                 Spacer(Modifier.height(4.dp))
                                 Box(Modifier.background(Gold, RoundedCornerShape(999.dp)).padding(horizontal = 7.dp, vertical = 2.dp)) {
-                                    Text("${chat.unread}", style = MaterialTheme.typography.labelSmall, color = Night)
+                                    Text("${chat.unread}", style = MaterialTheme.typography.labelSmall, color = OnGold)
                                 }
                             }
                         }
@@ -347,7 +348,7 @@ private fun ChatListPage(vm: AppViewModel, onOpen: (String) -> Unit, onNewChat: 
                     .background(Gold, RoundedCornerShape(18.dp))
                     .clickable(onClick = onNewChat),
                 contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Outlined.Create, contentDescription = "New chat", tint = Night) }
+            ) { Icon(Icons.Outlined.Create, contentDescription = "New chat", tint = OnGold) }
         }
     }
 }
@@ -428,7 +429,7 @@ fun NewChatScreen(onNewGroup: () -> Unit = {}, onOpened: (String) -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.size(40.dp).background(Gold, RoundedCornerShape(999.dp)), contentAlignment = Alignment.Center) {
-                Icon(painterResource(R.drawable.ic_tab_people), contentDescription = null, tint = Night, modifier = Modifier.size(22.dp))
+                Icon(painterResource(R.drawable.ic_tab_people), contentDescription = null, tint = OnGold, modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.width(12.dp))
             Text("New group", style = MaterialTheme.typography.titleSmall, color = Snow)
@@ -1047,7 +1048,7 @@ private fun highlighted(body: String, needle: String?, mine: Boolean) = buildAnn
         addLink(LinkAnnotation.Url(url, TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline))), range.first, range.last + 1)
     }
     if (needle.isNullOrBlank()) return@buildAnnotatedString
-    val lit = SpanStyle(background = if (mine) Night.copy(alpha = 0.25f) else Gold.copy(alpha = 0.45f), color = if (mine) Night else Snow)
+    val lit = SpanStyle(background = if (mine) OnGold.copy(alpha = 0.25f) else Gold.copy(alpha = 0.45f), color = if (mine) OnGold else Snow)
     var from = 0
     while (true) {
         val at = shown.text.indexOf(needle, from, ignoreCase = true)
@@ -1193,7 +1194,7 @@ private fun Bubble(
                     Text(
                         (if (m.editedAt != null && !m.deleted) "edited · " else "") + localTime(m.createdAt),
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (mine) Night.copy(alpha = 0.6f) else SnowFaint,
+                        color = if (mine) OnGold.copy(alpha = 0.6f) else SnowFaint,
                     )
                     when {
                         run.any { it.status == "failed" } -> Text("  Not sent · tap to retry", style = MaterialTheme.typography.labelSmall, color = Danger)
@@ -1235,7 +1236,7 @@ private fun Bubble(
                     if (m.deleted) {
                         TextWithMeta(
                             AnnotatedString("This message was deleted"),
-                            style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic, color = if (mine) Night.copy(alpha = 0.7f) else SnowFaint),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic, color = if (mine) OnGold.copy(alpha = 0.7f) else SnowFaint),
                             meta = meta,
                         )
                     } else {
@@ -1245,9 +1246,9 @@ private fun Bubble(
                         }
                         if (m.forwarded) {
                             Row(inset, verticalAlignment = Alignment.CenterVertically) {
-                                Icon(painterResource(R.drawable.ic_forward), contentDescription = null, tint = if (mine) Night.copy(alpha = 0.6f) else SnowFaint, modifier = Modifier.size(13.dp))
+                                Icon(painterResource(R.drawable.ic_forward), contentDescription = null, tint = if (mine) OnGold.copy(alpha = 0.6f) else SnowFaint, modifier = Modifier.size(13.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("Forwarded", style = MaterialTheme.typography.labelSmall, fontStyle = FontStyle.Italic, color = if (mine) Night.copy(alpha = 0.6f) else SnowFaint)
+                                Text("Forwarded", style = MaterialTheme.typography.labelSmall, fontStyle = FontStyle.Italic, color = if (mine) OnGold.copy(alpha = 0.6f) else SnowFaint)
                             }
                             Spacer(Modifier.height(2.dp))
                         }
@@ -1303,7 +1304,7 @@ private fun Bubble(
                             if (files.isNotEmpty()) Spacer(Modifier.height(6.dp))
                             // Parsed once per text, not on every redraw of the bubble.
                             val words = remember(text, highlight, mine) { highlighted(text, highlight, mine) }
-                            val wordsStyle = MaterialTheme.typography.bodyMedium.copy(color = if (mine) Night else Snow)
+                            val wordsStyle = MaterialTheme.typography.bodyMedium.copy(color = if (mine) OnGold else Snow)
                             if (metaInline) TextWithMeta(words, style = wordsStyle, meta = meta, modifier = inset)
                             else Text(words, style = wordsStyle, modifier = inset)
                         }
@@ -1332,13 +1333,13 @@ private fun InviteCard(inv: GroupInvite, open: Boolean, mine: Boolean, onDark: B
         Modifier
             .widthIn(min = 200.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(if (onDark) Night else Night.copy(alpha = 0.1f))
+            .background(if (onDark) Night else OnGold.copy(alpha = 0.1f))
             .padding(10.dp),
     ) {
-        Text(if (inv.upward) "JOIN REQUEST" else "GROUP INVITATION", style = MaterialTheme.typography.labelSmall, color = if (onDark) Gold else Night.copy(alpha = 0.6f))
-        Text(inv.groupName, style = MaterialTheme.typography.titleMedium, color = if (onDark) Snow else Night)
+        Text(if (inv.upward) "JOIN REQUEST" else "GROUP INVITATION", style = MaterialTheme.typography.labelSmall, color = if (onDark) Gold else OnGold.copy(alpha = 0.6f))
+        Text(inv.groupName, style = MaterialTheme.typography.titleMedium, color = if (onDark) Snow else OnGold)
         Spacer(Modifier.height(6.dp))
-        val note = if (onDark) SnowSoft else Night.copy(alpha = 0.7f)
+        val note = if (onDark) SnowSoft else OnGold.copy(alpha = 0.7f)
         when {
             inv.status == "accepted" -> Text("Joined", style = MaterialTheme.typography.labelMedium, color = note)
             inv.status == "declined" -> Text("Declined", style = MaterialTheme.typography.labelMedium, color = note)
@@ -1361,15 +1362,15 @@ private fun Quote(r: ReplyRef, text: String, onDark: Boolean, onClick: () -> Uni
             .widthIn(min = 120.dp)
             .height(IntrinsicSize.Min)
             .clip(RoundedCornerShape(8.dp))
-            .background(if (onDark) Night else Night.copy(alpha = 0.1f))
+            .background(if (onDark) Night else OnGold.copy(alpha = 0.1f))
             .clickable(onClick = onClick),
     ) {
-        Box(Modifier.width(4.dp).fillMaxHeight().background(if (onDark) Gold else Night.copy(alpha = 0.5f)))
+        Box(Modifier.width(4.dp).fillMaxHeight().background(if (onDark) Gold else OnGold.copy(alpha = 0.5f)))
         Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
             Text(
                 if (r.mine) "You" else r.senderName,
                 style = MaterialTheme.typography.labelMedium,
-                color = if (onDark) Gold else Night,
+                color = if (onDark) Gold else OnGold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1377,7 +1378,7 @@ private fun Quote(r: ReplyRef, text: String, onDark: Boolean, onClick: () -> Uni
                 text,
                 style = MaterialTheme.typography.bodySmall,
                 fontStyle = if (r.deleted) FontStyle.Italic else FontStyle.Normal,
-                color = if (onDark) SnowSoft else Night.copy(alpha = 0.7f),
+                color = if (onDark) SnowSoft else OnGold.copy(alpha = 0.7f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1387,7 +1388,7 @@ private fun Quote(r: ReplyRef, text: String, onDark: Boolean, onClick: () -> Uni
 
 /** One tick sent, two delivered, three read (the read ones in blue). */
 @Composable
-private fun Ticks(status: String, tint: Color = Night.copy(alpha = 0.6f), modifier: Modifier = Modifier.padding(start = 4.dp)) {
+private fun Ticks(status: String, tint: Color = OnGold.copy(alpha = 0.6f), modifier: Modifier = Modifier.padding(start = 4.dp)) {
     val n = when (status) {
         "read" -> 3
         "delivered" -> 2

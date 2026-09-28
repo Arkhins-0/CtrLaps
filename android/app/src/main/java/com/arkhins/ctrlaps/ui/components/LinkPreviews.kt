@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.components
 
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -140,7 +141,7 @@ fun LinkCard(preview: LinkPreview, onDark: Boolean, onLongPress: (() -> Unit)? =
     val app = LocalApp.current
     val uri = LocalUriHandler.current
     val ink = if (onDark) Snow else Night
-    val soft = if (onDark) SnowSoft else Night.copy(alpha = 0.7f)
+    val soft = if (onDark) SnowSoft else OnGold.copy(alpha = 0.7f)
     Column(
         Modifier
             .fillMaxWidth()
