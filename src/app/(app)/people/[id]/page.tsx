@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { Avatar } from "@/components/Avatar";
 import { PersonPhoto } from "@/components/EditablePhoto";
+import { CopyButton } from "@/components/CopyButton";
 import { PersonActions } from "@/components/PersonActions";
 import { StatusBadge } from "@/components/StatusBadge";
 import { canChat, canEdit, isBelow } from "@/lib/hierarchy";
@@ -50,7 +51,7 @@ export default async function Person({ params }: { params: Promise<{ id: string 
           <Row label="Email" value={p.email} />
           <Row label="Contact" value={p.phone ?? "—"} />
           <Row label="Date of birth" value={p.dob ?? "—"} />
-          <Row label="Account code" value={p.verifyCode} mono />
+          <Row label="Account code" value={p.verifyCode} mono copy />
         </div>
         <div className="w-36 shrink-0 self-center rounded-xl bg-white p-1.5 sm:self-start" dangerouslySetInnerHTML={{ __html: svg }} />
       </section>
@@ -65,11 +66,14 @@ export default async function Person({ params }: { params: Promise<{ id: string 
   );
 }
 
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function Row({ label, value, mono, copy }: { label: string; value: string; mono?: boolean; copy?: boolean }) {
   return (
     <div>
       <p className="label">{label}</p>
-      <p className={mono ? "font-mono tracking-wider" : ""}>{value}</p>
+      <p className="flex items-center gap-1">
+        <span className={mono ? "font-mono tracking-wider" : ""}>{value}</span>
+        {copy && <CopyButton value={value} label={`Copy ${label.toLowerCase()}`} />}
+      </p>
     </div>
   );
 }

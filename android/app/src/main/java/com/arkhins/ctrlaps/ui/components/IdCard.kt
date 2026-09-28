@@ -107,7 +107,10 @@ fun IdCard(v: Verified) {
         Spacer(Modifier.height(16.dp))
         Column(Modifier.padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("ACCOUNT CODE", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
-            Text(v.verifyCode, style = MaterialTheme.typography.headlineSmall.copy(fontFamily = FontFamily.Monospace, letterSpacing = 4.sp), color = Snow)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(v.verifyCode, style = MaterialTheme.typography.headlineSmall.copy(fontFamily = FontFamily.Monospace, letterSpacing = 4.sp), color = Snow)
+                CopyButton(v.verifyCode, "Account code")
+            }
         }
         Spacer(Modifier.height(20.dp))
         Box(

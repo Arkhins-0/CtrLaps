@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import { AccountActions } from "@/components/AccountActions";
+import { CopyButton } from "@/components/CopyButton";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { Avatar } from "@/components/Avatar";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -41,7 +42,10 @@ export default async function Account() {
         <div className="space-y-3 text-sm">
           <div>
             <p className="label">Account code</p>
-            <p className="font-mono text-2xl tracking-[0.2em]">{p.verifyCode}</p>
+            <p className="flex items-center gap-1">
+              <span className="font-mono text-2xl tracking-[0.2em]">{p.verifyCode}</span>
+              <CopyButton value={p.verifyCode} label="Copy account code" />
+            </p>
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div>

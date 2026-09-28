@@ -115,7 +115,7 @@ fun AccountScreen(
                         if (qr != null) Image(qr.asImageBitmap(), contentDescription = "Your QR code", modifier = Modifier.size(180.dp))
                     }
                     Spacer(Modifier.height(12.dp))
-                    KeyValue("Account code", u.verifyCode, mono = true)
+                    KeyValue("Account code", u.verifyCode, mono = true, copyable = true)
                 }
                 Box(Modifier.align(Alignment.BottomEnd)) {
                     IconAction(painterResource(R.drawable.ic_scan), "Scan a QR code", Gold, onClick = onScan)
