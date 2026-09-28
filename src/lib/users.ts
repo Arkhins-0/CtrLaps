@@ -5,6 +5,7 @@ import { userColumns, type SessionUser } from "./auth";
 import { verifyCode, randomToken } from "./ids";
 import { ROLE_LABEL, STATUS_LABEL, type Role, type Status } from "./roles";
 import { SITE_URL } from "./config";
+import { userPhotoUrl } from "./profile";
 
 /*
  * Users as the API shows them. `PublicUser` is what anyone below or above
@@ -42,7 +43,7 @@ export function toPublic(u: SessionUser): PublicUser {
     phone: u.phone,
     teamName: u.team_name,
     parentId: u.parent_id,
-    photoUrl: u.photo_key ? `/api/users/${u.id}/photo` : null,
+    photoUrl: userPhotoUrl(u.id, u.photo_key),
     verifyCode: u.verify_code,
     profileComplete: Boolean(u.profile_completed_at),
     createdAt: new Date(u.created_at).toISOString(),

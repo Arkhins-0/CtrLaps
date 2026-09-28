@@ -14,6 +14,7 @@ import { activeUserIds, deliver, describeFiles, fileKind, preview } from "./noti
 import { pushSync } from "./push";
 import { CHANNEL_POSTERS, ROLE_LABEL, type Role } from "./roles";
 import { APP_NAME } from "./config";
+import { userPhotoUrl } from "./profile";
 import { currentSeason, LIVE_SEASON } from "./seasons";
 
 /*
@@ -33,7 +34,7 @@ export const MAX_PHOTOS = 30;
 export const MAX_FILES = 50;
 
 /** A person's picture, or null when they have none. */
-export const photoUrl = (u: { id: string; photo_key: string | null }): string | null => (u.photo_key ? `/api/users/${u.id}/photo` : null);
+export const photoUrl = (u: { id: string; photo_key: string | null }): string | null => userPhotoUrl(u.id, u.photo_key);
 
 /** A person the way a chat shows them: name, role and picture. */
 export type PersonRow = { id: string; name: string | null; email: string; role: Role; photo_key: string | null };
@@ -282,7 +283,7 @@ function out(row: Row, viewerId: string): MessageOut {
           name: row.sender_name || row.sender_email || "Unknown",
           role: row.sender_role ?? "admin",
           roleLabel: row.sender_role ? ROLE_LABEL[row.sender_role] : "",
-          photoUrl: row.sender_photo ? `/api/users/${row.sender_id}/photo` : null,
+          photoUrl: userPhotoUrl(row.sender_id, row.sender_photo),
         }
       : null,
     body: row.body,
@@ -960,7 +961,7 @@ export async function myConversations(user: SessionUser): Promise<ConversationOu
         name: r.o_name || r.o_email,
         role: r.o_role,
         roleLabel: ROLE_LABEL[r.o_role],
-        photoUrl: r.o_photo ? `/api/users/${r.o_id}/photo` : null,
+        photoUrl: userPhotoUrl(r.o_id, r.o_photo),
         status: r.o_status,
       },
       iOpened: r.owner_id === user.id,

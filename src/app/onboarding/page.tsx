@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AuthCard } from "@/components/AuthCard";
 import { OnboardingForm } from "@/components/auth/OnboardingForm";
 import { requireSession } from "@/lib/session";
+import { userPhotoUrl } from "@/lib/profile";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Your profile" };
@@ -11,7 +12,7 @@ export default async function Onboarding() {
   if (user.profile_completed_at) redirect("/home");
   return (
     <AuthCard title="Your profile">
-      <OnboardingForm existingPhotoUrl={user.photo_key ? `/api/users/${user.id}/photo` : null} />
+      <OnboardingForm existingPhotoUrl={userPhotoUrl(user.id, user.photo_key)} />
     </AuthCard>
   );
 }

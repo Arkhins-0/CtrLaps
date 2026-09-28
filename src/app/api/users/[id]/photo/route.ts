@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { run } from "@/lib/db";
 import { canEdit } from "@/lib/hierarchy";
 import { fail, json } from "@/lib/http";
-import { storePhoto } from "@/lib/profile";
+import { dropOldPhoto, storePhoto, userPhotoUrl } from "@/lib/profile";
 import { storage } from "@/lib/storage";
 import { audit, userById } from "@/lib/users";
 
@@ -37,6 +37,7 @@ export const POST = handle<Params<"id">>(async (request, { params }) => {
   const key = await storePhoto(user.id, photo);
   if (!key) return fail("The photo must be a JPEG, PNG or WebP under 5 MB.");
   await run("UPDATE users SET photo_key = $2 WHERE id = $1", [user.id, key]);
+  dropOldPhoto(user.photo_key, key);
   await audit(me.id, user.id, "user.photo");
-  return json({ ok: true, photoUrl: `/api/users/${user.id}/photo?v=${Date.now()}` });
+  return json({ ok: true, photoUrl: userPhotoUrl(user.id, key) });
 });

@@ -3,6 +3,7 @@ import { userColumns, type SessionUser } from "@/lib/auth";
 import { one } from "@/lib/db";
 import { ROLE_LABEL } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
+import { userPhotoUrl } from "@/lib/profile";
 
 export const metadata = { title: "Verify" };
 
@@ -24,7 +25,7 @@ export default async function Verify({ params }: { params: Promise<{ token: stri
             teamName: user.team_name,
             status: user.status,
             verifyCode: user.verify_code,
-            photoUrl: user.photo_key ? `/api/users/${user.id}/photo` : null,
+            photoUrl: userPhotoUrl(user.id, user.photo_key),
             profileComplete: Boolean(user.profile_completed_at),
           }}
         />
