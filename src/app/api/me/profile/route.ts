@@ -19,8 +19,9 @@ export const POST = handle(async (request) => {
   const fields = profileFromForm(form);
   if ("error" in fields) return fail(fields.error);
   const photo = form.get("photo");
-  if (!(photo instanceof File) || photo.size === 0) return fail("Add a photo of yourself.");
-  const key = await storePhoto(user.id, photo);
+  const hasNew = photo instanceof File && photo.size > 0;
+  if (!hasNew && !user.photo_key) return fail("Add a photo of yourself.");
+  const key = hasNew ? await storePhoto(user.id, photo) : user.photo_key;
   if (!key) return fail("The photo must be a JPEG, PNG or WebP under 5 MB.");
   await run(
     "UPDATE users SET name = $2, dob = $3, phone = $4, photo_key = $5, profile_completed_at = now() WHERE id = $1",
