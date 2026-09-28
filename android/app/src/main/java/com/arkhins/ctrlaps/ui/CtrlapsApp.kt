@@ -70,6 +70,7 @@ import com.arkhins.ctrlaps.ui.screens.ChatScreen
 import com.arkhins.ctrlaps.ui.screens.ChatProfileScreen
 import com.arkhins.ctrlaps.ui.screens.GroupScreen
 import com.arkhins.ctrlaps.ui.screens.SettingsScreen
+import com.arkhins.ctrlaps.ui.screens.PermissionsScreen
 import com.arkhins.ctrlaps.ui.screens.AboutScreen
 import com.arkhins.ctrlaps.ui.screens.AccountDetailsScreen
 import com.arkhins.ctrlaps.ui.screens.StorageScreen
@@ -384,7 +385,8 @@ private fun MainNav(vm: AppViewModel) {
 
             composable("details") { Pushed("Account") { AccountDetailsScreen(vm) } }
             composable("storage") { Pushed("Storage") { StorageScreen() } }
-            composable("settings") { Pushed("Settings") { SettingsScreen() } }
+            composable("settings") { Pushed("Settings") { SettingsScreen(onPermissions = { nav.open("permissions") }) } }
+            composable("permissions") { Pushed("Permissions") { PermissionsScreen() } }
             composable("about") { Pushed("About") { AboutScreen(vm, onChangelog = { nav.open("changelog") }, onLegal = { nav.open("legal/$it") }) } }
             composable("changelog") { Pushed("What's new") { ChangelogScreen() } }
             composable("legal/{doc}") { e ->
