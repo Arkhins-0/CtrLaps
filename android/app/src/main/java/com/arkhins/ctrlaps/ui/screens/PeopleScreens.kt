@@ -241,6 +241,7 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
     var note by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
+    var promoting by remember { mutableStateOf(false) }
     var reload by remember { mutableStateOf(0) }
     val context = LocalContext.current
     var cropping by remember { mutableStateOf<Bitmap?>(null) }
@@ -327,7 +328,7 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
                         KeyValue("Email", u.email)
                         KeyValue("Contact", u.phone ?: "—")
                         KeyValue("Date of birth", u.dob ?: "—")
-                        KeyValue("Account code", u.verifyCode, mono = true)
+                        KeyValue("Account code", u.verifyCode, mono = true, copyable = true)
                     }
                     // The person's own QR, the same one on their account page, so it can be scanned from here.
                     val qr = rememberQr(d.qrUrl)
@@ -344,13 +345,34 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
         if (note != null) item { Text(note!!, style = MaterialTheme.typography.bodySmall, color = SnowSoft) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (u.id != me?.user?.id && u.status == "active") {
+                if (u.id != me?.user?.id && u.status == "active" && u.role != "user" && me?.user?.role != "user") {
                     GoldButton("Open private chat", enabled = !busy) {
                         run(null) { onOpenChat(app.api.post("/api/conversations", IdResponse.serializer()) { put("memberId", u.id) }.id) }
                     }
                 }
                 if (u.status == "pending") GhostButton("Resend invite", enabled = !busy) { run("Invite sent again.") { app.api.post("/api/users/${u.id}/invite", Ok.serializer()) } }
                 if (d.canEdit && u.profileComplete && !editing) GhostButton("Edit profile", enabled = !busy) { editing = true }
+            }
+        }
+        // Promote someone who registered (or change the role of someone this person manages): the roles they may
+        // give, and only the boxes that role needs. The server checks the same rules.
+        val canPromote = u.id != me?.user?.id && me?.canCreate?.isNotEmpty() == true &&
+            u.status != "banned" && u.status != "dismissed" && (u.role == "user" || d.canEdit)
+        if (canPromote && !promoting) {
+            item { GoldButton(if (u.role == "user") "Promote" else "Change role", Modifier.fillMaxWidth(), enabled = !busy) { promoting = true } }
+        }
+        if (canPromote && promoting) {
+            item {
+                PromotePanel(me!!, u, busy = busy, onCancel = { promoting = false }) { role, team ->
+                    run("Now a ${ROLE_LABELS[role] ?: role}.") {
+                        app.api.post("/api/users", UserResponse.serializer()) {
+                            put("email", u.email)
+                            put("role", role)
+                            put("teamName", team)
+                        }
+                        promoting = false
+                    }
+                }
             }
         }
         if (d.canEdit) {
@@ -608,17 +630,49 @@ fun EmailScreen(group: String?, onSent: () -> Unit) {
     }
 }
 
-/** A round photo; when [editable], tapping it picks a new one, and a small pencil says so. */
+/** A round photo; when [editable], tapping it picks a new one. */
 @Composable
 private fun EditablePhoto(url: String?, picked: Bitmap?, name: String, size: Int, editable: Boolean, onClick: () -> Unit) {
     Box(Modifier.size(size.dp).then(if (editable) Modifier.clip(CircleShape).clickable(onClick = onClick) else Modifier)) {
         if (picked != null) Image(picked.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(size.dp).clip(CircleShape))
         else Avatar(url, name, size)
-        if (editable) {
-            Box(
-                Modifier.align(Alignment.BottomEnd).size(22.dp).background(Gold, CircleShape).border(2.dp, NightPanel, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Outlined.Edit, contentDescription = "Change photo", tint = OnGold, modifier = Modifier.size(12.dp)) }
+    }
+}
+
+/** The roles [me] may give, as chips, then only what the chosen role needs: a team for a team manager, racers and crew. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PromotePanel(me: Me, u: PublicUser, busy: Boolean, onCancel: () -> Unit, onSave: (String, String) -> Unit) {
+    val roles = me.canCreate.filter { it != u.role }
+    var role by remember { mutableStateOf(roles.firstOrNull() ?: "") }
+    var team by remember { mutableStateOf(u.teamName ?: "") }
+    val iAmTeamManager = me.user.role == "team_manager"
+    val needsTeam = role == "team_manager"
+    Panel {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(if (u.role == "user") "Promote ${u.displayName}" else "Change ${u.displayName}'s role", style = MaterialTheme.typography.titleMedium, color = Snow)
+            SectionTitle("NEW ROLE")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                roles.forEach { r -> Chip(ROLE_LABELS[r] ?: r, Gold, filled = role == r) { if (!busy) role = r } }
+            }
+            when (role) {
+                "team_manager" -> Field(team, { team = it }, "Team name", enabled = !busy)
+                "racer", "crew" ->
+                    if (iAmTeamManager) me.user.teamName?.let { Text("Team: $it", style = MaterialTheme.typography.bodySmall, color = SnowSoft) }
+                    else Field(team, { team = it }, "Team (optional)", enabled = !busy)
+            }
+            Text(
+                "${u.displayName} is told by email. " + if (u.role == "user") "They get the chats and pages of the new role at once." else "Their chats and pages change to the new role at once.",
+                style = MaterialTheme.typography.labelSmall,
+                color = SnowFaint,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GhostButton("Cancel", enabled = !busy, onClick = onCancel)
+                GoldButton(
+                    if (busy) "Saving…" else "Make ${ROLE_LABELS[role] ?: role}",
+                    enabled = !busy && role.isNotBlank() && (!needsTeam || team.isNotBlank()),
+                ) { onSave(role, if (role == "team_manager" || ((role == "racer" || role == "crew") && !iAmTeamManager)) team.trim() else "") }
+            }
         }
     }
 }

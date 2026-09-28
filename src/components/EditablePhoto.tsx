@@ -5,10 +5,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, shrinkImage } from "@/lib/client";
 import { Avatar } from "./Avatar";
-import { Icon } from "./Icon";
 import { PhotoCropDialog } from "./PhotoCropDialog";
 
-/** A round photo; tapping it picks a new one, cropped square first, and a small pencil says so. */
+/** A round photo; tapping it picks a new one, cropped square first. */
 export function EditablePhoto({
   src,
   name,
@@ -28,9 +27,6 @@ export function EditablePhoto({
       {cropping && <PhotoCropDialog file={cropping} onCancel={() => setCropping(null)} onDone={(f) => { setCropping(null); onPicked(f); }} />}
       <label className={`relative shrink-0 ${disabled ? "pointer-events-none opacity-60" : "cursor-pointer"}`} title="Change photo" style={{ width: size, height: size }}>
         <Avatar src={src} name={name} size={size} />
-        <span className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full border-2 border-night-panel bg-gold text-night">
-          <Icon name="edit" className="h-3 w-3" />
-        </span>
         <input
           type="file"
           accept="image/*"
