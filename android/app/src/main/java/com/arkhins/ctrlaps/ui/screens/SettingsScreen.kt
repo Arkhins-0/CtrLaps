@@ -83,8 +83,35 @@ private data class Access(
  * off; tapping one that is not allowed asks for it. Each line is looked at
  * again whenever the app comes back to the front.
  */
+/** Settings: a menu into its pages. */
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onPermissions: () -> Unit) {
+    val context = LocalContext.current
+    var items by remember { mutableStateOf(lastSeen) }
+    LaunchedEffect(Unit) { items = withContext(Dispatchers.Default) { accessList(context) }.also { lastSeen = it } }
+    val allowed = items.count { it.allowed }
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Panel {
+            Column {
+                MenuRow(
+                    "Permissions",
+                    if (items.isEmpty()) "Notifications, location, camera and more" else "Notifications, location, camera and more · $allowed of ${items.size} allowed",
+                    highlight = items.isNotEmpty() && allowed < items.size,
+                    onClick = onPermissions,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PermissionsScreen() {
     val context = LocalContext.current
     var looked by remember { mutableIntStateOf(0) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -114,7 +141,6 @@ fun SettingsScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("PERMISSIONS", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
         Panel {
             Column {
                 items.forEachIndexed { i, item ->
