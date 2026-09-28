@@ -26,10 +26,13 @@ export type Weekend = {
   seasonId: string | null;
   seasonName: string | null;
   seasonArchived: boolean;
+  /** The race categories running this round (ids). */
+  categoryIds: string[];
   sessions: Session[];
 };
 
-export type Session = { id: string; weekendId: string; name: string; startsAt: string; endsAt: string };
+/** A session; [categoryId] is its race category, null when it is for everyone (a briefing, prize giving). */
+export type Session = { id: string; weekendId: string; name: string; startsAt: string; endsAt: string; categoryId: string | null };
 
 type WRow = {
   id: string;
@@ -46,7 +49,8 @@ type WRow = {
   season_name: string | null;
   season_status: string | null;
 };
-type SRow = { id: string; weekend_id: string; name: string; starts_at: string; ends_at: string };
+type SRow = { id: string; weekend_id: string; name: string; starts_at: string; ends_at: string; category_id: string | null };
+const S = "id, weekend_id, name, starts_at, ends_at, category_id";
 
 const W = `w.id, w.name, w.venue, w.city, w.country, w.timezone, w.starts_on::text AS starts_on, w.ends_on::text AS ends_on, w.channel_open,
   w.channel_closed_reason, w.season_id, s.name AS season_name, s.status AS season_status`;
@@ -58,9 +62,10 @@ const session = (s: SRow): Session => ({
   name: s.name,
   startsAt: new Date(s.starts_at).toISOString(),
   endsAt: new Date(s.ends_at).toISOString(),
+  categoryId: s.category_id,
 });
 
-const weekend = (w: WRow, sessions: SRow[]): Weekend => ({
+const weekend = (w: WRow, sessions: SRow[], categoryIds: string[] = []): Weekend => ({
   id: w.id,
   name: w.name,
   venue: w.venue,
@@ -74,8 +79,21 @@ const weekend = (w: WRow, sessions: SRow[]): Weekend => ({
   seasonId: w.season_id,
   seasonName: w.season_name,
   seasonArchived: w.season_status === "archived",
+  categoryIds,
   sessions: sessions.map(session),
 });
+
+/** Which categories run each of these weekends. */
+async function weekendCategories(ids: string[]): Promise<Map<string, string[]>> {
+  const rows = await q<{ weekend_id: string; category_id: string }>(
+    `SELECT wc.weekend_id, wc.category_id FROM weekend_categories wc JOIN categories c ON c.id = wc.category_id
+     WHERE wc.weekend_id = ANY($1::uuid[]) ORDER BY c.position`,
+    [ids],
+  );
+  const map = new Map<string, string[]>();
+  for (const r of rows) map.set(r.weekend_id, [...(map.get(r.weekend_id) ?? []), r.category_id]);
+  return map;
+}
 
 /** Weekends of live seasons — or, with a season id, that season's (archived or not). */
 export async function listWeekends(seasonId?: string): Promise<Weekend[]> {
@@ -83,21 +101,22 @@ export async function listWeekends(seasonId?: string): Promise<Weekend[]> {
     ? await q<WRow>(`SELECT ${W} ${FROM} WHERE w.season_id = $1 ORDER BY w.starts_on DESC`, [seasonId])
     : await q<WRow>(`SELECT ${W} ${FROM} WHERE ${LIVE_SEASON("w")} ORDER BY w.starts_on DESC`);
   if (weekends.length === 0) return [];
-  const sessions = await q<SRow>(
-    "SELECT id, weekend_id, name, starts_at, ends_at FROM race_sessions WHERE weekend_id = ANY($1::uuid[]) ORDER BY starts_at",
-    [weekends.map((w) => w.id)],
-  );
-  return weekends.map((w) => weekend(w, sessions.filter((s) => s.weekend_id === w.id)));
+  const ids = weekends.map((w) => w.id);
+  const [sessions, cats] = await Promise.all([
+    q<SRow>(`SELECT ${S} FROM race_sessions WHERE weekend_id = ANY($1::uuid[]) ORDER BY starts_at`, [ids]),
+    weekendCategories(ids),
+  ]);
+  return weekends.map((w) => weekend(w, sessions.filter((s) => s.weekend_id === w.id), cats.get(w.id) ?? []));
 }
 
 export async function weekendById(id: string): Promise<Weekend | null> {
   const w = await one<WRow>(`SELECT ${W} ${FROM} WHERE w.id = $1`, [id]);
   if (!w) return null;
-  const sessions = await q<SRow>(
-    "SELECT id, weekend_id, name, starts_at, ends_at FROM race_sessions WHERE weekend_id = $1 ORDER BY starts_at",
-    [id],
-  );
-  return weekend(w, sessions);
+  const [sessions, cats] = await Promise.all([
+    q<SRow>(`SELECT ${S} FROM race_sessions WHERE weekend_id = $1 ORDER BY starts_at`, [id]),
+    weekendCategories([id]),
+  ]);
+  return weekend(w, sessions, cats.get(id) ?? []);
 }
 
 export type NextRace =
@@ -113,7 +132,7 @@ export type NextRace =
 /** The session running now, or the next one to start. */
 export async function nextRace(): Promise<NextRace> {
   const s = await one<SRow>(
-    `SELECT rs.id, rs.weekend_id, rs.name, rs.starts_at, rs.ends_at FROM race_sessions rs
+    `SELECT rs.id, rs.weekend_id, rs.name, rs.starts_at, rs.ends_at, rs.category_id FROM race_sessions rs
      JOIN race_weekends w ON w.id = rs.weekend_id
      WHERE rs.ends_at > now() AND ${LIVE_SEASON("w")} ORDER BY rs.starts_at LIMIT 1`,
   );
@@ -144,7 +163,30 @@ export type WeekendInput = {
   channelOpen: boolean;
   /** The season it belongs to; the current one when left out. */
   seasonId?: string | null;
+  /** The race categories running this round; left out = unchanged (a new weekend: none). */
+  categoryIds?: string[];
 };
+
+/** Set which categories run a weekend: only the weekend's season's own categories are kept. */
+async function setWeekendCategories(weekendId: string, categoryIds: string[]): Promise<void> {
+  await run("DELETE FROM weekend_categories WHERE weekend_id = $1", [weekendId]);
+  if (categoryIds.length === 0) return;
+  await run(
+    `INSERT INTO weekend_categories (weekend_id, category_id)
+     SELECT w.id, c.id FROM race_weekends w JOIN categories c ON c.season_id = w.season_id
+     WHERE w.id = $1 AND c.id = ANY($2::uuid[]) ON CONFLICT DO NOTHING`,
+    [weekendId, categoryIds],
+  );
+}
+
+/** Whether a category belongs to a weekend's season (a session may only take those). */
+export async function categoryFitsWeekend(weekendId: string, categoryId: string): Promise<boolean> {
+  const row = await one<{ ok: boolean }>(
+    "SELECT true AS ok FROM race_weekends w JOIN categories c ON c.season_id = w.season_id WHERE w.id = $1 AND c.id = $2",
+    [weekendId, categoryId],
+  );
+  return Boolean(row);
+}
 
 export async function createWeekend(input: WeekendInput): Promise<string> {
   const seasonId = input.seasonId || (await currentSeason()).id;
@@ -153,6 +195,7 @@ export async function createWeekend(input: WeekendInput): Promise<string> {
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
     [input.name, input.venue, input.city, input.country, input.timezone, input.startsOn, input.endsOn, input.channelOpen, seasonId],
   );
+  if (input.categoryIds) await setWeekendCategories(row!.id, input.categoryIds);
   return row!.id;
 }
 
@@ -174,26 +217,29 @@ export async function updateWeekend(id: string, input: WeekendInput): Promise<vo
     [id, input.name, input.venue, input.city, input.country, input.timezone, input.startsOn, input.endsOn, input.channelOpen, input.seasonId || null],
   );
   if (n === 0) throw new AuthError(404, "No such race weekend.");
+  // A weekend moved to another season keeps only categories of that season.
+  if (input.categoryIds) await setWeekendCategories(id, input.categoryIds);
+  else await run("DELETE FROM weekend_categories wc USING categories c, race_weekends w WHERE wc.weekend_id = $1 AND c.id = wc.category_id AND w.id = wc.weekend_id AND c.season_id <> w.season_id", [id]);
 }
 
 export async function deleteWeekend(id: string): Promise<void> {
   await run("DELETE FROM race_weekends WHERE id = $1", [id]);
 }
 
-export type SessionInput = { name: string; startsAt: Date; endsAt: Date };
+export type SessionInput = { name: string; startsAt: Date; endsAt: Date; categoryId: string | null };
 
 export async function upsertSession(weekendId: string, id: string | null, input: SessionInput): Promise<string> {
   if (id) {
     const n = await run(
-      "UPDATE race_sessions SET name = $3, starts_at = $4, ends_at = $5 WHERE id = $1 AND weekend_id = $2",
-      [id, weekendId, input.name, input.startsAt, input.endsAt],
+      "UPDATE race_sessions SET name = $3, starts_at = $4, ends_at = $5, category_id = $6 WHERE id = $1 AND weekend_id = $2",
+      [id, weekendId, input.name, input.startsAt, input.endsAt, input.categoryId],
     );
     if (n === 0) throw new AuthError(404, "No such session.");
     return id;
   }
   const row = await one<{ id: string }>(
-    "INSERT INTO race_sessions (weekend_id, name, starts_at, ends_at) VALUES ($1, $2, $3, $4) RETURNING id",
-    [weekendId, input.name, input.startsAt, input.endsAt],
+    "INSERT INTO race_sessions (weekend_id, name, starts_at, ends_at, category_id) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+    [weekendId, input.name, input.startsAt, input.endsAt, input.categoryId],
   );
   return row!.id;
 }
@@ -221,6 +267,7 @@ export async function announceScheduleChange(admin: SessionUser, weekend: Weeken
   });
 }
 
-export function describeSession(s: Session, tz: string): string {
-  return `${s.name}: ${formatIn(s.startsAt, tz)} – ${formatIn(s.endsAt, tz, false)} (${tz})`;
+/** "ITC Qualifying: Sat 24 Oct, 9:00 am – 10:00 am (Asia/Kolkata)"; [code] is the session's category code, if any. */
+export function describeSession(s: Session, tz: string, code?: string | null): string {
+  return `${code ? `${code} ` : ""}${s.name}: ${formatIn(s.startsAt, tz)} – ${formatIn(s.endsAt, tz, false)} (${tz})`;
 }

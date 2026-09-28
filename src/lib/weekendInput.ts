@@ -25,5 +25,8 @@ export function weekendInput(b: Record<string, unknown>): WeekendInput | { error
     endsOn,
     channelOpen: b.channelOpen === undefined ? true : bool(b.channelOpen),
     seasonId: str(b.seasonId, 64) || null,
+    categoryIds: Array.isArray(b.categoryIds)
+      ? b.categoryIds.filter((x): x is string => typeof x === "string" && /^[0-9a-f-]{36}$/i.test(x)).slice(0, 30)
+      : undefined,
   };
 }

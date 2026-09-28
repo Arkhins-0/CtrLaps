@@ -1,5 +1,17 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.data.Category
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
@@ -100,6 +112,9 @@ fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive:
     val app = LocalApp.current
     var seasons by remember { mutableStateOf<List<Season>>(emptyList()) }
     var weekends by remember { mutableStateOf<List<Weekend>?>(null) }
+    var categories by remember { mutableStateOf<List<Category>>(emptyList()) }
+    // Show one category's sessions (and those for everyone); null = all.
+    var only by rememberSaveable { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableStateOf(0) }
     var creating by remember { mutableStateOf(false) }
@@ -107,7 +122,9 @@ fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive:
     LaunchedEffect(reload) {
         try {
             seasons = runCatching { app.store.get("/api/seasons", SeasonsResponse.serializer()) { seasons = it.seasons }.seasons }.getOrDefault(seasons)
-            weekends = app.store.get("/api/weekends", WeekendsResponse.serializer()) { weekends = it.weekends }.weekends
+            val r = app.store.get("/api/weekends", WeekendsResponse.serializer()) { weekends = it.weekends; categories = it.categories }
+            weekends = r.weekends
+            categories = r.categories
             error = null
         } catch (e: Exception) {
             if (weekends == null) error = e.message
@@ -123,23 +140,28 @@ fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive:
                 if (isAdmin) IconAction(Icons.Outlined.Add, "New race weekend", Gold) { creating = true }
             }
         }
+        val currentSeason = seasons.firstOrNull { it.current }?.id ?: w?.firstOrNull()?.seasonId
+        val chips = categories.filter { it.seasonId == currentSeason }
+        if (chips.isNotEmpty()) item { CategoryChips(chips, only) { only = it } }
+        val shown = w?.filter { wk -> only == null || only in wk.categoryIds || wk.sessions.any { it.categoryId == only } }
         when {
             error != null && w == null -> item { ErrorText(error) }
-            w == null -> item { Loading() }
+            w == null || shown == null -> item { Loading() }
             w.isEmpty() -> item { Empty(if (isAdmin) "No race weekend yet. Create the first one." else "No race weekend has been scheduled yet.") }
+            shown.isEmpty() -> item { Empty("No weekend has this category yet.") }
             else -> {
-                val groups = w.groupBy { it.seasonName ?: "" }
+                val groups = shown.groupBy { it.seasonName ?: "" }
                 groups.forEach { (seasonName, list) ->
                     if (seasonName.isNotBlank() && groups.size > 1) item(key = "season-$seasonName") { SectionTitle(seasonName.uppercase()) }
                     items(list, key = { it.id }) { weekend ->
-                        WeekendCard(weekend, isAdmin, onOpen = { onOpenWeekend(weekend.id) }, onChanged = { reload++ })
+                        WeekendCard(weekend, isAdmin, onOpen = { onOpenWeekend(weekend.id) }, onChanged = { reload++ }, categories = categories, only = only)
                     }
                 }
             }
         }
     }
     if (creating) {
-        WeekendDialog(null, seasons.filter { it.status == "active" }, onDismiss = { creating = false }, onSaved = { creating = false; reload++ })
+        WeekendDialog(null, seasons.filter { it.status == "active" }, categories, onDismiss = { creating = false }, onSaved = { creating = false; reload++ })
     }
 }
 
@@ -300,7 +322,17 @@ private fun SeasonDialog(season: Season?, onDismiss: () -> Unit, onSaved: () -> 
  * them away, and — for admins — a menu to add a session or change the weekend.
  */
 @Composable
-fun WeekendCard(w: Weekend, isAdmin: Boolean, onOpen: () -> Unit, onChanged: () -> Unit, startOpen: Boolean = false) {
+fun WeekendCard(
+    w: Weekend,
+    isAdmin: Boolean,
+    onOpen: () -> Unit,
+    onChanged: () -> Unit,
+    startOpen: Boolean = false,
+    /** The race categories of the weekend's season. */
+    categories: List<Category> = emptyList(),
+    /** Show only this category's sessions (and those for everyone). */
+    only: String? = null,
+) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf<RaceSession?>(null) }
@@ -312,6 +344,9 @@ fun WeekendCard(w: Weekend, isAdmin: Boolean, onOpen: () -> Unit, onChanged: () 
     var menu by remember { mutableStateOf(false) }
     val turn by animateFloatAsState(if (open) 180f else 0f, label = "sessions-arrow")
     val now = System.currentTimeMillis()
+    val byId = categories.associateBy { it.id }
+    val running = w.categoryIds.mapNotNull { byId[it] }
+    val sessions = if (only == null) w.sessions else w.sessions.filter { it.categoryId == null || it.categoryId == only }
     Panel {
         Column {
             Row(verticalAlignment = Alignment.Top) {
@@ -319,7 +354,7 @@ fun WeekendCard(w: Weekend, isAdmin: Boolean, onOpen: () -> Unit, onChanged: () 
                     Text(w.name, style = MaterialTheme.typography.titleLarge, color = Snow)
                     if (w.place.isNotBlank()) Text(w.place, style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
                 }
-                if (w.sessions.isNotEmpty()) {
+                if (sessions.isNotEmpty()) {
                     IconButton(onClick = { open = !open }) {
                         Icon(
                             Icons.Outlined.KeyboardArrowDown,
@@ -373,15 +408,21 @@ fun WeekendCard(w: Weekend, isAdmin: Boolean, onOpen: () -> Unit, onChanged: () 
                 color = SnowFaint,
                 modifier = Modifier.clickable(onClick = onOpen),
             )
+            if (running.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    running.forEach { CategoryTag(it) }
+                }
+            }
             ErrorText(error)
             AnimatedVisibility(
-                visible = open && w.sessions.isNotEmpty(),
+                visible = open && sessions.isNotEmpty(),
                 enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
                 exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
             ) {
                 Column {
                     Spacer(Modifier.height(10.dp))
-                    w.sessions.forEachIndexed { i, s ->
+                    sessions.forEachIndexed { i, s ->
                         if (i > 0) Divider()
                         val start = instant(s.startsAt).toEpochMilli()
                         val end = instant(s.endsAt).toEpochMilli()
@@ -389,6 +430,10 @@ fun WeekendCard(w: Weekend, isAdmin: Boolean, onOpen: () -> Unit, onChanged: () 
                         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
+                                    s.categoryId?.let { byId[it] }?.let {
+                                        CategoryTag(it)
+                                        Spacer(Modifier.width(6.dp))
+                                    }
                                     Text(s.name, style = MaterialTheme.typography.titleSmall, color = if (end <= now) SnowFaint else Snow)
                                     if (live) {
                                         Spacer(Modifier.width(6.dp))
@@ -406,10 +451,10 @@ fun WeekendCard(w: Weekend, isAdmin: Boolean, onOpen: () -> Unit, onChanged: () 
         }
     }
     if (editing != null || adding) {
-        SessionDialog(w, editing, onDismiss = { editing = null; adding = false }, onSaved = { editing = null; adding = false; onChanged() })
+        SessionDialog(w, editing, categories, onDismiss = { editing = null; adding = false }, onSaved = { editing = null; adding = false; onChanged() })
     }
     if (editingWeekend) {
-        WeekendDialog(w, emptyList(), onDismiss = { editingWeekend = false }, onSaved = { editingWeekend = false; onChanged() })
+        WeekendDialog(w, emptyList(), categories, onDismiss = { editingWeekend = false }, onSaved = { editingWeekend = false; onChanged() })
     }
     if (confirmDelete) {
         AlertDialog(
@@ -441,7 +486,7 @@ private fun asInput(iso: String, tz: String): String = inputFormat.format(Instan
 
 /** Name, venue, dates and the track's time zone. */
 @Composable
-private fun WeekendDialog(w: Weekend?, seasons: List<Season>, onDismiss: () -> Unit, onSaved: () -> Unit) {
+private fun WeekendDialog(w: Weekend?, seasons: List<Season>, categories: List<Category>, onDismiss: () -> Unit, onSaved: () -> Unit) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf(w?.name ?: "") }
@@ -453,6 +498,8 @@ private fun WeekendDialog(w: Weekend?, seasons: List<Season>, onDismiss: () -> U
     var endsOn by remember { mutableStateOf(w?.endsOn ?: "") }
     var channelOpen by remember { mutableStateOf(w?.channelOpen ?: true) }
     var seasonId by remember { mutableStateOf(w?.seasonId ?: seasons.firstOrNull { it.current }?.id ?: "") }
+    var categoryIds by remember { mutableStateOf(w?.categoryIds ?: emptyList()) }
+    val offered = categories.filter { it.seasonId == seasonId }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val day = Regex("\\d{4}-\\d{2}-\\d{2}")
@@ -475,6 +522,21 @@ private fun WeekendDialog(w: Weekend?, seasons: List<Season>, onDismiss: () -> U
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable(enabled = !busy) { channelOpen = !channelOpen }) {
                     Checkbox(channelOpen, { channelOpen = it }, enabled = !busy, colors = CheckboxDefaults.colors(checkedColor = Gold))
                     Text("Channel open for posts", style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
+                }
+                if (offered.isNotEmpty()) {
+                    Text("CATEGORIES RACING THIS ROUND", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                    offered.forEach { c ->
+                        val on = c.id in categoryIds
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().clickable(enabled = !busy) { categoryIds = if (on) categoryIds - c.id else categoryIds + c.id },
+                        ) {
+                            Checkbox(on, { categoryIds = if (on) categoryIds - c.id else categoryIds + c.id }, enabled = !busy, colors = CheckboxDefaults.colors(checkedColor = Gold))
+                            CategoryTag(c)
+                            Spacer(Modifier.width(8.dp))
+                            Text(c.name, style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
+                        }
+                    }
                 }
                 if (seasons.size > 1) {
                     Text("SEASON", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
@@ -500,6 +562,7 @@ private fun WeekendDialog(w: Weekend?, seasons: List<Season>, onDismiss: () -> U
                             put("endsOn", endsOn.trim())
                             put("channelOpen", channelOpen)
                             if (seasonId.isNotBlank()) put("seasonId", seasonId)
+                            put("categoryIds", buildJsonArray { categoryIds.filter { id -> offered.any { it.id == id } }.forEach { add(JsonPrimitive(it)) } })
                         }
                         if (w == null) app.api.post("/api/weekends", WeekendResponse.serializer(), body)
                         else app.api.patch("/api/weekends/${w.id}", WeekendResponse.serializer(), body)
@@ -516,13 +579,18 @@ private fun WeekendDialog(w: Weekend?, seasons: List<Season>, onDismiss: () -> U
 }
 
 /** Name, start and end as the track's wall clock. Saving tells everyone. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SessionDialog(w: Weekend, session: RaceSession?, onDismiss: () -> Unit, onSaved: () -> Unit) {
+private fun SessionDialog(w: Weekend, session: RaceSession?, categories: List<Category>, onDismiss: () -> Unit, onSaved: () -> Unit) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf(session?.name ?: "") }
     var starts by remember { mutableStateOf(session?.let { asInput(it.startsAt, w.timezone) } ?: "${w.startsOn}T09:00") }
     var ends by remember { mutableStateOf(session?.let { asInput(it.endsAt, w.timezone) } ?: "${w.startsOn}T10:00") }
+    // The weekend's own categories; all of its season's when it lists none.
+    val seasonCats = categories.filter { it.seasonId == w.seasonId }
+    val offered = if (w.categoryIds.isNotEmpty()) seasonCats.filter { it.id in w.categoryIds || it.id == session?.categoryId } else seasonCats
+    var categoryId by remember { mutableStateOf(session?.categoryId) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
 
@@ -538,6 +606,13 @@ private fun SessionDialog(w: Weekend, session: RaceSession?, onDismiss: () -> Un
                 Field(name, { name = it }, "Session", placeholder = "Qualifying", enabled = !busy)
                 DateTimeField(starts, { starts = it; if (ends <= it) ends = it }, "Starts (${w.timezone})", enabled = !busy, defaultDay = w.startsOn)
                 DateTimeField(ends, { ends = it }, "Ends (${w.timezone})", enabled = !busy, defaultDay = w.startsOn)
+                if (offered.isNotEmpty()) {
+                    Text("CATEGORY", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Chip("Everyone", Gold, filled = categoryId == null) { if (!busy) categoryId = null }
+                        offered.forEach { c -> Chip(c.code, categoryColor(c), filled = categoryId == c.id) { if (!busy) categoryId = c.id } }
+                    }
+                }
                 Text("Saving a new or changed time sends an urgent notice to everyone.", style = MaterialTheme.typography.labelSmall, color = SnowFaint, textAlign = TextAlign.Start)
             }
         },
@@ -552,6 +627,7 @@ private fun SessionDialog(w: Weekend, session: RaceSession?, onDismiss: () -> Un
                             put("name", name.trim())
                             put("startsAt", starts.trim())
                             put("endsAt", ends.trim())
+                            put("categoryId", categoryId ?: "")
                         }
                         onSaved()
                     } catch (e: Exception) {
@@ -563,4 +639,28 @@ private fun SessionDialog(w: Weekend, session: RaceSession?, onDismiss: () -> Un
         },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") } },
     )
+}
+
+/** A category's own colour. */
+fun categoryColor(c: Category): Color = runCatching { Color(android.graphics.Color.parseColor(c.color)) }.getOrDefault(SnowSoft)
+
+/** A race category as a small tag in its colour: "ITC". */
+@Composable
+fun CategoryTag(c: Category) {
+    val color = categoryColor(c)
+    Box(
+        Modifier
+            .background(color.copy(alpha = 0.14f), RoundedCornerShape(6.dp))
+            .border(1.dp, color.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+            .padding(horizontal = 6.dp, vertical = 1.dp),
+    ) { Text(c.code, style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.SemiBold) }
+}
+
+/** "All" and a chip per category: which category's sessions the schedule shows. */
+@Composable
+private fun CategoryChips(categories: List<Category>, only: String?, onChange: (String?) -> Unit) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Chip("All", Gold, filled = only == null) { onChange(null) }
+        categories.forEach { c -> Chip(c.code, categoryColor(c), filled = only == c.id) { onChange(if (only == c.id) null else c.id) } }
+    }
 }
