@@ -98,7 +98,7 @@ class Prefetch(private val app: CtrlapsApplication) {
                     else keep("/api/conversations/${c.id}/profile", Verified.serializer())
                     chat?.messages?.forEach { m ->
                         photos += m.sender?.photoUrl
-                        m.attachments.filter { app.chatMedia.local(it) == null }.forEach { f -> runCatching { app.chatMedia.fetch(f) } }
+                        m.attachments.filter { app.chatMedia.wanted(it) && app.chatMedia.local(it) == null }.forEach { f -> runCatching { app.chatMedia.fetch(f) } }
                     }
                 }
             }.awaitAll()

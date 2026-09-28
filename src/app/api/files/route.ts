@@ -20,11 +20,16 @@ export const POST = handle(async (request) => {
   if (!name) return fail("The file needs a name.");
   if (!Number.isFinite(size) || size <= 0 || size > MAX_FILE_BYTES) return fail("Files can be up to 50 MB.");
 
+  const asDocument = b.asDocument === true;
+  // A photo's tiny preview, base64 JPEG, kept only for photos and only when small.
+  const thumbIn = str(b.thumb, 8000);
+  const thumb = !asDocument && mime.startsWith("image/") && /^[A-Za-z0-9+/]+={0,2}$/.test(thumbIn) ? thumbIn : null;
+
   const key = `docs/${randomToken().slice(0, 16)}/${name}`;
   const row = await one<FileRow>(
-    "INSERT INTO files (key, name, mime, size, uploaded_by, as_document) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+    "INSERT INTO files (key, name, mime, size, uploaded_by, as_document, thumb) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
     // Picked through "Document": a document for everyone, whatever its type.
-    [key, name, mime, size, user.id, b.asDocument === true],
+    [key, name, mime, size, user.id, asDocument, thumb],
   );
   const target = await uploadTarget(row!);
   if (!target.direct && size > MAX_PROXY_BYTES) return fail("Files over 4 MB need object storage configured.", 413);

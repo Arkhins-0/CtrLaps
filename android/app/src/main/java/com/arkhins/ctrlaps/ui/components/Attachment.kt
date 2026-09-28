@@ -1,5 +1,12 @@
 package com.arkhins.ctrlaps.ui.components
 
+import android.graphics.BitmapFactory
+import android.util.Base64
+import androidx.compose.foundation.Image
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.layout.height
+import com.arkhins.ctrlaps.ui.theme.NightPanel
 import androidx.compose.ui.text.font.FontWeight
 import android.content.Intent
 import android.media.MediaPlayer
@@ -261,18 +268,91 @@ fun LocationCard(lat: Double, lng: Double, onDark: Boolean = true) {
 
 /* ───────────────────────────── Pictures ──────────────────────────── */
 
-/** A picture as the phone has it: its own copy once fetched, else the server's. */
+/**
+ * A picture as the phone has it: its own copy once fetched, else the server's — or null when photos are not
+ * downloaded automatically and this one is not on the phone yet (then it shows as [BlurredPhoto] until tapped).
+ */
 @Composable
-fun photoModel(file: FileInfo): Any {
+fun photoModel(file: FileInfo): Any? {
     val app = LocalApp.current
     val landed by app.chatMedia.version.collectAsState()
+    val auto by app.chatMedia.auto.photos.collectAsState()
     val local = remember(file.id, landed) { app.chatMedia.local(file) }
-    return local ?: app.api.url("/api/files/${file.id}/content?inline=1")
+    return local ?: if (auto) app.api.url("/api/files/${file.id}/content?inline=1") else null
+}
+
+/** A photo's tiny preview, blurred, standing in until the photo itself is on the phone; a plain tile when there is none. */
+@Composable
+fun BlurredPhoto(file: FileInfo, modifier: Modifier = Modifier) {
+    val preview = remember(file.thumb) {
+        file.thumb?.let { runCatching { Base64.decode(it, Base64.NO_WRAP).let { b -> BitmapFactory.decodeByteArray(b, 0, b.size) } }.getOrNull() }
+    }
+    Box(modifier.background(NightPanel)) {
+        if (preview != null) {
+            Image(preview.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(18.dp))
+        }
+    }
+}
+
+/** "⤓ 1.2 MB" (or "⤓ 15 MB · 99 photos") over photos not on the phone; a circle while they download. */
+@Composable
+fun DownloadPill(size: String, count: Int = 1, progress: Float?, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(Color.Black.copy(alpha = 0.55f))
+            .clickable(enabled = progress == null, onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (progress != null) {
+            CircularProgressIndicator(progress = { progress }, modifier = Modifier.size(22.dp), color = Snow, strokeWidth = 2.5.dp, trackColor = Snow.copy(alpha = 0.25f))
+        } else {
+            Icon(painterResource(R.drawable.ic_download), contentDescription = "Download", tint = Snow, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text(size, style = MaterialTheme.typography.labelLarge, color = Snow)
+            if (count > 1) Text("$count photos", style = MaterialTheme.typography.labelMedium, color = Snow)
+        }
+    }
+}
+
+/** The photos among [files] that are not on the phone and wait for a tap (photos not downloaded automatically). */
+@Composable
+private fun waitingPhotos(files: List<FileInfo>): List<FileInfo> {
+    val app = LocalApp.current
+    val landed by app.chatMedia.version.collectAsState()
+    val auto by app.chatMedia.auto.photos.collectAsState()
+    return remember(files, landed, auto) { if (auto) emptyList() else files.filter { app.chatMedia.local(it) == null } }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ImageAttachment(file: FileInfo, onView: (FileView) -> Unit, onLongPress: (() -> Unit)? = null, fill: Boolean = false, uploading: Float? = null) {
+    val app = LocalApp.current
+    val scope = rememberCoroutineScope()
+    var fetching by remember(file.id) { mutableStateOf<Float?>(null) }
+    if (uploading == null && waitingPhotos(listOf(file)).isNotEmpty()) {
+        val download = {
+            if (fetching == null) {
+                fetching = 0f
+                scope.launch { runCatching { app.chatMedia.fetch(file) { fetching = it } }; fetching = null }
+            }
+        }
+        Box(
+            Modifier
+                .then(if (fill) Modifier.fillMaxWidth() else Modifier.widthIn(max = GRID_WIDTH).fillMaxWidth())
+                .height(220.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .combinedClickable(onLongClick = onLongPress) { download() },
+            contentAlignment = Alignment.Center,
+        ) {
+            BlurredPhoto(file, Modifier.matchParentSize())
+            DownloadPill(bytes(file.size), progress = fetching, onClick = download)
+        }
+        return
+    }
     Box(contentAlignment = Alignment.Center) {
         AsyncImage(
             model = photoModel(file),
@@ -315,12 +395,27 @@ fun PhotoGrid(
         PreferredWidth { ImageAttachment(photos[0].file, onView, onLongPress, fill, uploading(photos[0])) }
         return
     }
+    val app = LocalApp.current
+    val scope = rememberCoroutineScope()
+    val waiting = waitingPhotos(photos.filter { uploading(it) == null }.map { it.file })
+    var fetching by remember(photos.firstOrNull()?.file?.id) { mutableStateOf<Float?>(null) }
+    val downloadAll = {
+        if (fetching == null && waiting.isNotEmpty()) {
+            val list = waiting
+            fetching = 0f
+            scope.launch {
+                list.forEachIndexed { i, f -> runCatching { app.chatMedia.fetch(f) }; fetching = (i + 1f) / list.size }
+                fetching = null
+            }
+        }
+    }
     val gap = 2.dp
-    val open = { i: Int -> onView(FileView.Gallery(photos, i)) }
+    val open = { i: Int -> if (waiting.isNotEmpty()) downloadAll() else onView(FileView.Gallery(photos, i)) }
     @Composable
     fun RowScope.Tile(i: Int, ratio: Float, more: Int = 0) =
         PhotoTile(photos[i].file, Modifier.weight(1f).aspectRatio(ratio), more, { open(i) }, onLongPress, uploading(photos[i]))
     PreferredWidth {
+      Box(contentAlignment = Alignment.Center) {
         Column(
             (if (fill) Modifier.fillMaxWidth() else Modifier.widthIn(max = GRID_WIDTH).fillMaxWidth()).clip(RoundedCornerShape(12.dp)),
             verticalArrangement = Arrangement.spacedBy(gap),
@@ -338,6 +433,10 @@ fun PhotoGrid(
                 }
             }
         }
+        if (waiting.isNotEmpty() || fetching != null) {
+            DownloadPill(bytes(waiting.sumOf { it.size }), count = waiting.size, progress = fetching, onClick = downloadAll)
+        }
+      }
     }
 }
 
@@ -370,8 +469,10 @@ private fun PreferredWidth(content: @Composable () -> Unit) {
 @Composable
 private fun PhotoTile(file: FileInfo, modifier: Modifier, more: Int, onClick: () -> Unit, onLongPress: (() -> Unit)?, uploading: Float? = null) {
     Box(modifier.background(Night).combinedClickable(onLongClick = onLongPress, onClick = onClick), contentAlignment = Alignment.Center) {
-        AsyncImage(
-            model = photoModel(file),
+        val model = photoModel(file)
+        if (model == null) BlurredPhoto(file, Modifier.fillMaxSize())
+        else AsyncImage(
+            model = model,
             contentDescription = file.name,
             contentScale = ContentScale.Crop,
             // The shade is drawn by the picture itself, over whatever it has drawn, so it is there once the photo loads too.

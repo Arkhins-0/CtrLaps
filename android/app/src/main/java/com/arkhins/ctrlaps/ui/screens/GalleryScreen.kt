@@ -1,5 +1,10 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.bytes
+import com.arkhins.ctrlaps.ui.components.BlurredPhoto
+import com.arkhins.ctrlaps.ui.components.DownloadPill
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.rememberCoroutineScope
 import com.arkhins.ctrlaps.ui.components.saveAll
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -159,8 +164,20 @@ fun GalleryScreen(
                         },
                     ),
             ) {
-                AsyncImage(
-                    model = photoModel(f),
+                val model = photoModel(f)
+                if (model == null) {
+                    val app = LocalApp.current
+                    val scope = rememberCoroutineScope()
+                    var fetching by remember(f.id) { mutableStateOf<Float?>(null) }
+                    Box(Modifier.fillMaxWidth().height(220.dp), contentAlignment = Alignment.Center) {
+                        BlurredPhoto(f, Modifier.matchParentSize())
+                        DownloadPill(bytes(f.size), progress = fetching) {
+                            fetching = 0f
+                            scope.launch { runCatching { app.chatMedia.fetch(f) { fetching = it } }; fetching = null }
+                        }
+                    }
+                } else AsyncImage(
+                    model = model,
                     contentDescription = f.name,
                     contentScale = ContentScale.FillWidth,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp),

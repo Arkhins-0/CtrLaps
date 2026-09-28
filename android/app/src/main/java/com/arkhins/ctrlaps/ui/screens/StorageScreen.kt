@@ -1,5 +1,10 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import com.arkhins.ctrlaps.data.AutoDownload
+import com.arkhins.ctrlaps.ui.theme.Night
 import androidx.compose.ui.geometry.CornerRadius
 import com.arkhins.ctrlaps.ui.theme.Gold
 import android.os.Environment
@@ -117,6 +122,7 @@ fun StorageScreen() {
                 }
             }
         }
+        AutoDownloadPanel(app.chatMedia.auto)
         Panel {
             Column {
                 Text(
@@ -197,12 +203,12 @@ private fun PhoneBar(total: Long, free: Long, ours: Long) {
             Text("${bytes(ours)} of ${advertisedSize(total)}", style = MaterialTheme.typography.labelMedium, color = Snow)
         }
         Spacer(Modifier.height(8.dp))
-        Canvas(Modifier.fillMaxWidth().height(12.dp)) {
+        Canvas(Modifier.fillMaxWidth().height(4.dp)) {
             val r = CornerRadius(size.height / 2f)
             drawRoundRect(NightLine, cornerRadius = r)
             val usedW = size.width * used / total
             if (usedW > 0f) drawRoundRect(OtherColor, size = Size(usedW, size.height), cornerRadius = r)
-            val oursW = maxOf(size.width * ours / total, if (ours > 0) 6.dp.toPx() else 0f)
+            val oursW = maxOf(size.width * ours / total, if (ours > 0) 4.dp.toPx() else 0f)
             if (oursW > 0f) drawRoundRect(Gold, size = Size(oursW, size.height), cornerRadius = r)
         }
         Spacer(Modifier.height(8.dp))
@@ -220,5 +226,36 @@ private fun Legend(color: Color, text: String) {
         Box(Modifier.size(8.dp).background(color, RoundedCornerShape(2.dp)))
         Spacer(Modifier.width(5.dp))
         Text(text, style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+    }
+}
+
+/** Which kinds download by themselves as they arrive. Off: they wait for a tap (a photo shows blurred until then). */
+@Composable
+private fun AutoDownloadPanel(auto: AutoDownload) {
+    val photos by auto.photos.collectAsState()
+    val audio by auto.audio.collectAsState()
+    val documents by auto.documents.collectAsState()
+    Panel {
+        Column {
+            Text("Automatic downloads", style = MaterialTheme.typography.titleMedium, color = Snow)
+            Spacer(Modifier.height(2.dp))
+            Text("When off, they download only when you tap them.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+            Spacer(Modifier.height(6.dp))
+            SwitchRow("Photos", photos, auto::setPhotos)
+            SwitchRow("Voice notes and audio", audio, auto::setAudio)
+            SwitchRow("Documents", documents, auto::setDocuments)
+        }
+    }
+}
+
+@Composable
+private fun SwitchRow(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable { onChange(!on) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = Snow, modifier = Modifier.weight(1f))
+        Switch(
+            checked = on,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(checkedThumbColor = Night, checkedTrackColor = Gold, uncheckedThumbColor = SnowFaint, uncheckedTrackColor = NightLine, uncheckedBorderColor = NightLine),
+        )
     }
 }

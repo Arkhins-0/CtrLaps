@@ -27,7 +27,7 @@ import { currentSeason, LIVE_SEASON } from "./seasons";
 export type Kind = "broadcast" | "channel" | "direct" | "group";
 
 /** `document`: sent through "Document", so it shows as a document whatever its type. */
-export type FileRef = { id: string; name: string; mime: string; size: number; document?: boolean };
+export type FileRef = { id: string; name: string; mime: string; size: number; document?: boolean; thumb?: string | null };
 
 /** At most this many photos, and this many attachments in all, in one message. */
 export const MAX_PHOTOS = 30;
@@ -122,6 +122,7 @@ type Row = {
   file_id: string | null;
   file_name: string | null;
   file_document: boolean | null;
+  file_thumb: string | null;
   file_mime: string | null;
   file_size: string | null;
   urgent: boolean;
@@ -235,7 +236,7 @@ function pollOut(row: PollRow, viewerId: string, named: boolean): PollOut {
 const SELECT = `
   SELECT m.id, m.conversation_id, c.kind, c.weekend_id, m.sender_id,
          s.name AS sender_name, s.email AS sender_email, s.role AS sender_role, s.photo_key AS sender_photo,
-         m.body, m.file_id, f.name AS file_name, f.mime AS file_mime, f.size::text AS file_size, f.as_document AS file_document,
+         m.body, m.file_id, f.name AS file_name, f.mime AS file_mime, f.size::text AS file_size, f.as_document AS file_document, f.thumb AS file_thumb,
          m.urgent, m.created_at, r.read_at, m.reply_to_id, m.edited_at, m.deleted_at, m.changed_at, m.forwarded,
          rm.sender_id AS rm_sender_id, COALESCE(NULLIF(rs.name, ''), rs.email) AS rm_sender_name, rm.body AS rm_body,
          rf.name AS rm_file_name, rf.mime AS rm_file_mime, rf.as_document AS rm_file_document, rm.deleted_at AS rm_deleted_at,
@@ -253,7 +254,7 @@ const SELECT = `
                    'replies', (SELECT COALESCE(json_agg(json_build_object('id', ru.id, 'name', COALESCE(NULLIF(ru.name, ''), ru.email), 'answer', er.answer) ORDER BY er.updated_at), '[]'::json)
                                FROM event_replies er JOIN users ru ON ru.id = er.user_id WHERE er.event_id = e.id))
             FROM events e WHERE e.message_id = m.id) AS event_json,
-         (SELECT json_agg(json_build_object('id', xf.id, 'name', xf.name, 'mime', xf.mime, 'size', xf.size, 'document', xf.as_document) ORDER BY mf.position)
+         (SELECT json_agg(json_build_object('id', xf.id, 'name', xf.name, 'mime', xf.mime, 'size', xf.size, 'document', xf.as_document, 'thumb', xf.thumb) ORDER BY mf.position)
             FROM message_files mf JOIN files xf ON xf.id = mf.file_id WHERE mf.message_id = m.id) AS files_json,
          (SELECT json_build_object('url', lp.url, 'title', lp.title, 'description', lp.description, 'image', lp.image_url, 'site', lp.site_name)
             FROM link_previews lp WHERE lp.url = m.link_url) AS link_json
@@ -288,10 +289,10 @@ function out(row: Row, viewerId: string): MessageOut {
       : null,
     body: row.body,
     file: row.file_id
-      ? { id: row.file_id, name: row.file_name ?? "file", mime: row.file_mime ?? "", size: Number(row.file_size ?? 0), document: Boolean(row.file_document) }
+      ? { id: row.file_id, name: row.file_name ?? "file", mime: row.file_mime ?? "", size: Number(row.file_size ?? 0), document: Boolean(row.file_document), thumb: row.file_thumb }
       : null,
     files: row.files_json
-      ? row.files_json.map((f) => ({ id: f.id, name: f.name, mime: f.mime, size: Number(f.size), document: Boolean(f.document) }))
+      ? row.files_json.map((f) => ({ id: f.id, name: f.name, mime: f.mime, size: Number(f.size), document: Boolean(f.document), thumb: f.thumb ?? null }))
       : row.file_id
         ? [{ id: row.file_id, name: row.file_name ?? "file", mime: row.file_mime ?? "", size: Number(row.file_size ?? 0) }]
         : [],
