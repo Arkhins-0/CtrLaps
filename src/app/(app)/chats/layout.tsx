@@ -1,5 +1,6 @@
 import { ChatList } from "@/components/ChatList";
 import { myConversations } from "@/lib/messages";
+import { hasChats } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 
 /**
@@ -10,5 +11,5 @@ import { requireProfile } from "@/lib/session";
 export default async function ChatsLayout({ children }: { children: React.ReactNode }) {
   const user = await requireProfile();
   const conversations = (await myConversations(user)).filter((c) => c.lastMessageAt);
-  return <ChatList conversations={conversations} canOpen={user.role !== "race_official"}>{children}</ChatList>;
+  return <ChatList conversations={conversations} canOpen={hasChats(user.role)}>{children}</ChatList>;
 }

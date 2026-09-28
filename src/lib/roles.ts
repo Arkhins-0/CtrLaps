@@ -5,11 +5,12 @@ export const ROLES = [
   "coordinator",
   "race_official",
   "team_manager",
-  "driver",
+  "racer",
   "crew",
   "security_head",
   "security",
   "volunteer",
+  "user",
 ] as const;
 
 export type Role = (typeof ROLES)[number];
@@ -22,11 +23,12 @@ export const ROLE_LABEL: Record<Role, string> = {
   coordinator: "Coordinator",
   race_official: "Race official",
   team_manager: "Team manager",
-  driver: "Driver",
+  racer: "Racer",
   crew: "Crew",
   security_head: "Security head",
   security: "Security",
   volunteer: "Volunteer",
+  user: "User",
 };
 
 export const STATUS_LABEL: Record<Status, string> = {
@@ -37,13 +39,21 @@ export const STATUS_LABEL: Record<Status, string> = {
   banned: "Banned",
 };
 
-/** Who may create whom. Anyone not listed creates nobody. */
+/**
+ * Which roles each role may give: to a new email (an invite) or to someone who
+ * already has an account (a promotion). Anyone not listed gives none. 'user' is
+ * never given: it is what people who register themselves start as.
+ */
 export const CREATE_RULES: Partial<Record<Role, Role[]>> = {
-  admin: ["admin", "coordinator"],
-  coordinator: ["race_official", "team_manager", "security_head", "volunteer"],
-  team_manager: ["driver", "crew"],
+  admin: ["admin", "coordinator", "race_official", "team_manager", "racer", "crew", "security_head", "security", "volunteer"],
+  coordinator: ["coordinator", "race_official", "team_manager", "racer", "crew", "security_head", "security", "volunteer"],
+  team_manager: ["racer", "crew"],
   security_head: ["security"],
 };
+
+/** Roles with no private chats or groups: they read announcements and race-weekend channels only. */
+export const NO_CHAT_ROLES: Role[] = ["race_official", "user"];
+export const hasChats = (role: Role): boolean => !NO_CHAT_ROLES.includes(role);
 
 export const canCreate = (creator: Role, role: Role): boolean => (CREATE_RULES[creator] ?? []).includes(role);
 

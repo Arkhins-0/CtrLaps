@@ -1,7 +1,9 @@
 import { body, handle, str } from "@/lib/api";
-import { issueToken, requireUser } from "@/lib/auth";
-import { sendInvite } from "@/lib/email";
-import { canCreateRole, chatCandidates, descendants, groupCandidates } from "@/lib/hierarchy";
+import { issueToken, requireUser, USER_COLUMNS, type SessionUser } from "@/lib/auth";
+import { APP_NAME, SITE_URL } from "@/lib/config";
+import { one } from "@/lib/db";
+import { sendInvite, sendNotice } from "@/lib/email";
+import { canCreateRole, canPromote, chatCandidates, descendants, groupCandidates } from "@/lib/hierarchy";
 import { fail, json } from "@/lib/http";
 import { isRole, ROLE_LABEL } from "@/lib/roles";
 import { audit, createUser, toPublic, userByEmail } from "@/lib/users";
@@ -26,30 +28,53 @@ export const GET = handle(async (request) => {
   return json({ users: people.map(toPublic) });
 });
 
-/** Create an account under the signed-in person and email the invite. */
+/**
+ * Give someone a role. A new email gets an account under the signed-in person
+ * and an invite; an email that already has an account is promoted instead, when
+ * the signed-in person may (see canPromote), and is told by email.
+ */
 export const POST = handle(async (request) => {
   const creator = await requireUser();
   const b = await body(request);
   const email = str(b.email, 200).toLowerCase();
   const role = b.role;
-  const teamName = str(b.teamName, 80) || null;
-  if (!isRole(role) || !canCreateRole(creator.role, role)) return fail("You cannot create that kind of account.", 403);
+  const typedTeam = str(b.teamName, 80) || null;
+  if (!isRole(role) || !canCreateRole(creator.role, role)) return fail("You cannot give that role.", 403);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Enter a valid email address.");
-  if (await userByEmail(email)) return fail("Someone already has that email.", 409);
-  if (role === "team_manager" && !teamName) return fail("Enter the team name.");
+  if (role === "team_manager" && !typedTeam) return fail("Enter the team name.");
+  // Racers and crew take their team manager's team; anyone else giving the role may type one.
+  const teamFor = (current: string | null): string | null =>
+    role === "team_manager"
+      ? typedTeam
+      : role === "racer" || role === "crew"
+        ? (creator.role === "team_manager" ? creator.team_name : typedTeam ?? current)
+        : null;
 
-  const user = await createUser({
-    email,
-    role,
-    parentId: creator.id,
-    createdBy: creator.id,
-    // Drivers and crew inherit their manager's team.
-    teamName: role === "team_manager" ? teamName : role === "driver" || role === "crew" ? creator.team_name : null,
-  });
+  const existing = await userByEmail(email);
+  if (existing) {
+    if (!canPromote(creator, existing)) {
+      return fail("That email already has an account you can't change. Ask their manager or an admin.", 409);
+    }
+    const updated = await one<SessionUser>(
+      `UPDATE users SET role = $2, parent_id = $3, team_name = $4 WHERE id = $1 RETURNING ${USER_COLUMNS}`,
+      [existing.id, role, creator.id, teamFor(existing.team_name)],
+    );
+    await audit(creator.id, existing.id, "user.promoted", { from: existing.role, to: role });
+    await sendNotice(
+      [{ email: existing.email, name: existing.name }],
+      `You are now a ${ROLE_LABEL[role]} on ${APP_NAME}`,
+      `You are now a ${ROLE_LABEL[role]}`,
+      `${creator.name || creator.email} made you a ${ROLE_LABEL[role]} on ${APP_NAME}.`,
+      SITE_URL,
+    ).catch((error) => console.error("[promote]", error));
+    return json({ user: toPublic(updated!), promoted: true });
+  }
+
+  const user = await createUser({ email, role, parentId: creator.id, createdBy: creator.id, teamName: teamFor(null) });
   const token = await issueToken(user.id, "invite", 24 * 7);
   await sendInvite({ email: user.email }, token, creator.name || creator.email, ROLE_LABEL[role]).catch((error) =>
     console.error("[invite]", error),
   );
   await audit(creator.id, user.id, "user.created", { role });
-  return json({ user: toPublic(user) }, 201);
+  return json({ user: toPublic(user), promoted: false }, 201);
 });

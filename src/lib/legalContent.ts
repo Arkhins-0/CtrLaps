@@ -29,7 +29,7 @@ const privacy: LegalDoc = {
       title: "1. Who can use CTR[L]APS",
       blocks: [
         {
-          p: "CTR[L]APS is not open to the public. Accounts are created by the organisers of an event (admins, coordinators, team managers and security heads), who enter your email address and your role. You then receive an email to set a password.",
+          p: "Anyone can register for CTR[L]APS with an email address, which we confirm by sending a link before the account is made. A new account can read announcements and race-weekend channels. The organisers of an event (admins, coordinators, team managers and security heads) give people their role, such as racer, crew or volunteer, either by adding their email address, which sends an invite, or by promoting an existing account.",
         },
       ],
     },
@@ -122,7 +122,7 @@ const privacy: LegalDoc = {
       title: "8. Children",
       blocks: [
         {
-          p: "Some people on a race weekend, such as young drivers, may be under 18. Their account may only be used with the consent of a parent or lawful guardian, which the organiser creating the account must obtain. We do not track or monitor children’s behaviour or show them advertising.",
+          p: "Some people on a race weekend, such as young racers, may be under 18. Their account may only be used with the consent of a parent or lawful guardian, which the organiser creating the account must obtain. We do not track or monitor children’s behaviour or show them advertising.",
         },
       ],
     },
@@ -170,7 +170,7 @@ const terms: LegalDoc = {
       blocks: [
         {
           ul: [
-            "CTR[L]APS is by invitation only. Your account is created by an organiser of your event, who decides your role.",
+            "You can register yourself, or an organiser of your event can add you. Your role is given by an organiser, who may change it later.",
             "Keep your password to yourself. You are responsible for what is sent from your account.",
             "The profile you complete when you first sign in must be accurate: name, date of birth, contact number and a photo that shows you. It is used to confirm who you are at the venue. After setup it can only be changed by your manager or an admin.",
             "If you are under 18, a parent or lawful guardian must agree to these terms for you.",

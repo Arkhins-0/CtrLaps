@@ -77,10 +77,10 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
-val ROLE_ORDER = listOf("admin", "coordinator", "race_official", "team_manager", "driver", "crew", "security_head", "security", "volunteer")
+val ROLE_ORDER = listOf("admin", "coordinator", "race_official", "team_manager", "racer", "crew", "security_head", "security", "volunteer", "user")
 val ROLE_LABELS = mapOf(
     "admin" to "Admin", "coordinator" to "Coordinator", "race_official" to "Race official", "team_manager" to "Team manager",
-    "driver" to "Driver", "crew" to "Crew", "security_head" to "Security head", "security" to "Security", "volunteer" to "Volunteer",
+    "racer" to "Racer", "crew" to "Crew", "security_head" to "Security head", "security" to "Security", "volunteer" to "Volunteer", "user" to "User",
 )
 
 /** Everyone below the signed-in person, grouped by role. */
@@ -344,7 +344,7 @@ fun NewPersonScreen(me: Me?, onCreated: (String) -> Unit) {
                     }
                 }
                 if (role == "team_manager") Field(team, { team = it }, "Team", enabled = !busy)
-                if ((role == "driver" || role == "crew") && me?.user?.teamName != null) Text("Team: ${me.user.teamName}", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                if ((role == "racer" || role == "crew") && me?.user?.teamName != null) Text("Team: ${me.user.teamName}", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                 Text("They get an email with a link to choose a password and fill in their profile.", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                 GoldButton(if (busy) "Sending invite…" else "Create and send invite", Modifier.fillMaxWidth(), enabled = !busy && email.isNotBlank() && role.isNotBlank()) {
                     busy = true

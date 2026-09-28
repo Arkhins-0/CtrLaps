@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ChatPicker } from "@/components/ChatPicker";
 import { Icon } from "@/components/Icon";
 import { chatCandidates } from "@/lib/hierarchy";
+import { hasChats } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 import { toPublic } from "@/lib/users";
 
@@ -11,7 +12,7 @@ export const metadata = { title: "New chat" };
 /** Pick who to chat with: everyone the chat rule allows, searchable. A group starts from here too. */
 export default async function NewChat() {
   const user = await requireProfile();
-  if (user.role === "race_official") notFound();
+  if (!hasChats(user.role)) notFound();
   const people = (await chatCandidates(user)).map(toPublic);
   return (
     <div className="h-full min-h-0 space-y-4 overflow-y-auto pb-4">

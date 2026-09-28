@@ -2,7 +2,7 @@ import "server-only";
 
 import { q } from "./db";
 import { USER_COLUMNS, type SessionUser } from "./auth";
-import { CREATE_RULES, type Role } from "./roles";
+import { CREATE_RULES, hasChats, type Role } from "./roles";
 
 /*
  * The one-way rule, in code. Everything that decides who may see, message,
@@ -11,7 +11,10 @@ import { CREATE_RULES, type Role } from "./roles";
 
 export type UserRow = SessionUser;
 
-/** Everyone below a person: their direct reports and theirs, all the way down. Admins see everyone. */
+/** Coordinators look after everyone who registered and has no role yet, as admins do. */
+const seesUnassigned = (user: Pick<SessionUser, "role">): boolean => user.role === "coordinator";
+
+/** Everyone below a person: their direct reports and theirs, all the way down, plus unassigned users for a coordinator. Admins see everyone. */
 export async function descendants(user: Pick<SessionUser, "id" | "role">): Promise<UserRow[]> {
   if (user.role === "admin") {
     return q<UserRow>(`SELECT ${USER_COLUMNS} FROM users WHERE id <> $1 ORDER BY role, name NULLS LAST, email`, [
@@ -24,9 +27,9 @@ export async function descendants(user: Pick<SessionUser, "id" | "role">): Promi
        UNION
        SELECT u.id FROM users u JOIN below b ON u.parent_id = b.id
      )
-     SELECT ${USER_COLUMNS} FROM users WHERE id IN (SELECT id FROM below)
+     SELECT ${USER_COLUMNS} FROM users WHERE id IN (SELECT id FROM below) OR ($2 AND role = 'user')
      ORDER BY role, name NULLS LAST, email`,
-    [user.id],
+    [user.id, seesUnassigned(user)],
   );
 }
 
@@ -40,8 +43,8 @@ export async function isBelow(user: Pick<SessionUser, "id" | "role">, targetId: 
        UNION
        SELECT u.id FROM users u JOIN below b ON u.parent_id = b.id
      )
-     SELECT true AS ok FROM below WHERE id = $2 LIMIT 1`,
-    [user.id, targetId],
+     SELECT true AS ok FROM users WHERE id = $2 AND (id IN (SELECT id FROM below) OR ($3 AND role = 'user')) LIMIT 1`,
+    [user.id, targetId, seesUnassigned(user)],
   );
   return rows.length > 0;
 }
@@ -62,8 +65,8 @@ export async function filterBelow(user: Pick<SessionUser, "id" | "role">, ids: s
        UNION
        SELECT u.id FROM users u JOIN below b ON u.parent_id = b.id
      )
-     SELECT id FROM below WHERE id = ANY($2::uuid[])`,
-    [user.id, ids],
+     SELECT id FROM users WHERE id = ANY($2::uuid[]) AND (id IN (SELECT id FROM below) OR ($3 AND role = 'user'))`,
+    [user.id, ids, seesUnassigned(user)],
   );
   return rows.map((r) => r.id);
 }
@@ -81,6 +84,17 @@ export function canEdit(actor: Pick<SessionUser, "id" | "role">, target: Pick<Us
   return target.parent_id === actor.id;
 }
 
+/**
+ * Whether `actor` may give `target` (an existing account) a new role: anyone
+ * who registered and has no role yet, or someone the actor already manages.
+ * Which roles they may give is CREATE_RULES.
+ */
+export function canPromote(actor: Pick<SessionUser, "id" | "role">, target: Pick<UserRow, "id" | "role" | "parent_id" | "status">): boolean {
+  if (actor.id === target.id || target.status === "banned" || target.status === "dismissed") return false;
+  if ((CREATE_RULES[actor.role] ?? []).length === 0) return false;
+  return target.role === "user" || canEdit(actor, target);
+}
+
 /** The parent the account hangs from: for a volunteer, the coordinator they are assigned to. */
 export function parentFor(creator: SessionUser): string {
   return creator.id;
@@ -90,13 +104,13 @@ type ChatParty = Pick<UserRow, "id" | "role" | "parent_id">;
 
 /**
  * Private chats run in both directions between almost anyone. The
- * exceptions: race officials have no private chat; a volunteer reaches
+ * exceptions: race officials and unassigned users have no private chat; a volunteer reaches
  * only other volunteers and their own coordinator; security reaches only
  * coordinators. Admins reach everyone that has a chat at all.
  */
 export function canChat(a: ChatParty, b: ChatParty): boolean {
   if (a.id === b.id) return false;
-  if (a.role === "race_official" || b.role === "race_official") return false;
+  if (!hasChats(a.role) || !hasChats(b.role)) return false;
   if (a.role === "admin" || b.role === "admin") return true;
   const pair = (x: ChatParty, y: ChatParty): boolean => {
     if (x.role === "volunteer") return y.role === "volunteer" || (y.role === "coordinator" && x.parent_id === y.id);
@@ -114,9 +128,10 @@ const LEVEL: Record<Role, number> = {
   team_manager: 2,
   security_head: 2,
   volunteer: 2,
-  driver: 3,
+  racer: 3,
   crew: 3,
   security: 3,
+  user: 4,
 };
 
 /**
@@ -125,12 +140,12 @@ const LEVEL: Record<Role, number> = {
  * at all). Straight in go people at your own level and those your role
  * looks after: an admin brings coordinators; a coordinator brings team
  * managers, security heads and their own volunteers; a team manager their
- * own drivers and crew; a security head their own security. Drivers, crew
- * and security bring their own teammates. Race officials have no chats, so
- * no groups either.
+ * own racers and crew; a security head their own security. Racers, crew
+ * and security bring their own teammates. Race officials and unassigned
+ * users have no chats, so no groups either.
  */
 export function groupAddMode(actor: ChatParty, target: ChatParty): "direct" | "request" | null {
-  if (actor.id === target.id || actor.role === "race_official" || target.role === "race_official") return null;
+  if (actor.id === target.id || !hasChats(actor.role) || !hasChats(target.role)) return null;
   // A request travels in the private chat between the two, so there must be one. Adding someone straight in needs none.
   if (LEVEL[target.role] < LEVEL[actor.role]) return canChat(actor, target) ? "request" : null;
   const teammate = target.parent_id === actor.parent_id;
@@ -142,15 +157,15 @@ export function groupAddMode(actor: ChatParty, target: ChatParty): "direct" | "r
       return target.role === "volunteer" && target.parent_id === actor.id ? "direct" : null;
     case "team_manager":
       if (target.role === "team_manager") return "direct";
-      return (target.role === "driver" || target.role === "crew") && target.parent_id === actor.id ? "direct" : null;
+      return (target.role === "racer" || target.role === "crew") && target.parent_id === actor.id ? "direct" : null;
     case "security_head":
       if (target.role === "security_head") return "direct";
       return target.role === "security" && target.parent_id === actor.id ? "direct" : null;
     case "volunteer":
       return target.role === "volunteer" ? "direct" : null;
-    case "driver":
+    case "racer":
     case "crew":
-      return (target.role === "driver" || target.role === "crew") && teammate ? "direct" : null;
+      return (target.role === "racer" || target.role === "crew") && teammate ? "direct" : null;
     case "security":
       return target.role === "security" && teammate ? "direct" : null;
     default:
@@ -165,7 +180,7 @@ function activeOthers(user: Pick<SessionUser, "id">): Promise<UserRow[]> {
 
 /** Everyone this person may open a chat with. */
 export async function chatCandidates(user: SessionUser): Promise<UserRow[]> {
-  if (user.role === "race_official") return [];
+  if (!hasChats(user.role)) return [];
   return (await activeOthers(user)).filter((other) => canChat(user, other));
 }
 

@@ -76,8 +76,8 @@ export const PATCH = handle<Params<"id">>(async (request, { params }) => {
   if (changes.status === "banned") await revokeAll(user.id, { keepSessions: true });
   else if (changes.status && (changes.status !== "active" || user.status === "banned")) await revokeAll(user.id);
   if (changes.team_name !== undefined && user.role === "team_manager") {
-    // The team follows the manager: drivers and crew carry the same name.
-    await run("UPDATE users SET team_name = $2 WHERE parent_id = $1 AND role IN ('driver', 'crew')", [user.id, changes.team_name]);
+    // The team follows the manager: racers and crew carry the same name.
+    await run("UPDATE users SET team_name = $2 WHERE parent_id = $1 AND role IN ('racer', 'crew')", [user.id, changes.team_name]);
   }
   await audit(me.id, user.id, "user.updated", { changes, before: toPublic(user) });
   return json({ user: toPublic((await userById(user.id))!) });

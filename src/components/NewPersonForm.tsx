@@ -7,8 +7,8 @@ import { useEffect, useState } from "react";
 import { api, shrinkImage } from "@/lib/client";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
 
-/** An email, a role and optionally a photo. The invite goes out at once. */
-export function NewPersonForm({ roles, teamName }: { roles: Role[]; teamName: string | null }) {
+/** An email, a role and optionally a photo. A new email gets an invite; one that already has an account is promoted. */
+export function NewPersonForm({ roles, teamName, creatorRole }: { roles: Role[]; teamName: string | null; creatorRole: Role }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>(roles[0]);
@@ -32,7 +32,7 @@ export function NewPersonForm({ roles, teamName }: { roles: Role[]; teamName: st
     setError(null);
     let id: string;
     try {
-      const r = await api<{ user: { id: string } }>("/api/users", { method: "POST", json: { email, role, teamName: team } });
+      const r = await api<{ user: { id: string }; promoted: boolean }>("/api/users", { method: "POST", json: { email, role, teamName: team } });
       id = r.user.id;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create.");
@@ -46,7 +46,7 @@ export function NewPersonForm({ roles, teamName }: { roles: Role[]; teamName: st
         await api(`/api/users/${id}/photo`, { method: "POST", body: form });
       } catch (err) {
         setCreatedId(id);
-        setError(`The account was created and the invite sent, but the photo didn't upload: ${err instanceof Error ? err.message : "unknown error"}`);
+        setError(`The role was given, but the photo didn't upload: ${err instanceof Error ? err.message : "unknown error"}`);
         setBusy(false);
         return;
       }
@@ -113,10 +113,22 @@ export function NewPersonForm({ roles, teamName }: { roles: Role[]; teamName: st
           <input id="team" className="input" required value={team} onChange={(e) => setTeam(e.target.value)} />
         </div>
       )}
-      {(role === "driver" || role === "crew") && teamName && <p className="text-xs text-snow-faint">Team: {teamName}</p>}
-      <p className="text-xs text-snow-faint">They get an email with a link to choose a password and fill in their profile.</p>
+      {(role === "racer" || role === "crew") &&
+        (creatorRole === "team_manager" ? (
+          teamName && <p className="text-xs text-snow-faint">Team: {teamName}</p>
+        ) : (
+          <div>
+            <label className="label" htmlFor="team">
+              Team <span className="text-snow-faint">(optional)</span>
+            </label>
+            <input id="team" className="input" value={team} onChange={(e) => setTeam(e.target.value)} />
+          </div>
+        ))}
+      <p className="text-xs text-snow-faint">
+        A new email gets a link to choose a password and fill in their profile. If the email already has an account, they are given this role and told by email.
+      </p>
       <button className="btn-gold w-full" disabled={busy || createdId !== null}>
-        {busy ? (photo ? "Creating and uploading photo…" : "Sending invite…") : "Create and send invite"}
+        {busy ? "Saving…" : "Give role"}
       </button>
     </form>
   );

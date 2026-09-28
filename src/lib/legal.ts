@@ -6,5 +6,5 @@
  */
 export const OPERATOR = "Arkhins";
 export const CONTACT_EMAIL = "arkhins@arkhins.com";
-export const TERMS_VERSION = "2026-09-24";
-export const TERMS_UPDATED = "24 September 2026";
+export const TERMS_VERSION = "2026-09-28";
+export const TERMS_UPDATED = "28 September 2026";

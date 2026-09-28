@@ -3,7 +3,7 @@ import { NewPersonForm } from "@/components/NewPersonForm";
 import { CREATE_RULES } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 
-export const metadata = { title: "Add person" };
+export const metadata = { title: "Add or promote" };
 
 export default async function NewPerson() {
   const user = await requireProfile();
@@ -11,8 +11,8 @@ export default async function NewPerson() {
   if (roles.length === 0) notFound();
   return (
     <div className="space-y-4">
-      <h1 className="page-title">Add person</h1>
-      <NewPersonForm roles={roles} teamName={user.team_name} />
+      <h1 className="page-title">Add or promote</h1>
+      <NewPersonForm roles={roles} teamName={user.team_name} creatorRole={user.role} />
     </div>
   );
 }

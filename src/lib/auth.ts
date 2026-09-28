@@ -217,6 +217,33 @@ export async function consumeToken(token: string): Promise<void> {
   await run("UPDATE auth_tokens SET used_at = now() WHERE hash = $1", [hashToken(token)]);
 }
 
+/* ───────────────────────────── Registration links ───────────────── */
+
+/** A link that proves someone owns an email, before any account exists. Earlier unused links for that email stop working. */
+export async function issueSignup(email: string, hours: number): Promise<string> {
+  const token = randomToken();
+  await run("UPDATE signups SET used_at = now() WHERE email = $1 AND used_at IS NULL", [email]);
+  await run("INSERT INTO signups (hash, email, expires_at) VALUES ($1, $2, $3)", [
+    hashToken(token),
+    email,
+    new Date(Date.now() + hours * 3_600_000),
+  ]);
+  return token;
+}
+
+/** The email a live registration link was sent to, or null when it is unknown, used or expired. */
+export async function signupEmail(token: string): Promise<string | null> {
+  const row = await one<{ email: string }>(
+    "SELECT email FROM signups WHERE hash = $1 AND used_at IS NULL AND expires_at > now()",
+    [hashToken(token)],
+  );
+  return row?.email ?? null;
+}
+
+export async function consumeSignup(token: string): Promise<void> {
+  await run("UPDATE signups SET used_at = now() WHERE hash = $1", [hashToken(token)]);
+}
+
 /** Every session for a user, for the account page. */
 export async function sessionsOf(userId: string) {
   return q<{ platform: string; created_at: string; last_seen_at: string }>(
