@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, shrinkImage } from "@/lib/client";
+import { EditablePhoto, usePreview } from "./EditablePhoto";
 import { STATUS_LABEL, type Status } from "@/lib/roles";
 import type { PublicUser } from "@/lib/users";
 
@@ -26,7 +27,9 @@ export function PersonActions({
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [f, setF] = useState({ name: person.name ?? "", dob: person.dob ?? "", phone: person.phone ?? "", teamName: person.teamName ?? "", parentId: person.parentId ?? "" });
-  const [photo, setPhoto] = useState<File | null>(null);
+  // A photo picked in the edit form waits for Save.
+  const [newPhoto, setNewPhoto] = useState<File | null>(null);
+  const preview = usePreview(newPhoto);
 
   const run = async (fn: () => Promise<void>, done?: string) => {
     setBusy(true);
@@ -66,13 +69,13 @@ export function PersonActions({
       if (f.teamName !== (person.teamName ?? "")) changes.teamName = f.teamName;
       if (f.parentId && f.parentId !== (person.parentId ?? "")) changes.parentId = f.parentId;
       if (Object.keys(changes).length > 0) await api(`/api/users/${person.id}`, { method: "PATCH", json: changes });
-      if (photo) {
+      if (newPhoto) {
         const form = new FormData();
-        form.set("photo", await shrinkImage(photo), "photo.jpg");
+        form.set("photo", await shrinkImage(newPhoto), "photo.jpg");
         await api(`/api/users/${person.id}/photo`, { method: "POST", body: form });
       }
+      setNewPhoto(null);
       setEditing(false);
-      setPhoto(null);
     }, "Saved.");
   };
 
@@ -129,6 +132,10 @@ export function PersonActions({
 
       {editing && (
         <form onSubmit={save} className="card space-y-3">
+          <div className="flex items-center gap-4">
+            <EditablePhoto src={preview ?? person.photoUrl} name={person.name ?? person.email} size={72} disabled={busy} onPicked={setNewPhoto} />
+            <p className="text-xs text-snow-faint">Tap the photo to change it.</p>
+          </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="label">Full name</span>
@@ -160,13 +167,9 @@ export function PersonActions({
                 </select>
               </label>
             )}
-            <label className="block">
-              <span className="label">Photo</span>
-              <input className="input" type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
-            </label>
           </div>
           <div className="flex justify-end gap-2">
-            <button type="button" className="btn-ghost px-4 py-1.5 text-xs" onClick={() => setEditing(false)} disabled={busy}>
+            <button type="button" className="btn-ghost px-4 py-1.5 text-xs" onClick={() => { setEditing(false); setNewPhoto(null); }} disabled={busy}>
               Cancel
             </button>
             <button className="btn-gold px-4 py-1.5 text-xs" disabled={busy}>

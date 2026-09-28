@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { Avatar } from "@/components/Avatar";
+import { PersonPhoto } from "@/components/EditablePhoto";
 import { PersonActions } from "@/components/PersonActions";
 import { StatusBadge } from "@/components/StatusBadge";
 import { canChat, canEdit, isBelow } from "@/lib/hierarchy";
@@ -27,7 +28,11 @@ export default async function Person({ params }: { params: Promise<{ id: string 
   return (
     <div className="space-y-5">
       <section className="card flex items-center gap-4">
-        <Avatar src={p.photoUrl} name={p.name ?? p.email} size={72} />
+        {editable ? (
+          <PersonPhoto personId={p.id} src={p.photoUrl} name={p.name ?? p.email} size={72} />
+        ) : (
+          <Avatar src={p.photoUrl} name={p.name ?? p.email} size={72} />
+        )}
         <div className="min-w-0">
           <h1 className="truncate text-lg font-semibold">{p.name ?? p.email}</h1>
           <p className="text-sm text-snow-soft">
