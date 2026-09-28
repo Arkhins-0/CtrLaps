@@ -1,5 +1,11 @@
 package com.arkhins.ctrlaps.ui.components
 
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -177,10 +183,22 @@ fun AttachSheet(
                 }
             }
             if (picked.isNotEmpty()) {
-                Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                val barScope = rememberCoroutineScope()
+                // The sheet is as tall as the screen; half open, its bottom is below the screen's edge. The bar is lifted
+                // by that much, so it always sits at the bottom of what shows, however far the sheet is open.
+                Row(
+                    Modifier
+                        .offset { IntOffset(0, -(runCatching { sheet.requireOffset() }.getOrDefault(0f)).roundToInt().coerceAtLeast(0)) }
+                        .fillMaxWidth()
+                        .background(NightPanel)
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Box(
                         Modifier
                             .weight(1f)
+                            // Typing a caption opens the sheet all the way, so the keyboard has room.
+                            .onFocusChanged { if (it.hasFocus) barScope.launch { sheet.expand() } }
                             .background(Night, RoundedCornerShape(24.dp))
                             .border(1.dp, NightLine, RoundedCornerShape(24.dp))
                             .padding(horizontal = 16.dp, vertical = 12.dp),
