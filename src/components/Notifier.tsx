@@ -73,7 +73,7 @@ export function Notifier({ onUnread }: { onUnread?: (home: number, chats: number
         unsubscribe = onMessage(messaging, () => {
           poll();
           // An open chat reloads at once instead of waiting for its next look.
-          window.dispatchEvent(new Event("wink:push"));
+          window.dispatchEvent(new Event("ctrlaps:push"));
         });
       } catch (error) {
         console.warn("[push] not available", error);
@@ -98,7 +98,7 @@ export function Notifier({ onUnread }: { onUnread?: (home: number, chats: number
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-gold">
               {top.urgent ? "Urgent · " : ""}
-              {top.sender?.name ?? "Wink"}
+              {top.sender?.name ?? "CTR[L]APS"}
               {top.sender?.roleLabel ? ` · ${top.sender.roleLabel}` : ""}
             </p>
             <p className="mt-1 line-clamp-3 text-sm">{top.body || (top.file ? `Document: ${top.file.name}` : "New message")}</p>

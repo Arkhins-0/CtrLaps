@@ -2,6 +2,7 @@ import "server-only";
 
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { SITE_URL } from "./config";
 import { one, run } from "./db";
 
 /*
@@ -80,7 +81,7 @@ export async function guardedFetch(start: string, accept: string, max: number, s
       redirect: "manual",
       signal: AbortSignal.timeout(TIMEOUT_MS),
       // Many sites only give a card to what looks like a link-preview bot.
-      headers: { accept, "user-agent": "Mozilla/5.0 (compatible; WinkLinkPreview/1.0; +https://wink.arkhins.com) facebookexternalhit/1.1" },
+      headers: { accept, "user-agent": `Mozilla/5.0 (compatible; CtrlapsLinkPreview/1.0; +${SITE_URL}) facebookexternalhit/1.1` },
     }).catch(() => null);
     if (!res) return null;
     if (res.status >= 300 && res.status < 400) {

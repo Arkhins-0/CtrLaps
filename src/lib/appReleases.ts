@@ -33,7 +33,7 @@ let asset: { version: string; apiUrl: string; publicUrl: string } | null = null;
 
 const headers = (accept = "application/vnd.github+json"): Record<string, string> => ({
   Accept: accept,
-  "User-Agent": "wink-server",
+  "User-Agent": "ctrlaps-server",
   ...(env.githubToken ? { Authorization: `Bearer ${env.githubToken}` } : {}),
 });
 

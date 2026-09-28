@@ -1,7 +1,7 @@
 name: Release
 
 # Push a tag like v0.0.0.1 to build the Android app in android/ and publish a
-# GitHub Release with the APKs attached. The app checks that release (through wink.arkhins.com,
+# GitHub Release with the APKs attached. The app checks that release (through the site in the CTRLAPS_BASE_URL variable,
 # or GitHub directly) and shows its update popup when the tag is newer than
 # the installed build. The release APK is signed with the keystore held in
 # the repository secrets below; without them it is built unsigned and will
@@ -45,18 +45,18 @@ jobs:
         if: ${{ env.HAS_KEYSTORE == 'true' }}
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > release.keystore.jks
-          echo "WINK_KEYSTORE_PATH=release.keystore.jks" >> "$GITHUB_ENV"
-          echo "WINK_KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
-          echo "WINK_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> "$GITHUB_ENV"
-          echo "WINK_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "CTRLAPS_KEYSTORE_PATH=release.keystore.jks" >> "$GITHUB_ENV"
+          echo "CTRLAPS_KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "CTRLAPS_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> "$GITHUB_ENV"
+          echo "CTRLAPS_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> "$GITHUB_ENV"
       - name: Build
         # gradle.properties caps the heap at 1536m for a development machine.
         # A runner has 16 GB, and R8 plus an in-process Kotlin compile of
         # both variants wants more than that.
         env:
-          WINK_BASE_URL: ${{ vars.WINK_BASE_URL || 'https://wink.arkhins.com' }}
-          WINK_UPDATE_URL: ${{ vars.WINK_UPDATE_URL || '' }}
-          WINK_GITHUB_REPO: ${{ vars.WINK_GITHUB_REPO || github.repository }}
+          CTRLAPS_BASE_URL: ${{ vars.CTRLAPS_BASE_URL }}
+          CTRLAPS_UPDATE_URL: ${{ vars.CTRLAPS_UPDATE_URL || '' }}
+          CTRLAPS_GITHUB_REPO: ${{ vars.CTRLAPS_GITHUB_REPO || github.repository }}
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease assembleDebug --no-daemon --stacktrace \
@@ -108,8 +108,8 @@ jobs:
       - name: Rename and checksum
         run: |
           mkdir -p dist
-          cp apks/app-release.apk "dist/Wink-${{ github.ref_name }}.apk"
-          cp apks/app-debug.apk "dist/Wink-debug-${{ github.ref_name }}.apk"
+          cp apks/app-release.apk "dist/CTRLAPS-${{ github.ref_name }}.apk"
+          cp apks/app-debug.apk "dist/CTRLAPS-debug-${{ github.ref_name }}.apk"
           cp apks/mapping.txt "dist/mapping-${{ github.ref_name }}.txt"
           cd dist && sha256sum * > SHA256SUMS.txt
           ls -la

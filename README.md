@@ -1,4 +1,4 @@
-# Wink
+# CTR[L]APS
 
 Race-weekend communication for one championship: messages and documents flow
 **down** a fixed hierarchy, arrive as popups (push) and — when urgent — email,
@@ -8,7 +8,7 @@ One repository, two halves:
 
 | Path        | What it is | Deploys to |
 |-------------|------------|------------|
-| `/` (root)  | The website and API, Next.js 15. | `https://wink.arkhins.com` (Vercel) |
+| `/` (root)  | The website and API, Next.js 15. | your domain (Vercel) |
 | `android/`  | The Android app, Kotlin + Jetpack Compose. See [android/README.md](android/README.md). | GitHub Releases, then into installed apps through the in-app update popup |
 
 ## How it works
@@ -43,7 +43,7 @@ the track's time zone). Any change to a session goes out to everyone as urgent.
 The chip at the top right of every screen counts down to the next session and
 says LIVE while one runs; tapping it opens the weekend.
 
-**Documents.** In the app, opening a document saves it to `Downloads/Wink` at
+**Documents.** In the app, opening a document saves it to `Downloads/CTRLAPS` at
 the same time; PDFs read in the app, other files open with whatever app handles
 them. On the website a document offers Download or View (PDF and images in the
 page, Office files through Microsoft's viewer).
@@ -89,13 +89,13 @@ Variables.
 | Key | What it is |
 |---|---|
 | `DATABASE_URL`, `DATABASE_URL_POOLED` | Neon Postgres. The pooled URL is preferred when set. |
-| `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`, `S3_PREFIX` | Object storage for documents and photos. Browsers and the app upload straight to the bucket through signed URLs, so the bucket's CORS must allow `PUT` from `https://wink.arkhins.com`; uploads under 4 MB fall back to going through the server if it does not. |
+| `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`, `S3_PREFIX` | Object storage for documents and photos. Browsers and the app upload straight to the bucket through signed URLs, so the bucket's CORS must allow `PUT` from the site's address; uploads under 4 MB fall back to going through the server if it does not. |
 | `EMAIL_PROVIDER`, `BREVO_API_KEY`, `EMAIL_FROM`, `EMAIL_FROM_NAME` | Transactional email through Brevo. The sender domain must be verified in Brevo. A blank key disables email. |
 | `FIREBASE_SERVICE_ACCOUNT` | Push. The Firebase service-account JSON, base64-encoded (`base64 -w0 service-account.json`). `FIREBASE_SERVICE_ACCOUNT_FILE` (a path) also works on a machine that has the file. |
 | `NEXT_PUBLIC_FIREBASE_*` | Push in the browser: the Firebase *web app* config plus its VAPID key (Firebase console → Project settings → Cloud Messaging → Web Push certificates). All five or none. |
-| `WINK_GITHUB_REPO`, `GITHUB_TOKEN` | Where the APK releases live; the token raises GitHub's rate limit. |
-| `NEXT_PUBLIC_SITE_URL` | Public URL for links and metadata. Default `https://wink.arkhins.com`. |
-| `WINK_BASE_URL`, `WINK_UPDATE_URL` | App only: where it finds the server. |
+| `CTRLAPS_GITHUB_REPO`, `GITHUB_TOKEN` | Where the APK releases live; the token raises GitHub's rate limit. |
+| `NEXT_PUBLIC_SITE_URL` | Public URL for links and metadata. On Vercel, defaults to the project's production domain; locally, `http://localhost:3000`. |
+| `CTRLAPS_BASE_URL`, `CTRLAPS_UPDATE_URL` | App only: where it finds the server. |
 
 ### Deploying
 
@@ -103,7 +103,7 @@ Variables.
 2. Add the environment variables above (the service account as base64:
    `base64 -w0 service-account.json`, the same value as in `.env`).
 3. Run `npm run migrate` once against the production database.
-4. Point `wink.arkhins.com` at Vercel (CNAME to `cname.vercel-dns.com`).
+4. Point your domain at Vercel (CNAME to `cname.vercel-dns.com`).
 5. `npm run create-admin -- you@example.com` and accept the invite.
 
 `public/.well-known/assetlinks.json` lists the SHA-256 of the release signing

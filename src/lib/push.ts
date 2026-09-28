@@ -14,7 +14,7 @@ import { q, run } from "./db";
 
 declare global {
   // eslint-disable-next-line no-var
-  var __winkFirebase: App | null | undefined;
+  var __ctrlapsFirebase: App | null | undefined;
 }
 
 function serviceAccount(): Record<string, string> | null {
@@ -31,13 +31,13 @@ function serviceAccount(): Record<string, string> | null {
 }
 
 function app(): App | null {
-  if (globalThis.__winkFirebase !== undefined) return globalThis.__winkFirebase;
+  if (globalThis.__ctrlapsFirebase !== undefined) return globalThis.__ctrlapsFirebase;
   const existing = getApps()[0];
-  if (existing) return (globalThis.__winkFirebase = existing);
+  if (existing) return (globalThis.__ctrlapsFirebase = existing);
   const account = serviceAccount();
-  globalThis.__winkFirebase = account ? initializeApp({ credential: cert(account) }) : null;
+  globalThis.__ctrlapsFirebase = account ? initializeApp({ credential: cert(account) }) : null;
   if (!account) console.warn("[push] FIREBASE_SERVICE_ACCOUNT is not set; push is off");
-  return globalThis.__winkFirebase;
+  return globalThis.__ctrlapsFirebase;
 }
 
 export const isPushConfigured = (): boolean => app() !== null;
@@ -72,7 +72,7 @@ export async function pushTo(userIds: string[], push: Push): Promise<void> {
         data: { ...push.popup, link: push.link, title: push.title, body: push.body },
         android: {
           priority: "high",
-          notification: { channelId: "wink_alerts", tag: push.tag, clickAction: "OPEN_LINK", sound: "default" },
+          notification: { channelId: "ctrlaps_alerts", tag: push.tag, clickAction: "OPEN_LINK", sound: "default" },
         },
         webpush: {
           notification: { title: push.title, body: push.body, tag: push.tag, icon: "/icon-512.png" },

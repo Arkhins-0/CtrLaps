@@ -1,0 +1,134 @@
+package com.arkhins.ctrlaps.ui.components
+
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import com.arkhins.ctrlaps.R
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.arkhins.ctrlaps.LocalApp
+import com.arkhins.ctrlaps.data.Message
+import com.arkhins.ctrlaps.data.attachments
+import com.arkhins.ctrlaps.ui.whenLabel
+import com.arkhins.ctrlaps.ui.theme.Danger
+import com.arkhins.ctrlaps.ui.theme.Gold
+import com.arkhins.ctrlaps.ui.theme.NightLine
+import com.arkhins.ctrlaps.ui.theme.NightPanel
+import com.arkhins.ctrlaps.ui.theme.Snow
+import com.arkhins.ctrlaps.ui.theme.SnowFaint
+import com.arkhins.ctrlaps.ui.theme.SnowSoft
+
+/**
+ * One message, as it appears in the inbox, a chat or a channel. Given a
+ * [run] of photo messages (see [photoRuns]), one card shows them all as a
+ * grid, with the first caption and the time of the last.
+ */
+@Composable
+fun MessageCard(run: List<Message>, onView: (FileView) -> Unit, showSender: Boolean = true, highlight: Boolean = false) {
+    val openView = onView
+    @Suppress("NAME_SHADOWING") val onView: (FileView) -> Unit = { v -> openView(v.stamped(run)) }
+    val app = LocalApp.current
+    val m = run.last()
+    val unread = run.any { it.readAt == null && !it.mine }
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(if (unread) NightPanel else NightPanel.copy(alpha = 0.6f), shape)
+            .border(1.dp, if (highlight) Gold.copy(alpha = 0.6f) else if (unread) Gold.copy(alpha = 0.25f) else NightLine, shape)
+            .padding(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.Top) {
+            if (showSender) {
+                Avatar(app.api.absolute(m.sender?.photoUrl), m.sender?.name ?: "?", 36)
+                Spacer(Modifier.width(10.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (showSender) {
+                        Text(
+                            buildString {
+                                append(if (m.mine) "You" else m.sender?.name ?: "CTR[L]APS")
+                                if (!m.mine && !m.sender?.roleLabel.isNullOrBlank()) append(" · ${m.sender?.roleLabel}")
+                            },
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Snow,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
+                    if (run.any { it.urgent }) {
+                        Spacer(Modifier.width(6.dp))
+                        Chip("Urgent", Danger)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(whenLabel(m.createdAt), style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                }
+                // The photos as one grid, then the other files, then the words, then the place, if any.
+                val files = if (run.size > 1) run.flatMap { it.attachments } else m.attachments
+                val photos = runPhotos(run)
+                if (photos.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    PhotoGrid(photos, onView)
+                }
+                // Documents and audio each with a Save beside it (photos and PDFs have it where they open).
+                val context = LocalContext.current
+                files.filterNot { it.isImage }.forEach { f ->
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) { Attachment(f, onView) }
+                        val sentAt = run.firstOrNull { r -> r.attachments.any { it.id == f.id } }?.createdAt ?: m.createdAt
+                        IconButton(onClick = { saveAll(context, app, listOf(f to sentAt)) }, modifier = Modifier.size(40.dp)) {
+                            Icon(painterResource(R.drawable.ic_download), contentDescription = "Save ${f.name}", tint = SnowFaint, modifier = Modifier.size(22.dp))
+                        }
+                    }
+                }
+                val loc = locationIn(m.body)
+                // A poll's message is its card, not its words.
+                val text = if (m.poll != null || m.calendarEvent != null) "" else if (run.size > 1) runText(run) else textBesideCard(textOf(m.body), m.linkPreview)
+                m.linkPreview?.let { card ->
+                    Spacer(Modifier.height(8.dp))
+                    LinkCard(card, onDark = true)
+                }
+                if (m.poll != null) {
+                    Spacer(Modifier.height(4.dp))
+                    MessagePoll(m, onDark = true)
+                }
+                if (m.calendarEvent != null) {
+                    Spacer(Modifier.height(4.dp))
+                    MessageEvent(m, onDark = true)
+                }
+                if (text.isNotBlank()) {
+                    Spacer(Modifier.height(if (files.isEmpty()) 4.dp else 8.dp))
+                    Text(formatted(text), style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
+                }
+                if (loc != null) {
+                    Spacer(Modifier.height(6.dp))
+                    LocationCard(loc.first, loc.second)
+                }
+            }
+        }
+    }
+}

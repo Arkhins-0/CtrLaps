@@ -74,7 +74,7 @@ export async function exportChat(conversationId: string, who: ExportWho, myName:
   const nameOf = (m: MessageOut) => (m.mine ? myName : m.sender?.name ?? "Unknown");
 
   // The log, with a byte-order mark so every viewer reads the emoji as UTF-8.
-  const lines = [`Wink chat with ${who.name} (${who.roleLabel})`, `Exported ${exportedAt}`, ""];
+  const lines = [`CTR[L]APS chat with ${who.name} (${who.roleLabel})`, `Exported ${exportedAt}`, ""];
   for (const m of messages) {
     if (m.event) {
       lines.push(`[${logStamp(m.createdAt)}] ${m.event}`);
@@ -96,7 +96,7 @@ export async function exportChat(conversationId: string, who: ExportWho, myName:
 
   const page: string[] = [
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Wink chat with ${esc(who.name)}</title>
+<title>CTR[L]APS chat with ${esc(who.name)}</title>
 <style>
 body{margin:0;background:#0b0b0d;color:#f4f4f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 header{position:sticky;top:0;z-index:5;background:#131317;border-bottom:1px solid #26262c;padding:12px 16px}
@@ -161,7 +161,7 @@ a{color:inherit}.doc{display:block;padding:6px 0}
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `Wink chat with ${safeName} ${fileStamp(new Date(), false)}.zip`;
+  a.download = `CTR[L]APS chat with ${safeName} ${fileStamp(new Date(), false)}.zip`;
   document.body.appendChild(a);
   a.click();
   a.remove();

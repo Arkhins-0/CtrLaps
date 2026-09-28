@@ -17,7 +17,7 @@ const scrypt = promisify(scryptCb);
  * hash so they can change later.
  */
 
-export const SESSION_COOKIE = "wink_session";
+export const SESSION_COOKIE = "ctrlaps_session";
 const SESSION_DAYS = 60;
 const LOGIN_WINDOW_MINUTES = 15;
 const LOGIN_MAX_ATTEMPTS = 10;

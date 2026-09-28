@@ -1,0 +1,112 @@
+package com.arkhins.ctrlaps.push
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.media.RingtoneManager
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import com.arkhins.ctrlaps.Config
+import com.arkhins.ctrlaps.MainActivity
+import com.arkhins.ctrlaps.R
+import kotlinx.coroutines.flow.MutableSharedFlow
+
+/** A message that arrived while the app was open: the in-app popup shows it. */
+data class PushEvent(
+    val title: String,
+    val body: String,
+    val link: String,
+    /** "chat", "channel" or "announcement"; blank from an older server. */
+    val kind: String = "",
+    val senderName: String = "",
+    val senderRole: String = "",
+    val senderPhoto: String = "",
+    /** The words typed with it, if any. */
+    val text: String = "",
+    /** "image", "audio", "document", "location" or blank. */
+    val attach: String = "",
+    /** The race weekend, for a channel message. */
+    val place: String = "",
+)
+
+/** The server's silent nudge: this chat, the announcements ("home") or this weekend's channel changed. */
+data class SyncSignal(val scope: String, val id: String)
+
+/** One channel, high importance, so every message pops up over whatever is on screen. */
+object Notifications {
+    const val CHANNEL_ID = "ctrlaps_alerts"
+    const val EXTRA_LINK = "link"
+
+    /** The app is on screen (MainActivity between onResume and onPause). */
+    @Volatile var foreground = false
+    /** The private chat open on screen, if any: its messages need no notification or popup. */
+    @Volatile var openChat: String? = null
+
+    /** A message for the chat the person is looking at right now. */
+    fun isOpenChat(link: String): Boolean = foreground && openChat != null && link == "/chats/$openChat"
+
+    /** Foreground pushes, for the in-app popup. */
+    val events = MutableSharedFlow<PushEvent>(extraBufferCapacity = 8)
+
+    /** Nudges, after the phone's copy has been brought up to date, so open screens show it. */
+    val syncs = MutableSharedFlow<SyncSignal>(extraBufferCapacity = 16)
+
+    fun createChannel(context: Context) {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val channel = NotificationChannel(CHANNEL_ID, "Messages and race updates", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "Messages, documents and schedule changes"
+            enableVibration(true)
+            setShowBadge(true)
+        }
+        manager.createNotificationChannel(channel)
+    }
+
+    fun show(context: Context, title: String, body: String, link: String, tag: String?) {
+        val intent = Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra(EXTRA_LINK, link)
+        val pending = PendingIntent.getActivity(
+            context,
+            link.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(context.getColor(R.color.gold))
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
+            .setAutoCancel(true)
+            .setContentIntent(pending)
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(tag ?: link, 1, notification) }
+    }
+
+    /** After the app updated itself: a tap opens it again, where the "What's new" popup is waiting. */
+    fun showUpdated(context: Context) {
+        val intent = Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val pending = PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(context.getColor(R.color.gold))
+            .setContentTitle("${Config.APP_NAME} was updated")
+            .setContentText("Tap to see what's new")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pending)
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify("updated", 1, notification) }
+    }
+}

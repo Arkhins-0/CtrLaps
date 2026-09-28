@@ -1,3 +1,4 @@
+import { SITE_HOST } from "./config";
 import { CONTACT_EMAIL, OPERATOR, TERMS_UPDATED, TERMS_VERSION } from "./legal";
 
 /*
@@ -20,15 +21,15 @@ const privacy: LegalDoc = {
   version: TERMS_VERSION,
   intro: [
     {
-      p: `Wink is a communication app for race weekends, run by ${OPERATOR} (“we”, “us”). This policy explains what personal data Wink handles, why, who it is shared with, how long it is kept, and the rights you have under India’s Digital Personal Data Protection Act, 2023. It covers the website at wink.arkhins.com and the Wink Android app.`,
+      p: `CTR[L]APS is a communication app for race weekends, run by ${OPERATOR} (“we”, “us”). This policy explains what personal data CTR[L]APS handles, why, who it is shared with, how long it is kept, and the rights you have under India’s Digital Personal Data Protection Act, 2023. It covers the website at ${SITE_HOST} and the CTR[L]APS Android app.`,
     },
   ],
   sections: [
     {
-      title: "1. Who can use Wink",
+      title: "1. Who can use CTR[L]APS",
       blocks: [
         {
-          p: "Wink is not open to the public. Accounts are created by the organisers of an event (admins, coordinators, team managers and security heads), who enter your email address and your role. You then receive an email to set a password.",
+          p: "CTR[L]APS is not open to the public. Accounts are created by the organisers of an event (admins, coordinators, team managers and security heads), who enter your email address and your role. You then receive an email to set a password.",
         },
       ],
     },
@@ -54,7 +55,7 @@ const privacy: LegalDoc = {
         {
           ul: [
             "**Notifications**, to show messages as they arrive, and an exemption from battery optimisation so they still arrive while the phone sleeps.",
-            "**Storage** (older Android versions only), to save documents in Downloads/Wink.",
+            "**Storage** (older Android versions only), to save documents in Downloads/CTRLAPS.",
             "**Microphone**, only while you record a voice note; **location**, only when you share it; **camera**, only while scanning someone’s ID code.",
           ],
         },
@@ -71,7 +72,7 @@ const privacy: LegalDoc = {
             "To run the service: deliver messages, documents and schedule changes, and show the race schedule and countdown.",
             "To let event staff confirm who you are, by scanning your QR code or entering your verification code.",
             "To notify you by push notification and, for urgent messages, by email.",
-            "To keep Wink secure: sign-in limits, session management, and a record of account changes.",
+            "To keep CTR[L]APS secure: sign-in limits, session management, and a record of account changes.",
           ],
         },
         {
@@ -86,8 +87,8 @@ const privacy: LegalDoc = {
           ul: [
             "The people you message see what you send them, your name, role and photo.",
             "The people above you in your event’s structure, and all admins, can see your profile and account status.",
-            "Anyone signed in to Wink who scans your QR code or types your verification code sees your photo, name, role, team and account status.",
-            "Service providers who run parts of Wink for us: Vercel (hosting), Neon (database), Amazon Web Services (file storage, United States), Google Firebase (push notifications), Brevo (email) and GitHub (app downloads). They process data only to provide their service to us.",
+            "Anyone signed in to CTR[L]APS who scans your QR code or types your verification code sees your photo, name, role, team and account status.",
+            "Service providers who run parts of CTR[L]APS for us: Vercel (hosting), Neon (database), Amazon Web Services (file storage, United States), Google Firebase (push notifications), Brevo (email) and GitHub (app downloads). They process data only to provide their service to us.",
           ],
         },
         {
@@ -160,7 +161,7 @@ const terms: LegalDoc = {
   version: TERMS_VERSION,
   intro: [
     {
-      p: `These terms apply to your use of Wink, the race-weekend communication service at wink.arkhins.com and in the Wink Android app, run by ${OPERATOR} (“we”, “us”). By setting up your account you agree to them and to our [Privacy Policy](/privacy). If you do not agree, do not set up or use an account.`,
+      p: `These terms apply to your use of CTR[L]APS, the race-weekend communication service at ${SITE_HOST} and in the CTR[L]APS Android app, run by ${OPERATOR} (“we”, “us”). By setting up your account you agree to them and to our [Privacy Policy](/privacy). If you do not agree, do not set up or use an account.`,
     },
   ],
   sections: [
@@ -169,7 +170,7 @@ const terms: LegalDoc = {
       blocks: [
         {
           ul: [
-            "Wink is by invitation only. Your account is created by an organiser of your event, who decides your role.",
+            "CTR[L]APS is by invitation only. Your account is created by an organiser of your event, who decides your role.",
             "Keep your password to yourself. You are responsible for what is sent from your account.",
             "The profile you complete when you first sign in must be accurate: name, date of birth, contact number and a photo that shows you. It is used to confirm who you are at the venue. After setup it can only be changed by your manager or an admin.",
             "If you are under 18, a parent or lawful guardian must agree to these terms for you.",
@@ -178,14 +179,14 @@ const terms: LegalDoc = {
       ],
     },
     {
-      title: "2. Using Wink",
+      title: "2. Using CTR[L]APS",
       blocks: [
-        { p: "Use Wink for communication about your event. Do not:" },
+        { p: "Use CTR[L]APS for communication about your event. Do not:" },
         {
           ul: [
             "send anything unlawful, abusive, harassing, discriminatory, or that you have no right to share;",
             "share other people’s personal data or confidential event information outside the people who need it;",
-            "use someone else’s account, QR code or verification code, or try to get into parts of Wink you are not given;",
+            "use someone else’s account, QR code or verification code, or try to get into parts of CTR[L]APS you are not given;",
             "upload malware, or try to disrupt, overload or reverse-engineer the service;",
             "mark messages urgent without need: urgent messages also go out by email.",
           ],
@@ -196,7 +197,7 @@ const terms: LegalDoc = {
       title: "3. Not a safety system",
       blocks: [
         {
-          p: "Wink carries messages as quickly as it can, but delivery depends on networks, phone settings and third-party services such as Google’s notification service. Do not rely on Wink for emergencies, race control or any safety-critical instruction. Always follow the official procedures and channels of your event.",
+          p: "CTR[L]APS carries messages as quickly as it can, but delivery depends on networks, phone settings and third-party services such as Google’s notification service. Do not rely on CTR[L]APS for emergencies, race control or any safety-critical instruction. Always follow the official procedures and channels of your event.",
         },
       ],
     },
@@ -232,7 +233,7 @@ const terms: LegalDoc = {
       title: "7. Availability and liability",
       blocks: [
         {
-          p: `Wink is provided as it is, and we do not promise it will always be available or free of errors. To the extent Indian law allows, ${OPERATOR} is not liable for indirect or consequential loss, or for loss caused by a message that was delayed, not delivered, or misread. Nothing in these terms limits liability that cannot be limited by law.`,
+          p: `CTR[L]APS is provided as it is, and we do not promise it will always be available or free of errors. To the extent Indian law allows, ${OPERATOR} is not liable for indirect or consequential loss, or for loss caused by a message that was delayed, not delivered, or misread. Nothing in these terms limits liability that cannot be limited by law.`,
         },
       ],
     },
@@ -240,7 +241,7 @@ const terms: LegalDoc = {
       title: "8. Ending your use",
       blocks: [
         {
-          p: `You can stop using Wink at any time and ask us to close your account by writing to ${mail}. We may suspend or close an account that breaks these terms.`,
+          p: `You can stop using CTR[L]APS at any time and ask us to close your account by writing to ${mail}. We may suspend or close an account that breaks these terms.`,
         },
       ],
     },

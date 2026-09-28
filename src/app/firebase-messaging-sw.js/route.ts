@@ -22,7 +22,7 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   const d = payload.data || {};
   const n = payload.notification || {};
-  self.registration.showNotification(n.title || d.title || "Wink", {
+  self.registration.showNotification(n.title || d.title || "CTR[L]APS", {
     body: n.body || d.body || "",
     icon: "/icon-512.png",
     tag: d.tag,

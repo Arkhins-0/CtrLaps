@@ -99,7 +99,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
                   {latest && <span className="shrink-0 text-[11px] text-snow-faint">{timeAgo(latest.createdAt)}</span>}
                 </div>
                 <p className={`mt-1 line-clamp-2 text-xs ${latest && !latest.readAt && !latest.mine ? "text-snow" : "text-snow-faint"}`}>
-                  {latest ? `${latest.mine ? "You" : latest.sender?.name ?? "Wink"}: ${plainText(latest.body) || (latest.file ? `Document: ${latest.file.name}` : "")}` : "No posts yet."}
+                  {latest ? `${latest.mine ? "You" : latest.sender?.name ?? "CTR[L]APS"}: ${plainText(latest.body) || (latest.file ? `Document: ${latest.file.name}` : "")}` : "No posts yet."}
                 </p>
               </Link>
             ))}

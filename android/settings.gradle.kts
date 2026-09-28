@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Wink"
+rootProject.name = "Ctrlaps"
 include(":app")

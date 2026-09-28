@@ -96,7 +96,7 @@ function Messages({ list, compact = false }: { list: ArchivedMessage[]; compact?
       {list.map((m) => (
         <li key={m.id} className={`rounded-xl border border-night-line p-3 text-sm ${m.mine ? "bg-gold/5" : "bg-night"}`}>
           <div className="flex items-baseline gap-2">
-            <span className="font-medium">{m.mine ? "You" : m.sender?.name ?? "Wink"}</span>
+            <span className="font-medium">{m.mine ? "You" : m.sender?.name ?? "CTR[L]APS"}</span>
             {!compact && m.sender?.roleLabel && !m.mine && <span className="text-xs text-snow-faint">{m.sender.roleLabel}</span>}
             {m.urgent && <span className="chip border-danger/40 bg-danger/10 px-2 py-0 text-[10px] text-danger">Urgent</span>}
             <span className="ml-auto text-xs text-snow-faint">
