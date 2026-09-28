@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.material3.HorizontalDivider
 import com.arkhins.ctrlaps.data.Verified
 import androidx.compose.runtime.collectAsState
 import androidx.compose.material3.IconButton
@@ -122,6 +123,9 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
     var filterMenu by remember { mutableStateOf(false) }
     // Roles left out of the list; people who registered and have no role yet start hidden.
     var hiddenRoles by rememberSaveable { mutableStateOf(listOf("user")) }
+    // Only the people starred (on their page, their card or Verify); off to start.
+    var starredOnly by rememberSaveable { mutableStateOf(false) }
+    val starred by app.verifyHistory.starred.collectAsState()
 
     LaunchedEffect(Unit) {
         try {
@@ -135,7 +139,7 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
     val canCreate = me?.canCreate?.isNotEmpty() == true
     val canEmail = me?.canBulkEmail == true || me?.canRelay == true
     val p = people?.filter { u ->
-        u.role !in hiddenRoles && (query.isBlank() || "${u.displayName} ${u.roleLabel} ${u.teamName ?: ""}".contains(query.trim(), ignoreCase = true))
+        u.role !in hiddenRoles && (!starredOnly || u.id in starred) && (query.isBlank() || "${u.displayName} ${u.roleLabel} ${u.teamName ?: ""}".contains(query.trim(), ignoreCase = true))
     }
     val presentRoles = ROLE_ORDER.filter { r -> people?.any { it.role == r } == true }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -146,6 +150,23 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
                     Box {
                         IconAction(painterResource(R.drawable.ic_filter), "Filter by role", Gold) { filterMenu = true }
                         DropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }, containerColor = NightPanel) {
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Checkbox(
+                                            checked = starredOnly,
+                                            onCheckedChange = null,
+                                            colors = CheckboxDefaults.colors(checkedColor = Gold, checkmarkColor = OnGold, uncheckedColor = SnowFaint),
+                                        )
+                                        Spacer(Modifier.width(10.dp))
+                                        Icon(painterResource(R.drawable.ic_star), contentDescription = null, tint = Gold, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("Starred only", color = Snow)
+                                    }
+                                },
+                                onClick = { starredOnly = !starredOnly },
+                            )
+                            HorizontalDivider(color = NightLine, modifier = Modifier.padding(vertical = 4.dp))
                             Text("SHOW", style = MaterialTheme.typography.labelSmall, color = SnowFaint, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
                             presentRoles.forEach { r ->
                                 val shown = r !in hiddenRoles
@@ -188,6 +209,7 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
                 Empty(
                     when {
                         people?.isEmpty() == true -> if (canCreate) "Nobody yet. Add the first person." else "Nobody reports to you."
+                        starredOnly && query.isBlank() -> "No starred people here. Star someone from their page, or turn off Starred only."
                         query.isBlank() -> "Everyone here is hidden by the filter. Tap the filter icon to show them."
                         else -> "No one matches."
                     },
@@ -213,7 +235,13 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
                                         Avatar(app.api.absolute(u.photoUrl), u.displayName)
                                         Spacer(Modifier.width(12.dp))
                                         Column(Modifier.weight(1f)) {
-                                            Text(u.displayName, style = MaterialTheme.typography.titleSmall, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(u.displayName, style = MaterialTheme.typography.titleSmall, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                                if (u.id in starred) {
+                                                    Spacer(Modifier.width(6.dp))
+                                                    Icon(painterResource(R.drawable.ic_star), contentDescription = "Starred", tint = Gold, modifier = Modifier.size(14.dp))
+                                                }
+                                            }
                                             Text(
                                                 (if (u.name != null) u.email else "Invite not accepted") + (u.teamName?.let { " · $it" } ?: ""),
                                                 style = MaterialTheme.typography.labelSmall,
