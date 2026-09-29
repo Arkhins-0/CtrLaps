@@ -109,6 +109,7 @@ import java.time.format.DateTimeFormatter
 /** Every race weekend and its sessions. Admins create and edit both here. */
 @Composable
 fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive: () -> Unit, mine: List<String>? = null, onStandings: () -> Unit = {}) {
+    val open = LocalOpen.current
     val app = LocalApp.current
     var seasons by remember { mutableStateOf<List<Season>>(emptyList()) }
     var weekends by remember { mutableStateOf<List<Weekend>?>(null) }
@@ -144,7 +145,7 @@ fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive:
         }
         val currentSeason = seasons.firstOrNull { it.current }?.id ?: w?.firstOrNull()?.seasonId
         val chips = categories.filter { it.seasonId == currentSeason }
-        if (chips.isNotEmpty()) item { CategoryChips(chips, filter, hasMine = !mine.isNullOrEmpty()) { filter = it } }
+        if (chips.isNotEmpty() || isAdmin) item { CategoryChips(chips, filter, hasMine = !mine.isNullOrEmpty(), onEdit = if (isAdmin) ({ open("categories") }) else null) { filter = it } }
         // A weekend that lists no categories is for everyone.
         val shown = w?.filter { wk -> only == null || wk.categoryIds.isEmpty() || wk.categoryIds.any { it in only } || wk.sessions.any { it.categoryId in only } }
         when {
@@ -337,6 +338,7 @@ fun WeekendCard(
     /** Show only this category's sessions (and those for everyone). */
     only: List<String>? = null,
 ) {
+    val openRoute = LocalOpen.current
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf<RaceSession?>(null) }
@@ -446,6 +448,15 @@ fun WeekendCard(
                                 }
                                 Text("${localDateTime(s.startsAt)} – ${localTime(s.endsAt)}", style = MaterialTheme.typography.bodySmall, color = SnowSoft)
                                 Text("${trackDateTime(s.startsAt, w.timezone)} – ${trackTime(s.endsAt, w.timezone)} track", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                            }
+                            // A category's session has results once it has started.
+                            if (s.categoryId != null && start <= now) {
+                                Text(
+                                    "Results",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = Gold,
+                                    modifier = Modifier.clickable { openRoute("results/${s.id}") }.padding(horizontal = 6.dp, vertical = 8.dp),
+                                )
                             }
                             if (isAdmin) IconAction(Icons.Outlined.Edit, "Edit session", Gold) { editing = s }
                         }
@@ -662,10 +673,12 @@ fun CategoryTag(c: Category) {
 
 /** "Mine" (when the person has categories), "All" and a chip per category. */
 @Composable
-private fun CategoryChips(categories: List<Category>, filter: String?, hasMine: Boolean, onChange: (String?) -> Unit) {
+private fun CategoryChips(categories: List<Category>, filter: String?, hasMine: Boolean, onEdit: (() -> Unit)? = null, onChange: (String?) -> Unit) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (hasMine) Chip("Mine", Gold, filled = filter == "mine") { onChange("mine") }
         Chip("All", Gold, filled = filter == null) { onChange(null) }
         categories.forEach { c -> Chip(c.code, categoryColor(c), filled = filter == c.id) { onChange(if (filter == c.id) null else c.id) } }
+        // An admin edits the list: names, codes, colours, order.
+        onEdit?.let { Chip(if (categories.isEmpty()) "Add categories" else "Edit", SnowSoft, onClick = it) }
     }
 }

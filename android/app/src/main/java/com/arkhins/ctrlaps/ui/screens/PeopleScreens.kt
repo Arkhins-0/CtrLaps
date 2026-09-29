@@ -123,6 +123,7 @@ val ROLE_LABELS = mapOf(
 @Composable
 fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: (String?) -> Unit) {
     val app = LocalApp.current
+    val openRoute = LocalOpen.current
     var people by remember { mutableStateOf<List<PublicUser>?>(null) }
     var roster by remember { mutableStateOf<List<RosterCategory>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -241,6 +242,9 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
                             }
                         }
                     }
+                }
+                if (me?.user?.role == "admin" || me?.user?.role == "coordinator") {
+                    Text("Teams", style = MaterialTheme.typography.labelLarge, color = Gold, modifier = Modifier.clickable { openRoute("teams") }.padding(horizontal = 8.dp, vertical = 10.dp))
                 }
                 if (canCreate) IconAction(Icons.Outlined.Add, "Add person", Gold, onClick = onAdd)
                 if (canEmail) {
