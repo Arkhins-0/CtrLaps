@@ -108,7 +108,7 @@ import java.time.format.DateTimeFormatter
 
 /** Every race weekend and its sessions. Admins create and edit both here. */
 @Composable
-fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive: () -> Unit, mine: List<String>? = null) {
+fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive: () -> Unit, mine: List<String>? = null, onStandings: () -> Unit = {}) {
     val app = LocalApp.current
     var seasons by remember { mutableStateOf<List<Season>>(emptyList()) }
     var weekends by remember { mutableStateOf<List<Weekend>?>(null) }
@@ -135,7 +135,7 @@ fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive:
 
     val w = weekends
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { SeasonHeader(seasons, isAdmin, onArchive = onArchive, onChanged = { reload++ }) }
+        item { SeasonHeader(seasons, isAdmin, onArchive = onArchive, onStandings = onStandings, onChanged = { reload++ }) }
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 SectionTitle("RACE WEEKENDS", Modifier.weight(1f))
@@ -170,7 +170,7 @@ fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive:
 
 /** The current season's name; admins get the season list with new / edit / archive / delete. */
 @Composable
-private fun SeasonHeader(seasons: List<Season>, isAdmin: Boolean, onArchive: () -> Unit, onChanged: () -> Unit) {
+private fun SeasonHeader(seasons: List<Season>, isAdmin: Boolean, onArchive: () -> Unit, onStandings: () -> Unit, onChanged: () -> Unit) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     var open by remember { mutableStateOf(false) }
@@ -186,6 +186,7 @@ private fun SeasonHeader(seasons: List<Season>, isAdmin: Boolean, onArchive: () 
                     Text("SEASON", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                     Text(current?.name ?: "No season yet", style = MaterialTheme.typography.titleMedium, color = Snow)
                 }
+                IconAction(painterResource(R.drawable.ic_trophy), "Standings", SnowSoft, onClick = onStandings)
                 IconAction(painterResource(R.drawable.ic_archive), "Archive", SnowSoft, onClick = onArchive)
                 if (isAdmin) {
                     IconAction(Icons.Outlined.Settings, if (open) "Close" else "Manage seasons", if (open) Gold else SnowSoft) { open = !open }
