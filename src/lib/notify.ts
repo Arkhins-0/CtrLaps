@@ -60,7 +60,15 @@ export async function deliver(d: Delivery): Promise<void> {
     const body = skipped.length
       ? `${d.email.body}\n\nToo large to attach here — open it in the app: ${skipped.join(", ")}`
       : d.email.body;
-    await sendNotice(people, d.email.subject, d.email.title, body, `${SITE_URL}${d.push.link}`, attached).catch(
+    // The mail says what kind of message it is and who sent it, from what the app's popup shows.
+    const pop = d.push.popup;
+    const kinds: Record<string, string> = { chat: "Private message", group: "Group message", channel: "Channel", announcement: "Announcement" };
+    const extras = {
+      eyebrow: kinds[pop?.kind ?? ""],
+      urgent: /^urgent/i.test(d.email.subject),
+      sender: pop?.senderName ? { name: pop.senderName, role: pop.senderRole, place: pop.place || undefined } : undefined,
+    };
+    await sendNotice(people, d.email.subject, d.email.title, body, `${SITE_URL}${d.push.link}`, attached, extras).catch(
       (error) => console.error("[notify] email", error),
     );
   });
