@@ -71,6 +71,8 @@ export const POST = handle(async (request) => {
       `You are now a ${ROLE_LABEL[role]}`,
       `${creator.name || creator.email} made you a ${ROLE_LABEL[role]} on ${APP_NAME}.`,
       SITE_URL,
+      [],
+      { eyebrow: "Account" },
     ).catch((error) => console.error("[promote]", error));
     return json({ user: toPublic(updated!), promoted: true });
   }

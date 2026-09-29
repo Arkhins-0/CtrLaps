@@ -1,7 +1,7 @@
 import "server-only";
 
 import { env, isEmailConfigured } from "./env";
-import { APP_NAME, SITE_URL } from "./config";
+import { APP_NAME, POWERED_BY, SITE_URL } from "./config";
 
 /*
  * Transactional email through Brevo's HTTP API. One call can carry many
@@ -65,25 +65,108 @@ export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-/** The one layout every mail uses: dark header with the name, a white body, a gold button. */
-export function layout(title: string, bodyHtml: string, button?: { label: string; url: string }): string {
-  return `<!doctype html><html><body style="margin:0;background:#f4f4f5;font-family:Inter,Segoe UI,Helvetica,Arial,sans-serif;color:#0b0b0c">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0">
-<tr><td align="center">
-<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden">
-<tr><td style="background:#0b0b0c;padding:18px 28px;color:#ffd100;font-weight:700;font-size:18px">${APP_NAME}</td></tr>
-<tr><td style="padding:28px">
-<h1 style="margin:0 0 14px;font-size:20px">${escapeHtml(title)}</h1>
-<div style="font-size:15px;line-height:1.55;white-space:pre-wrap">${bodyHtml}</div>
-${
-  button
-    ? `<p style="margin:26px 0 8px"><a href="${button.url}" style="display:inline-block;background:#ffd100;color:#0b0b0c;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:999px">${escapeHtml(button.label)}</a></p>
-<p style="margin:0;font-size:12px;color:#7a7a82;word-break:break-all">${button.url}</p>`
-    : ""
+/** What sets a mail apart: a label over the title, who it is from, and the text shown in the inbox list. */
+export type MailExtras = {
+  /** A small label above the title: "Announcement", "Channel", "Account"… */
+  eyebrow?: string;
+  /** Red label and a red rule for something urgent. */
+  urgent?: boolean;
+  /** Who sent the message, shown as a card: their name, role and where they said it. */
+  sender?: { name: string; role?: string; place?: string };
+  /** The first line an inbox shows beside the subject. */
+  preheader?: string;
+  /** Names of the files attached to the mail. */
+  files?: string[];
+};
+
+const GOLD = "#FFD100";
+const INK = "#0B0B0C";
+const MUTED = "#6B6B73";
+const LINE = "#E7E7EA";
+const RED = "#E5484D";
+
+/** Two rows of chequered squares under the header: the finish-line flag. */
+function chequer(): string {
+  const row = (odd: boolean) =>
+    Array.from({ length: 30 }, (_, i) => `<td height="6" style="background:${(i % 2 === 0) === odd ? GOLD : INK};font-size:0;line-height:0">&nbsp;</td>`).join("");
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed"><tr>${row(true)}</tr><tr>${row(false)}</tr></table>`;
 }
+
+function initials(name: string): string {
+  const letters = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("");
+  return escapeHtml(letters || "?");
+}
+
+/**
+ * The one layout every mail uses: a dark header with the logo and a chequered strip, an optional label and sender
+ * card, the words, a gold button (with the link written out under it), attached files, and a footer saying why it came.
+ * Tables and inline styles only, so Gmail, Outlook and phone mail apps show it the same.
+ */
+export function layout(title: string, bodyHtml: string, button?: { label: string; url: string }, extras: MailExtras = {}): string {
+  const accent = extras.urgent ? RED : GOLD;
+  const eyebrow = extras.urgent ? `Urgent${extras.eyebrow ? ` · ${extras.eyebrow}` : ""}` : extras.eyebrow;
+  const host = SITE_URL.replace(/^https?:\/\//, "");
+  const label = eyebrow
+    ? `<p style="margin:0 0 12px"><span style="display:inline-block;background:${extras.urgent ? "#FDECEC" : "#FFF6CC"};color:${extras.urgent ? RED : "#7A5E00"};font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;padding:5px 10px;border-radius:999px">${escapeHtml(eyebrow)}</span></p>`
+    : "";
+  const sender = extras.sender
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px"><tr>
+  <td style="vertical-align:middle;padding-right:12px"><div style="width:40px;height:40px;border-radius:20px;background:${INK};color:${GOLD};font-weight:700;font-size:15px;line-height:40px;text-align:center">${initials(extras.sender.name)}</div></td>
+  <td style="vertical-align:middle">
+    <div style="font-size:15px;font-weight:600;color:${INK}">${escapeHtml(extras.sender.name)}</div>
+    <div style="font-size:13px;color:${MUTED}">${escapeHtml([extras.sender.role, extras.sender.place].filter(Boolean).join(" · "))}</div>
+  </td></tr></table>`
+    : "";
+  const files = extras.files?.length
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 0;border:1px solid ${LINE};border-radius:10px">
+${extras.files.map((f, i) => `<tr><td style="padding:10px 14px;font-size:13px;color:#26262B;${i ? `border-top:1px solid ${LINE}` : ""}">&#128206;&nbsp; ${escapeHtml(f)}</td></tr>`).join("")}
+</table><p style="margin:6px 0 0;font-size:12px;color:${MUTED}">Attached to this email.</p>`
+    : "";
+  const action = button
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px 0 10px"><tr><td style="background:${GOLD};border-radius:999px">
+<a href="${button.url}" style="display:inline-block;padding:13px 26px;color:${INK};font-size:15px;font-weight:700;text-decoration:none">${escapeHtml(button.label)} &rarr;</a>
+</td></tr></table>
+<p style="margin:0 0 6px;font-size:12px;color:${MUTED}">Or paste this link into your browser:</p>
+<p style="margin:0;font-size:12px;word-break:break-all"><a href="${button.url}" style="color:${MUTED}">${escapeHtml(button.url)}</a></p>`
+    : "";
+  const words = `<div style="font-size:15px;line-height:1.6;color:#26262B;white-space:pre-wrap;${extras.sender ? `background:#F7F7F8;border-left:4px solid ${accent};border-radius:10px;padding:16px 18px` : ""}">${bodyHtml}</div>`;
+
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>${escapeHtml(title)}</title></head>
+<body style="margin:0;padding:0;background:#EFEFF1;font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif;color:${INK}">
+${extras.preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${escapeHtml(extras.preheader)}</div>` : ""}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EFEFF1;padding:28px 12px">
+<tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#FFFFFF;border-radius:18px;overflow:hidden">
+<tr><td style="background:${INK};padding:20px 28px">
+  <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+    <td style="padding-right:12px;vertical-align:middle"><img src="${SITE_URL}/logo.png" width="40" height="40" alt="" style="display:block;border:0;border-radius:10px"></td>
+    <td style="vertical-align:middle;color:${GOLD};font-weight:800;font-size:20px;letter-spacing:1px">${APP_NAME}</td>
+  </tr></table>
 </td></tr>
-<tr><td style="padding:14px 28px;font-size:12px;color:#7a7a82;border-top:1px solid #ececef">${APP_NAME} · <a href="${SITE_URL}" style="color:#7a7a82">${SITE_URL.replace(/^https?:\/\//, "")}</a></td></tr>
-</table></td></tr></table></body></html>`;
+<tr><td style="font-size:0;line-height:0">${chequer()}</td></tr>
+<tr><td style="padding:30px 32px 8px">
+${label}
+<h1 style="margin:0 0 18px;font-size:22px;line-height:1.3;font-weight:700;color:${INK}">${escapeHtml(title)}</h1>
+${sender}
+${words}
+${files}
+${action}
+</td></tr>
+<tr><td style="padding:24px 32px 28px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid ${LINE}"><tr><td style="padding-top:16px;font-size:12px;line-height:1.6;color:${MUTED}">
+    You are getting this because you have a ${APP_NAME} account.<br>
+    <a href="${SITE_URL}" style="color:${INK};font-weight:600;text-decoration:none">${escapeHtml(host)}</a>
+    &nbsp;·&nbsp; Powered by <a href="${POWERED_BY.url}" style="color:${MUTED}">${escapeHtml(POWERED_BY.name)}</a>
+  </td></tr></table>
+</td></tr>
+</table>
+</td></tr></table></body></html>`;
 }
 
 /* ───────────────────────────── The mails ─────────────────────────── */
@@ -97,6 +180,7 @@ export async function sendInvite(to: Recipient, token: string, invitedBy: string
       `You have been added to ${APP_NAME}`,
       `${escapeHtml(invitedBy)} created a ${escapeHtml(roleLabel)} account for you.<br><br>Open the link to choose a password and set up your profile. If the ${APP_NAME} app is installed it opens there; otherwise the website does. The link works for 7 days.`,
       { label: "Set up my account", url },
+      { eyebrow: "Invitation", preheader: `${invitedBy} added you as a ${roleLabel}.` },
     ),
   );
 }
@@ -110,6 +194,7 @@ export async function sendSignup(email: string, token: string) {
       "Confirm your email",
       `Open the link to confirm this is your email, choose a password and create your ${APP_NAME} account. It works for 24 hours. If you did not ask for this, ignore this mail.`,
       { label: "Create my account", url },
+      { eyebrow: "Account", preheader: "One step left: confirm your email." },
     ),
   );
 }
@@ -123,6 +208,7 @@ export async function sendAlreadyRegistered(email: string) {
       "You already have an account",
       `Someone asked to register this email, but it already has a ${APP_NAME} account. Sign in, or choose a new password if you have forgotten it. If this was not you, ignore this mail.`,
       { label: "Choose a new password", url: `${SITE_URL}/forgot` },
+      { eyebrow: "Account" },
     ),
   );
 }
@@ -136,6 +222,7 @@ export async function sendEmailChange(newEmail: string, token: string) {
       "Confirm your new email",
       `Open the link to make this the email of your ${APP_NAME} account. It works for 24 hours. Until then your old email stays. If you did not ask for this, ignore this mail.`,
       { label: "Confirm this email", url },
+      { eyebrow: "Account" },
     ),
   );
 }
@@ -148,6 +235,8 @@ export async function sendEmailChanged(oldEmail: string, newEmail: string) {
     layout(
       "Your email was changed",
       `Your ${APP_NAME} account now uses ${escapeHtml(newEmail)}. If you did not do this, contact the organisers straight away.`,
+      undefined,
+      { eyebrow: "Security" },
     ),
   );
 }
@@ -161,15 +250,28 @@ export async function sendReset(to: Recipient, token: string) {
       "Reset your password",
       `Open the link to choose a new password. It works for 2 hours. If you did not ask for this, ignore this mail.`,
       { label: "Choose a new password", url },
+      { eyebrow: "Security", preheader: "The link works for 2 hours." },
     ),
   );
 }
 
-export async function sendNotice(to: Recipient[], subject: string, title: string, body: string, link?: string, attachments: Attachment[] = []) {
+export async function sendNotice(
+  to: Recipient[],
+  subject: string,
+  title: string,
+  body: string,
+  link?: string,
+  attachments: Attachment[] = [],
+  extras: MailExtras = {},
+) {
   await sendEmail(
     to,
     subject,
-    layout(title, escapeHtml(body), link ? { label: `Open in ${APP_NAME}`, url: link } : undefined),
+    layout(title, escapeHtml(body), link ? { label: `Open in ${APP_NAME}`, url: link } : undefined, {
+      preheader: body.replace(/\s+/g, " ").slice(0, 120),
+      files: attachments.map((a) => a.name),
+      ...extras,
+    }),
     undefined,
     attachments,
   );
