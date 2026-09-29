@@ -1,8 +1,10 @@
 package com.arkhins.ctrlaps.ui
 
+import com.arkhins.ctrlaps.ui.components.HeaderTabs
+import com.arkhins.ctrlaps.ui.screens.PeopleTab
+import com.arkhins.ctrlaps.ui.screens.peoplePages
 import androidx.compose.runtime.CompositionLocalProvider
 import com.arkhins.ctrlaps.ui.screens.LocalOpen
-import com.arkhins.ctrlaps.ui.screens.RaceSetupScreen
 import com.arkhins.ctrlaps.ui.components.PhotoViewerActions
 import com.arkhins.ctrlaps.ui.screens.StandingsScreen
 import com.arkhins.ctrlaps.ui.screens.ResultsScreen
@@ -218,6 +220,7 @@ private fun MainNav(vm: AppViewModel) {
     val nav = rememberNavController()
     // The chats tab: 0 is the chat list, 1 the channels; the header switch and the swipe both move it.
     var chatsPage by remember { mutableIntStateOf(0) }
+    var peoplePage by remember { mutableIntStateOf(0) }
     var pdf by remember { mutableStateOf<SavedDocument?>(null) }
     var image by remember { mutableStateOf<FileInfo?>(null) }
     var imageMessage by remember { mutableStateOf<com.arkhins.ctrlaps.data.Message?>(null) }
@@ -332,7 +335,12 @@ private fun MainNav(vm: AppViewModel) {
             composable("home?m={m}") { e -> Tab("home", "CTR[L]APS") { HomeScreen(vm, highlight = e.arguments?.getString("m"), onOpenWeekend = openWeekend, onOpenChat = openChat, onAllChats = { nav.navigate("chats") { popUpTo("home"); launchSingleTop = true } }, onCompose = { nav.open("compose") }, onView = view) } }
             composable("schedule") { Tab("schedule", "Schedule") { ScheduleScreen(isAdmin = vm.me?.isAdmin == true, onOpenWeekend = openWeekend, onArchive = { nav.open("archive") }, mine = vm.me?.categoryIds, onStandings = { nav.open("standings") }) } }
             composable("chats") { Tab("chats", "Chats", center = { ChatsHeader(chatsPage) { chatsPage = it } }) { ChatsScreen(vm, page = chatsPage, onPage = { chatsPage = it }, onOpen = openChat, onNewChat = { nav.open("newchat") }, onOpenWeekend = openWeekend, onOpenCategory = { nav.open("category/$it") }) } }
-            composable("people") { Tab("people", "People") { PeopleScreen(vm.me, onOpen = { nav.open("person/$it") }, onAdd = { nav.open("newperson") }, onEmail = { g -> nav.open(if (g == null) "email" else "email?group=$g") }) } }
+            composable("people") {
+                val pages = peoplePages(vm.me?.user?.role)
+                Tab("people", "People", center = if (pages.size > 1) ({ HeaderTabs(pages, peoplePage) { peoplePage = it } }) else null) {
+                    PeopleTab(vm.me, peoplePage, onPage = { peoplePage = it }, onOpen = { nav.open("person/$it") }, onAdd = { nav.open("newperson") }, onEmail = { g -> nav.open(if (g == null) "email" else "email?group=$g") })
+                }
+            }
             composable("account") {
                 Tab("account", "Account") {
                     AccountScreen(
@@ -387,7 +395,7 @@ private fun MainNav(vm: AppViewModel) {
             }
             composable("compose") { Pushed("New message") { ComposeScreen { nav.popBackStack(); vm.changed() } } }
             composable("weekend/{id}") { e -> Pushed("Race weekend") { WeekendScreen(vm, e.arguments?.getString("id") ?: "", view) } }
-            composable("teams") { Pushed(if (vm.me?.isAdmin == true) "Teams & categories" else "Teams", showCountdown = false) { RaceSetupScreen(isAdmin = vm.me?.isAdmin == true) } }
+            composable("teams") { LaunchedEffect(Unit) { peoplePage = 1; nav.navigate("people") { popUpTo("home"); launchSingleTop = true } } }
             composable("standings") { Pushed("Standings") { StandingsScreen(vm, onOpenResults = { nav.open("results/$it") }) } }
             composable("results/{id}") { e -> Pushed("Results") { ResultsScreen(vm, e.arguments?.getString("id") ?: "") } }
             composable("category/{id}") { e -> Pushed("Category channel") { CategoryChannelScreen(vm, e.arguments?.getString("id") ?: "", view) } }

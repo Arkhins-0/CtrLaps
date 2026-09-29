@@ -119,11 +119,37 @@ val ROLE_LABELS = mapOf(
     "racer" to "Racer", "crew" to "Crew", "security_head" to "Security head", "security" to "Security", "volunteer" to "Volunteer", "user" to "User",
 )
 
+/** The People tab's pages, as its header names them: People; Teams for admins and coordinators; Categories for admins. */
+fun peoplePages(role: String?): List<String> = when (role) {
+    "admin" -> listOf("People", "Teams", "Categories")
+    "coordinator" -> listOf("People", "Teams")
+    else -> listOf("People")
+}
+
+/** The People tab: the people, and a swipe to the left for the teams and (admins) the race categories. */
+@Composable
+fun PeopleTab(me: Me?, page: Int, onPage: (Int) -> Unit, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: (String?) -> Unit) {
+    val pages = peoplePages(me?.user?.role)
+    if (pages.size == 1) {
+        PeopleScreen(me, onOpen, onAdd, onEmail)
+        return
+    }
+    val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = page.coerceIn(0, pages.size - 1)) { pages.size }
+    LaunchedEffect(page) { if (pager.currentPage != page && page in pages.indices) pager.animateScrollToPage(page) }
+    LaunchedEffect(pager.currentPage) { if (pager.currentPage != page) onPage(pager.currentPage) }
+    androidx.compose.foundation.pager.HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { i ->
+        when (i) {
+            0 -> PeopleScreen(me, onOpen, onAdd, onEmail)
+            1 -> TeamsScreen()
+            else -> CategoriesEditorScreen(onSaved = {})
+        }
+    }
+}
+
 /** Everyone below the signed-in person, grouped by role. */
 @Composable
 fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: (String?) -> Unit) {
     val app = LocalApp.current
-    val openRoute = LocalOpen.current
     var people by remember { mutableStateOf<List<PublicUser>?>(null) }
     var roster by remember { mutableStateOf<List<RosterCategory>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -242,9 +268,6 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
                             }
                         }
                     }
-                }
-                if (me?.user?.role == "admin" || me?.user?.role == "coordinator") {
-                    Text(if (me.user.role == "admin") "Teams & categories" else "Teams", style = MaterialTheme.typography.labelLarge, color = Gold, modifier = Modifier.clickable { openRoute("teams") }.padding(horizontal = 8.dp, vertical = 10.dp))
                 }
                 if (canCreate) IconAction(Icons.Outlined.Add, "Add person", Gold, onClick = onAdd)
                 if (canEmail) {
