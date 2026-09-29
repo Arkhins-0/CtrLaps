@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui
 
+import com.arkhins.ctrlaps.ui.components.PhotoViewerActions
 import com.arkhins.ctrlaps.ui.screens.StandingsScreen
 import com.arkhins.ctrlaps.ui.screens.ResultsScreen
 import com.arkhins.ctrlaps.ui.screens.CategoryChannelScreen
@@ -216,6 +217,7 @@ private fun MainNav(vm: AppViewModel) {
     var chatsPage by remember { mutableIntStateOf(0) }
     var pdf by remember { mutableStateOf<SavedDocument?>(null) }
     var image by remember { mutableStateOf<FileInfo?>(null) }
+    var imageMessage by remember { mutableStateOf<com.arkhins.ctrlaps.data.Message?>(null) }
     // When the photo or document being viewed was sent: its saved copy is named after it.
     var viewSentAt by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
@@ -276,7 +278,7 @@ private fun MainNav(vm: AppViewModel) {
     val view: (FileView) -> Unit = {
         when (it) {
             is FileView.Pdf -> { pdf = it.doc; viewSentAt = it.sentAt; nav.open("pdf") }
-            is FileView.Image -> { image = it.file; viewSentAt = it.sentAt; nav.open("image") }
+            is FileView.Image -> { image = it.file; imageMessage = it.message; viewSentAt = it.sentAt; nav.open("image") }
             is FileView.Gallery -> { gallery = it; gallerySelection = null; nav.open("gallery") }
         }
     }
@@ -427,7 +429,26 @@ private fun MainNav(vm: AppViewModel) {
             }
             composable("image") {
                 val at = viewSentAt
-                Pushed(image?.name ?: "Photo", showCountdown = false, action = { SaveButton { image?.let { f -> saveAll(context, app, listOf(f to at)) } } }) {
+                val m = imageMessage
+                // Who sent it and when, as WhatsApp heads a photo: "You · 12:26 am".
+                val heading = m?.let { "${if (it.mine) "You" else it.sender?.name ?: "CTR[L]APS"} · ${localTime(it.createdAt)}" } ?: image?.name ?: "Photo"
+                val chatId = m?.conversationId?.takeIf { m.kind == "direct" || m.kind == "group" }
+                Pushed(heading, showCountdown = false, action = {
+                    image?.let { f ->
+                        PhotoViewerActions(
+                            f,
+                            m,
+                            at,
+                            canForward = vm.me?.user?.role != "user",
+                            // Back to the chat it came from, or open it.
+                            onShowInChat = chatId?.let { id -> { if (!nav.popBackStack("chat/{id}", inclusive = false)) openChat(id) } },
+                            onDeleted = {
+                                vm.changed()
+                                if (nav.currentDestination?.route == "image") nav.popBackStack()
+                            },
+                        )
+                    }
+                }) {
                     image?.let { ImageScreen(it) }
                 }
             }

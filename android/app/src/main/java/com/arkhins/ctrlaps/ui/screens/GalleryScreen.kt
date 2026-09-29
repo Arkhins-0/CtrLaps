@@ -157,7 +157,7 @@ fun GalleryScreen(
                     .clip(RoundedCornerShape(8.dp))
                     .background(NightPanel)
                     .combinedClickable(
-                        onClick = { if (selected.isNotEmpty()) toggle(f) else onView(FileView.Image(f, photos.firstOrNull { it.file.id == f.id }?.message?.createdAt)) },
+                        onClick = { if (selected.isNotEmpty()) toggle(f) else onView(photos.firstOrNull { it.file.id == f.id }?.message.let { m -> FileView.Image(f, m?.createdAt, m) }) },
                         onLongClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             toggle(f)

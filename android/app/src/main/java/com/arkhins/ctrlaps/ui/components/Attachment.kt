@@ -92,7 +92,8 @@ import java.util.Locale
 /** Something a message wants shown full screen. */
 sealed interface FileView {
     /** [sentAt]: when the message carrying it was sent, for the saved copy's name. */
-    data class Image(val file: FileInfo, val sentAt: String? = null) : FileView
+    /** One photo; [message] is the one it came in (for the viewer's header, Forward, Show in chat and Delete). */
+    data class Image(val file: FileInfo, val sentAt: String? = null, val message: Message? = null) : FileView
     data class Pdf(val doc: SavedDocument, val sentAt: String? = null) : FileView
     /**
      * The photos of a grid one under another, starting at [start]: to view,
@@ -109,7 +110,10 @@ sealed interface FileView {
 
 /** The view with the time its message was sent, found among [messages] (the bubble or card it was opened from). */
 fun FileView.stamped(messages: List<Message>): FileView = when (this) {
-    is FileView.Image -> if (sentAt != null) this else copy(sentAt = messages.firstOrNull { m -> m.attachments.any { it.id == file.id } }?.createdAt)
+    is FileView.Image -> {
+        val m = message ?: messages.firstOrNull { m -> m.attachments.any { it.id == file.id } }
+        copy(sentAt = sentAt ?: m?.createdAt, message = m)
+    }
     // A document's saved name starts with its file id's first characters.
     is FileView.Pdf -> if (sentAt != null) this else copy(sentAt = messages.firstOrNull { m -> m.attachments.any { it.name == doc.name } }?.createdAt)
     is FileView.Gallery -> this
@@ -284,6 +288,41 @@ fun photoModel(file: FileInfo): Any? {
     return local ?: if (auto) app.api.url("/api/files/${file.id}/content?inline=1") else null
 }
 
+/**
+ * A photo's width ÷ height, so its bubble takes its shape (as in WhatsApp): from its tiny preview, else from the copy on
+ * the phone (turned the way the camera says). Null when neither is there yet.
+ */
+@Composable
+fun photoRatio(file: FileInfo): Float? {
+    val app = LocalApp.current
+    val landed by app.chatMedia.version.collectAsState()
+    return remember(file.id, file.thumb, landed) {
+        fun ratio(w: Int, h: Int) = if (w > 0 && h > 0) w.toFloat() / h else null
+        val fromThumb = file.thumb?.let {
+            runCatching {
+                val b = Base64.decode(it, Base64.NO_WRAP)
+                val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeByteArray(b, 0, b.size, o)
+                ratio(o.outWidth, o.outHeight)
+            }.getOrNull()
+        }
+        fromThumb ?: app.chatMedia.local(file)?.let { f ->
+            runCatching {
+                val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(f.path, o)
+                val turned = when (android.media.ExifInterface(f.path).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1)) {
+                    5, 6, 7, 8 -> true
+                    else -> false
+                }
+                if (turned) ratio(o.outHeight, o.outWidth) else ratio(o.outWidth, o.outHeight)
+            }.getOrNull()
+        }
+    }
+}
+
+/** The shape a lone photo is shown at: its own, kept between a tall 3:5 and a wide 2:1 (beyond that it is cropped). */
+private fun shownRatio(ratio: Float?): Float = (ratio ?: (4f / 3f)).coerceIn(0.6f, 2f)
+
 /** A photo's tiny preview, blurred, standing in until the photo itself is on the phone; a plain tile when there is none. */
 @Composable
 fun BlurredPhoto(file: FileInfo, modifier: Modifier = Modifier) {
@@ -336,6 +375,7 @@ private fun ImageAttachment(file: FileInfo, onView: (FileView) -> Unit, onLongPr
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     var fetching by remember(file.id) { mutableStateOf<Float?>(null) }
+    val ratio = photoRatio(file)
     if (uploading == null && waitingPhotos(listOf(file)).isNotEmpty()) {
         val download = {
             if (fetching == null) {
@@ -346,7 +386,7 @@ private fun ImageAttachment(file: FileInfo, onView: (FileView) -> Unit, onLongPr
         Box(
             Modifier
                 .then(if (fill) Modifier.fillMaxWidth() else Modifier.widthIn(max = GRID_WIDTH).fillMaxWidth())
-                .height(220.dp)
+                .aspectRatio(shownRatio(ratio))
                 .clip(RoundedCornerShape(12.dp))
                 .combinedClickable(onLongClick = onLongPress) { download() },
             contentAlignment = Alignment.Center,
@@ -362,8 +402,8 @@ private fun ImageAttachment(file: FileInfo, onView: (FileView) -> Unit, onLongPr
             contentDescription = file.name,
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .then(if (fill) Modifier.fillMaxWidth() else Modifier.widthIn(max = GRID_WIDTH))
-                .heightIn(min = 120.dp, max = if (fill) 420.dp else 320.dp)
+                .then(if (fill) Modifier.fillMaxWidth() else Modifier.widthIn(max = GRID_WIDTH).fillMaxWidth())
+                .aspectRatio(shownRatio(ratio))
                 .clip(RoundedCornerShape(12.dp))
                 .background(Night)
                 .combinedClickable(onLongClick = onLongPress) { onView(FileView.Image(file)) },

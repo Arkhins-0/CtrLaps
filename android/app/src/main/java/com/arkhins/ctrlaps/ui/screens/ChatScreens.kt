@@ -1189,27 +1189,31 @@ private fun Bubble(
             val picture = !m.deleted && (photos.isNotEmpty() || m.linkPreview != null)
             val inset = if (picture) Modifier.padding(horizontal = 9.dp) else Modifier
             /** When it was sent (edited), the ticks, a failed send, the urgent mark: at the bubble's bottom right. */
-            val meta: @Composable () -> Unit = {
+            val metaOn: @Composable (Boolean) -> Unit = { onPhoto ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         (if (m.editedAt != null && !m.deleted) "edited · " else "") + localTime(m.createdAt),
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (mine) OnGold.copy(alpha = 0.6f) else SnowFaint,
+                        color = if (onPhoto) Color.White.copy(alpha = 0.92f) else if (mine) OnGold.copy(alpha = 0.6f) else SnowFaint,
                     )
                     when {
                         run.any { it.status == "failed" } -> Text("  Not sent · tap to retry", style = MaterialTheme.typography.labelSmall, color = Danger)
-                        m.status != null && !m.deleted -> Ticks(m.status)
+                        m.status != null && !m.deleted -> if (onPhoto) Ticks(m.status, tint = Color.White.copy(alpha = 0.92f)) else Ticks(m.status)
                     }
                     // Marked urgent: it also went out by email.
                     if (run.any { it.urgent } && !m.deleted) Icon(Icons.Outlined.Email, contentDescription = "Also sent by email", tint = Danger, modifier = Modifier.padding(start = 4.dp).size(13.dp))
                 }
             }
+            val meta: @Composable () -> Unit = { metaOn(false) }
             // A poll's message is its card, not its words.
             // A card says the link: a message that is only the link shows the card alone.
             val bodyText = if (m.poll != null || m.calendarEvent != null) "" else if (run.size > 1) runText(run) else textBesideCard(textOf(m.body), m.linkPreview)
             val bodyLoc = if (run.size > 1) null else locationIn(m.body)
             // The words come last (no location card after them): the time sits in their last line, as in WhatsApp.
             val metaInline = m.deleted || (bodyText.isNotBlank() && m.groupInvite == null && bodyLoc == null)
+            // Only photos: the bubble hugs them and the time sits on the last one, on a dark pill (as in WhatsApp).
+            val photoOnly = !m.deleted && photos.isNotEmpty() && owned.all { it.second.isImage } && bodyText.isBlank() &&
+                m.linkPreview == null && bodyLoc == null && m.poll == null && m.calendarEvent == null && m.groupInvite == null
             Box {
                 Column(
                     Modifier
@@ -1231,7 +1235,7 @@ private fun Bubble(
                                 onToggle()
                             },
                         )
-                        .then(if (picture) Modifier.padding(start = 3.dp, end = 3.dp, top = 3.dp, bottom = 6.dp) else Modifier.padding(horizontal = 12.dp, vertical = 8.dp)),
+                        .then(if (picture) Modifier.padding(start = 3.dp, end = 3.dp, top = 3.dp, bottom = if (photoOnly) 3.dp else 6.dp) else Modifier.padding(horizontal = 12.dp, vertical = 8.dp)),
                 ) {
                     if (m.deleted) {
                         TextWithMeta(
@@ -1275,16 +1279,27 @@ private fun Bubble(
                                 else -> onView(v.stamped(run))
                             }
                         }
-                        PhotoGrid(
-                            photos,
-                            view,
-                            onLongPress = if (local) null else ({
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onToggle()
-                            }),
-                            fill = true,
-                            uploading = { uploading(it.message) },
-                        )
+                        Box {
+                            PhotoGrid(
+                                photos,
+                                view,
+                                onLongPress = if (local) null else ({
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onToggle()
+                                }),
+                                fill = true,
+                                uploading = { uploading(it.message) },
+                            )
+                            if (photoOnly) {
+                                Box(
+                                    Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .padding(6.dp)
+                                        .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+                                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                                ) { metaOn(true) }
+                            }
+                        }
                         owned.filterNot { it.second.isImage }.forEachIndexed { i, (msg, f) ->
                             if (i > 0 || photos.isNotEmpty()) Spacer(Modifier.height(6.dp))
                             Box(inset) { Attachment(f, view, onDark = !mine, uploading = uploading(msg)) }
@@ -1316,7 +1331,7 @@ private fun Bubble(
                         }
                     }
                     // Text last: the time went in beside its last line (TextWithMeta). Otherwise it gets its own row.
-                    if (!metaInline) {
+                    if (!metaInline && !photoOnly) {
                         Spacer(Modifier.height(2.dp))
                         Row(Modifier.align(Alignment.End).then(inset)) { meta() }
                     }
