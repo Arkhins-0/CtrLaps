@@ -197,6 +197,12 @@ export function WeekendCard({
                       {formatIn(s.startsAt, w.timezone)} – {formatIn(s.endsAt, w.timezone, false)} track
                     </p>
                   </div>
+                  {/* A category's session has results once it has started. */}
+                  {s.categoryId && new Date(s.startsAt).getTime() <= now && (
+                    <Link href={`/results/${s.id}`} className="shrink-0 rounded px-1.5 text-xs font-semibold text-gold hover:underline">
+                      Results
+                    </Link>
+                  )}
                   {isAdmin && (
                     <>
                       <button className="btn-icon text-gold hover:text-gold" aria-label={`Edit ${s.name}`} onClick={() => setEditingSession(s)}>

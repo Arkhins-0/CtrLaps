@@ -52,6 +52,9 @@ export function SeasonBar({ seasons, isAdmin }: { seasons: Season[]; isAdmin: bo
           <p className="label">Season</p>
           <p className="truncate font-semibold">{current?.name ?? "No season yet"}</p>
         </div>
+        <Link href="/standings" className="btn-ghost px-3 py-1.5 text-xs">
+          Standings
+        </Link>
         <Link href="/archive" className="btn-ghost px-3 py-1.5 text-xs">
           Archive
         </Link>

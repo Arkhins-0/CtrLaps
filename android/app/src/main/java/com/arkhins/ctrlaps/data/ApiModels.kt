@@ -533,3 +533,57 @@ data class Ok(val ok: Boolean = true)
 
 /** A message's attachments: all of them, or its one file from an older server. */
 val Message.attachments: List<FileInfo> get() = files.ifEmpty { listOfNotNull(file) }
+
+/** This season's standings for one race category (step 5 of the race-categories plan). */
+@Serializable
+data class StandingsResponse(
+    val categories: List<Category> = emptyList(),
+    val categoryId: String? = null,
+    val drivers: List<DriverStanding> = emptyList(),
+    val teams: List<TeamStanding> = emptyList(),
+    val sessions: List<StandingSession> = emptyList(),
+)
+
+@Serializable
+data class DriverStanding(
+    val key: String,
+    val name: String,
+    val userId: String? = null,
+    val carNumber: String = "",
+    val teamName: String? = null,
+    val points: Double = 0.0,
+    val wins: Int = 0,
+    val starts: Int = 0,
+    val best: Int? = null,
+)
+
+@Serializable
+data class TeamStanding(val id: String, val name: String, val points: Double = 0.0, val wins: Int = 0)
+
+@Serializable
+data class StandingSession(val id: String, val name: String, val startsAt: String, val weekendName: String = "", val rows: Int = 0)
+
+/** One session's results. */
+@Serializable
+data class SessionResultsResponse(
+    val session: ResultSessionInfo,
+    val category: CategoryChannelInfo? = null,
+    val results: List<SessionResult> = emptyList(),
+    val canEdit: Boolean = false,
+)
+
+@Serializable
+data class ResultSessionInfo(val id: String, val name: String, val startsAt: String, val weekendId: String = "", val weekendName: String = "", val categoryId: String? = null)
+
+@Serializable
+data class SessionResult(
+    val position: Int? = null,
+    val status: String = "finished",
+    val carNumber: String = "",
+    val driverName: String,
+    val userId: String? = null,
+    val teamId: String? = null,
+    val teamName: String? = null,
+    val points: Double = 0.0,
+    val bestLap: String = "",
+)

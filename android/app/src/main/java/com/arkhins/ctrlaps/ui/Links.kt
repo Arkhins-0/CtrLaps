@@ -27,6 +27,8 @@ object Links {
             "schedule" -> "schedule"
             "w" -> second?.let { "weekend/$it" }
             "c" -> second?.let { "category/$it" }
+            "standings" -> "standings"
+            "results" -> second?.let { "results/$it" }
             "chats" -> if (second == null) "chats" else if (second == "new") "newchat" else "chat/$second"
             "people" -> when (second) {
                 null -> "people"
