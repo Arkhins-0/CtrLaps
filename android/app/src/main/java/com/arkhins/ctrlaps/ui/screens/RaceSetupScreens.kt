@@ -1,5 +1,8 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.ui.res.painterResource
+import com.arkhins.ctrlaps.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -85,6 +88,28 @@ private val CATEGORY_COLORS = listOf("#3B82F6", "#F97316", "#EC4899", "#14B8A6",
 
 private fun hex(c: String): Color = runCatching { Color(android.graphics.Color.parseColor(c)) }.getOrDefault(SnowSoft)
 
+/* ─────────────────────── Teams & categories page ─────────────────────── */
+
+/**
+ * People → Teams: the teams, and for admins the season's race categories, as two tabs of one page. Nothing is saved
+ * until its Save is tapped, so a stray tap changes nothing.
+ */
+@Composable
+fun RaceSetupScreen(isAdmin: Boolean) {
+    var tab by remember { mutableStateOf(0) }
+    Column(Modifier.fillMaxSize()) {
+        if (isAdmin) {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip("Teams", Gold, filled = tab == 0) { tab = 0 }
+                Chip("Categories", Gold, filled = tab == 1) { tab = 1 }
+            }
+        }
+        Box(Modifier.weight(1f)) {
+            if (tab == 0 || !isAdmin) TeamsScreen() else CategoriesEditorScreen(onSaved = {})
+        }
+    }
+}
+
 /* ───────────────────────────── Categories ───────────────────────────── */
 
 private data class CategoryDraft(val id: String?, val name: String, val code: String, val color: String)
@@ -93,9 +118,12 @@ private data class CategoryDraft(val id: String?, val name: String, val code: St
 @Composable
 fun CategoriesEditorScreen(onSaved: () -> Unit) {
     val app = LocalApp.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     var seasonId by remember { mutableStateOf<String?>(null) }
     var rows by remember { mutableStateOf<List<CategoryDraft>?>(null) }
+    // The list as saved: Revert puts it back.
+    var original by remember { mutableStateOf<List<CategoryDraft>>(emptyList()) }
     var picking by remember { mutableStateOf<Int?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -105,6 +133,7 @@ fun CategoriesEditorScreen(onSaved: () -> Unit) {
             val r = app.api.get("/api/teams", TeamsResponse.serializer())
             seasonId = r.seasonId
             rows = r.categories.map { CategoryDraft(it.id, it.name, it.code, it.color) }
+            original = rows.orEmpty()
         } catch (e: Exception) {
             error = e.message
         }
@@ -167,7 +196,9 @@ fun CategoriesEditorScreen(onSaved: () -> Unit) {
                     }
                 }
                 item {
-                    GoldButton(if (busy) "Saving…" else "Save", Modifier.fillMaxWidth(), enabled = !busy && seasonId != null) {
+                  Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GhostButton("Revert", Modifier.weight(1f), enabled = !busy && r != original) { rows = original; picking = null; error = null }
+                    GoldButton(if (busy) "Saving…" else "Save", Modifier.weight(1f), enabled = !busy && seasonId != null && r != original) {
                         busy = true
                         error = null
                         scope.launch {
@@ -184,6 +215,8 @@ fun CategoriesEditorScreen(onSaved: () -> Unit) {
                                         }
                                     }
                                 }
+                                    .categories.let { saved -> rows = saved.map { CategoryDraft(it.id, it.name, it.code, it.color) }; original = rows.orEmpty() }
+                                android.widget.Toast.makeText(context, "Categories saved", android.widget.Toast.LENGTH_SHORT).show()
                                 onSaved()
                             } catch (e: Exception) {
                                 error = e.message ?: "Could not save."
@@ -192,6 +225,7 @@ fun CategoriesEditorScreen(onSaved: () -> Unit) {
                             }
                         }
                     }
+                  }
                 }
             }
         }
@@ -213,6 +247,8 @@ fun TeamsScreen() {
     var renaming by remember { mutableStateOf<TeamRecord?>(null) }
     var deleting by remember { mutableStateOf<TeamRecord?>(null) }
     var busy by remember { mutableStateOf(false) }
+    // Categories tapped on a card but not saved yet, by team.
+    var drafts by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
 
     LaunchedEffect(Unit) {
         try {
@@ -222,13 +258,14 @@ fun TeamsScreen() {
         }
     }
     // Every change answers with the whole list; keep the categories we already have.
-    fun act(call: suspend () -> TeamsResponse) {
+    fun act(onDone: () -> Unit = {}, call: suspend () -> TeamsResponse) {
         busy = true
         error = null
         scope.launch {
             try {
                 val r = call()
                 data = r.copy(categories = r.categories.ifEmpty { data?.categories.orEmpty() }, seasonId = r.seasonId.ifBlank { data?.seasonId.orEmpty() })
+                onDone()
             } catch (e: Exception) {
                 error = e.message ?: "Could not save."
             } finally {
@@ -275,15 +312,30 @@ fun TeamsScreen() {
                                     IconAction(Icons.Outlined.Delete, "Delete", Danger) { deleting = t }
                                 }
                                 if (d.categories.isNotEmpty()) {
+                                    val saved = t.categoryIds.toSet()
+                                    val picked = drafts[t.id] ?: saved
+                                    val changed = picked != saved
                                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                         d.categories.forEach { c ->
-                                            val on = c.id in t.categoryIds
+                                            val on = c.id in picked
                                             Chip(c.code, categoryColor(c), filled = on) {
                                                 if (busy) return@Chip
-                                                val next = if (on) t.categoryIds - c.id else t.categoryIds + c.id
-                                                // At once on screen; the server's answer replaces it.
-                                                data = d.copy(teams = d.teams.map { if (it.id == t.id) it.copy(categoryIds = next) else it })
-                                                act { app.api.patch("/api/teams/${t.id}", TeamsResponse.serializer()) { putJsonArray("categoryIds") { next.forEach { add(JsonPrimitive(it)) } } } }
+                                                val next = if (on) picked - c.id else picked + c.id
+                                                drafts = if (next == saved) drafts - t.id else drafts + (t.id to next)
+                                            }
+                                        }
+                                    }
+                                    // Only a card with changes offers to keep them or put them back.
+                                    if (changed) {
+                                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                            Text("Not saved", style = MaterialTheme.typography.labelSmall, color = Gold, modifier = Modifier.weight(1f))
+                                            IconAction(painterResource(R.drawable.ic_undo), "Revert", SnowSoft, enabled = !busy) { drafts = drafts - t.id }
+                                            Spacer(Modifier.width(4.dp))
+                                            IconAction(Icons.Filled.Check, "Save", Gold, filled = true, enabled = !busy) {
+                                                val order = d.categories.map { it.id }.filter { it in picked }
+                                                act(onDone = { drafts = drafts - t.id }) {
+                                                    app.api.patch("/api/teams/${t.id}", TeamsResponse.serializer()) { putJsonArray("categoryIds") { order.forEach { add(JsonPrimitive(it)) } } }
+                                                }
                                             }
                                         }
                                     }
@@ -292,7 +344,7 @@ fun TeamsScreen() {
                         }
                     }
                 }
-                item { Text("Tap a category to enter the team in it this season; tap again to withdraw it.", style = MaterialTheme.typography.labelSmall, color = SnowFaint) }
+                item { Text("Tap categories to enter a team in them this season (or withdraw it), then ✓ to save or ↺ to put them back.", style = MaterialTheme.typography.labelSmall, color = SnowFaint) }
             }
         }
     }
