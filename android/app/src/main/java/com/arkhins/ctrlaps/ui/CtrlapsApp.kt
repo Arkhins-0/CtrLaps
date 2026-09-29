@@ -1,5 +1,9 @@
 package com.arkhins.ctrlaps.ui
 
+import androidx.compose.runtime.CompositionLocalProvider
+import com.arkhins.ctrlaps.ui.screens.LocalOpen
+import com.arkhins.ctrlaps.ui.screens.CategoriesEditorScreen
+import com.arkhins.ctrlaps.ui.screens.TeamsScreen
 import com.arkhins.ctrlaps.ui.components.PhotoViewerActions
 import com.arkhins.ctrlaps.ui.screens.StandingsScreen
 import com.arkhins.ctrlaps.ui.screens.ResultsScreen
@@ -275,6 +279,7 @@ private fun MainNav(vm: AppViewModel) {
     }
 
     val openWeekend: (String) -> Unit = { nav.open("weekend/$it") }
+    val openRoute: (String) -> Unit = { nav.open(it) }
     val view: (FileView) -> Unit = {
         when (it) {
             is FileView.Pdf -> { pdf = it.doc; viewSentAt = it.sentAt; nav.open("pdf") }
@@ -303,12 +308,14 @@ private fun MainNav(vm: AppViewModel) {
                     launchSingleTop = true
                 }
             }
-        }, content = content)
+        }, content = { CompositionLocalProvider(LocalOpen provides openRoute) { content() } })
 
     /** A screen opened on top: its own header with a back arrow, no footer. */
     @Composable
     fun Pushed(title: String, showCountdown: Boolean = true, header: (@Composable () -> Unit)? = null, action: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) =
-        Screen(title, onBack = back, onOpenWeekend = openWeekend, showCountdown = showCountdown, header = header, action = action, content = content)
+        Screen(title, onBack = back, onOpenWeekend = openWeekend, showCountdown = showCountdown, header = header, action = action, content = {
+            CompositionLocalProvider(LocalOpen provides openRoute) { content() }
+        })
 
     Box(Modifier.fillMaxSize()) {
         // Tabs swap in place, footer still. Anything else flies in from the right, header and all, over
@@ -381,6 +388,8 @@ private fun MainNav(vm: AppViewModel) {
             }
             composable("compose") { Pushed("New message") { ComposeScreen { nav.popBackStack(); vm.changed() } } }
             composable("weekend/{id}") { e -> Pushed("Race weekend") { WeekendScreen(vm, e.arguments?.getString("id") ?: "", view) } }
+            composable("categories") { Pushed("Race categories", showCountdown = false) { CategoriesEditorScreen(onSaved = { vm.changed(); back() }) } }
+            composable("teams") { Pushed("Teams", showCountdown = false) { TeamsScreen() } }
             composable("standings") { Pushed("Standings") { StandingsScreen(vm, onOpenResults = { nav.open("results/$it") }) } }
             composable("results/{id}") { e -> Pushed("Results") { ResultsScreen(vm, e.arguments?.getString("id") ?: "") } }
             composable("category/{id}") { e -> Pushed("Category channel") { CategoryChannelScreen(vm, e.arguments?.getString("id") ?: "", view) } }

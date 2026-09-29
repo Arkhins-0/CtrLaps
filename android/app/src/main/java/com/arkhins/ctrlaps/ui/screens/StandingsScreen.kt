@@ -141,12 +141,13 @@ fun StandingsScreen(vm: AppViewModel, onOpenResults: (String) -> Unit) {
     }
 }
 
-/** One session's results, to read; they are entered on the website. */
+/** One session's results; admins, coordinators and the category's race officials enter or edit them here. */
 @Composable
 fun ResultsScreen(vm: AppViewModel, sessionId: String) {
     val app = LocalApp.current
     var data by remember { mutableStateOf<SessionResultsResponse?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var editing by remember { mutableStateOf(false) }
     LaunchedEffect(sessionId, vm.refreshTick) {
         try {
             data = app.store.get("/api/sessions/$sessionId/results", SessionResultsResponse.serializer()) { if (data == null) data = it }
@@ -156,11 +157,18 @@ fun ResultsScreen(vm: AppViewModel, sessionId: String) {
         }
     }
     val d = data
+    if (editing && d != null) {
+        ResultsEditor(sessionId, d, onSaved = { data = it; editing = false }, onCancel = { editing = false })
+        return
+    }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when {
             error != null && d == null -> item { ErrorText(error) }
             d == null -> item { Loading() }
             else -> {
+                if (d.canEdit && d.category != null) item {
+                    com.arkhins.ctrlaps.ui.components.GoldButton(if (d.results.isEmpty()) "Enter results" else "Edit results", Modifier.fillMaxWidth()) { editing = true }
+                }
                 item {
                     Column {
                         Text(d.session.name, style = MaterialTheme.typography.titleLarge, color = Snow)
@@ -171,7 +179,7 @@ fun ResultsScreen(vm: AppViewModel, sessionId: String) {
                         )
                     }
                 }
-                if (d.results.isEmpty()) item { Empty(if (d.canEdit) "No results yet. Enter them on the website." else "No results yet.") }
+                if (d.results.isEmpty()) item { Empty("No results yet.") }
                 else item {
                     Panel {
                         Column {

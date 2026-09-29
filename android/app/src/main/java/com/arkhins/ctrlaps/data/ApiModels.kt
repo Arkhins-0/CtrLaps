@@ -570,7 +570,22 @@ data class SessionResultsResponse(
     val category: CategoryChannelInfo? = null,
     val results: List<SessionResult> = emptyList(),
     val canEdit: Boolean = false,
+    /** For those who may enter results: the teams to pick from. */
+    val teams: List<ResultTeam> = emptyList(),
 )
+
+@Serializable
+data class ResultTeam(val id: String, val name: String, val entered: Boolean = false)
+
+/** People → Teams: every team with this season's entries, and the season's categories. */
+@Serializable
+data class TeamsResponse(val teams: List<TeamRecord> = emptyList(), val categories: List<Category> = emptyList(), val seasonId: String = "")
+
+@Serializable
+data class TeamRecord(val id: String, val name: String, val categoryIds: List<String> = emptyList(), val members: Int = 0)
+
+@Serializable
+data class CategoriesResponse(val categories: List<Category> = emptyList())
 
 @Serializable
 data class ResultSessionInfo(val id: String, val name: String, val startsAt: String, val weekendId: String = "", val weekendName: String = "", val categoryId: String? = null)
