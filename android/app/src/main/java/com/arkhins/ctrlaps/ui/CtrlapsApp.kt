@@ -2,8 +2,7 @@ package com.arkhins.ctrlaps.ui
 
 import androidx.compose.runtime.CompositionLocalProvider
 import com.arkhins.ctrlaps.ui.screens.LocalOpen
-import com.arkhins.ctrlaps.ui.screens.CategoriesEditorScreen
-import com.arkhins.ctrlaps.ui.screens.TeamsScreen
+import com.arkhins.ctrlaps.ui.screens.RaceSetupScreen
 import com.arkhins.ctrlaps.ui.components.PhotoViewerActions
 import com.arkhins.ctrlaps.ui.screens.StandingsScreen
 import com.arkhins.ctrlaps.ui.screens.ResultsScreen
@@ -388,8 +387,7 @@ private fun MainNav(vm: AppViewModel) {
             }
             composable("compose") { Pushed("New message") { ComposeScreen { nav.popBackStack(); vm.changed() } } }
             composable("weekend/{id}") { e -> Pushed("Race weekend") { WeekendScreen(vm, e.arguments?.getString("id") ?: "", view) } }
-            composable("categories") { Pushed("Race categories", showCountdown = false) { CategoriesEditorScreen(onSaved = { vm.changed(); back() }) } }
-            composable("teams") { Pushed("Teams", showCountdown = false) { TeamsScreen() } }
+            composable("teams") { Pushed(if (vm.me?.isAdmin == true) "Teams & categories" else "Teams", showCountdown = false) { RaceSetupScreen(isAdmin = vm.me?.isAdmin == true) } }
             composable("standings") { Pushed("Standings") { StandingsScreen(vm, onOpenResults = { nav.open("results/$it") }) } }
             composable("results/{id}") { e -> Pushed("Results") { ResultsScreen(vm, e.arguments?.getString("id") ?: "") } }
             composable("category/{id}") { e -> Pushed("Category channel") { CategoryChannelScreen(vm, e.arguments?.getString("id") ?: "", view) } }
