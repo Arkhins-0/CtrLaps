@@ -69,6 +69,7 @@ import com.arkhins.ctrlaps.ui.components.Panel
 import com.arkhins.ctrlaps.ui.components.SectionTitle
 import com.arkhins.ctrlaps.ui.theme.Danger
 import com.arkhins.ctrlaps.ui.theme.Gold
+import com.arkhins.ctrlaps.ui.theme.OnGold
 import com.arkhins.ctrlaps.ui.theme.NightPanel
 import com.arkhins.ctrlaps.ui.theme.Snow
 import com.arkhins.ctrlaps.ui.theme.SnowFaint
@@ -87,28 +88,6 @@ val LocalOpen = staticCompositionLocalOf<(String) -> Unit> { {} }
 private val CATEGORY_COLORS = listOf("#3B82F6", "#F97316", "#EC4899", "#14B8A6", "#A855F7", "#84CC16", "#D97706", "#06B6D4", "#EF4444", "#64748B")
 
 private fun hex(c: String): Color = runCatching { Color(android.graphics.Color.parseColor(c)) }.getOrDefault(SnowSoft)
-
-/* ─────────────────────── Teams & categories page ─────────────────────── */
-
-/**
- * People → Teams: the teams, and for admins the season's race categories, as two tabs of one page. Nothing is saved
- * until its Save is tapped, so a stray tap changes nothing.
- */
-@Composable
-fun RaceSetupScreen(isAdmin: Boolean) {
-    var tab by remember { mutableStateOf(0) }
-    Column(Modifier.fillMaxSize()) {
-        if (isAdmin) {
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("Teams", Gold, filled = tab == 0) { tab = 0 }
-                Chip("Categories", Gold, filled = tab == 1) { tab = 1 }
-            }
-        }
-        Box(Modifier.weight(1f)) {
-            if (tab == 0 || !isAdmin) TeamsScreen() else CategoriesEditorScreen(onSaved = {})
-        }
-    }
-}
 
 /* ───────────────────────────── Categories ───────────────────────────── */
 
@@ -331,7 +310,7 @@ fun TeamsScreen() {
                                             Text("Not saved", style = MaterialTheme.typography.labelSmall, color = Gold, modifier = Modifier.weight(1f))
                                             IconAction(painterResource(R.drawable.ic_undo), "Revert", SnowSoft, enabled = !busy) { drafts = drafts - t.id }
                                             Spacer(Modifier.width(4.dp))
-                                            IconAction(Icons.Filled.Check, "Save", Gold, filled = true, enabled = !busy) {
+                                            IconAction(Icons.Filled.Check, "Save", OnGold, filled = true, enabled = !busy) {
                                                 val order = d.categories.map { it.id }.filter { it in picked }
                                                 act(onDone = { drafts = drafts - t.id }) {
                                                     app.api.patch("/api/teams/${t.id}", TeamsResponse.serializer()) { putJsonArray("categoryIds") { order.forEach { add(JsonPrimitive(it)) } } }

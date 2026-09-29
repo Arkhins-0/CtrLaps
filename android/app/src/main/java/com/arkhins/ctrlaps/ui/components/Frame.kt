@@ -114,10 +114,16 @@ fun TopBar(
 
 /** The chats tab's header: Chats | Channels, the open one bright. Tapping the other slides the page over. */
 @Composable
-fun ChatsHeader(page: Int, onPage: (Int) -> Unit) {
+fun ChatsHeader(page: Int, onPage: (Int) -> Unit) = HeaderTabs(listOf("Chats", "Channels"), page, onPage)
+
+/** A tab's pages named in its header, "People | Teams | Categories": the one showing in white, a tap switches. */
+@Composable
+fun HeaderTabs(labels: List<String>, page: Int, onPage: (Int) -> Unit) {
+    // Three names share the header with the countdown: closer together.
+    val gap = if (labels.size > 2) 7.dp else 10.dp
     Row(verticalAlignment = Alignment.CenterVertically) {
-        listOf("Chats", "Channels").forEachIndexed { i, label ->
-            if (i > 0) Text("|", style = MaterialTheme.typography.titleLarge, color = NightLine, modifier = Modifier.padding(horizontal = 10.dp))
+        labels.forEachIndexed { i, label ->
+            if (i > 0) Text("|", style = MaterialTheme.typography.titleLarge, color = NightLine, modifier = Modifier.padding(horizontal = gap))
             Text(
                 label,
                 style = MaterialTheme.typography.titleLarge,
