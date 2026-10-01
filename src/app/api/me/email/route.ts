@@ -2,14 +2,15 @@ import { body, handle, str } from "@/lib/api";
 import { issueToken, requireUser } from "@/lib/auth";
 import { sendEmailChange } from "@/lib/email";
 import { fail, json } from "@/lib/http";
+import { editsOwnProfile } from "@/lib/roles";
 import { userByEmail } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 
-/** Someone with no role yet asks to change their email: a link goes to the new address, and nothing changes until it is opened. */
+/** Someone with no role yet, or an admin, asks to change their email: a link goes to the new address, and nothing changes until it is opened. */
 export const POST = handle(async (request) => {
   const user = await requireUser();
-  if (user.role !== "user") return fail("Your profile is locked. Ask your manager or an admin to change it.", 403);
+  if (!editsOwnProfile(user.role)) return fail("Your profile is locked. Ask your manager or an admin to change it.", 403);
   const b = await body(request);
   const email = str(b.email, 200).toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Enter a valid email address.");

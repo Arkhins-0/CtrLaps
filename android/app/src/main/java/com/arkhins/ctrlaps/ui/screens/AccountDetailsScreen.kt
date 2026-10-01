@@ -80,14 +80,15 @@ fun AccountDetailsScreen(vm: AppViewModel) {
                 KeyValue("Date of birth", u.dob ?: "—")
                 KeyValue("Role", u.roleLabel + (u.teamName?.let { " · $it" } ?: ""))
                 me.parent?.let { KeyValue("Reports to", "${it.name} · ${it.roleLabel}") }
-                if (u.role != "user") {
+                if (u.role != "user" && u.role != "admin") {
                     Spacer(Modifier.height(4.dp))
                     Text("Profile details are locked. Your manager or an admin can change them.", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                 }
             }
         }
 
-        if (u.role == "user") {
+        // Users (no role yet) and admins, who have no manager above them, edit their own details.
+        if (u.role == "user" || u.role == "admin") {
             EditProfilePanel(vm)
             ChangeEmailPanel()
         }

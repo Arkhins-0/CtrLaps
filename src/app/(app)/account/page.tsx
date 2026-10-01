@@ -7,6 +7,7 @@ import { Avatar } from "@/components/Avatar";
 import { StatusBadge } from "@/components/StatusBadge";
 import { latestRelease } from "@/lib/appReleases";
 import { categoriesOf } from "@/lib/categories";
+import { editsOwnProfile } from "@/lib/roles";
 import { currentSeason } from "@/lib/seasons";
 import { followedCategories } from "@/lib/teams";
 import { ROLE_LABEL } from "@/lib/roles";
@@ -77,11 +78,11 @@ export default async function Account() {
               </div>
             )}
           </div>
-          {user.role !== "user" && <p className="text-xs text-snow-faint">Profile details are locked. Your manager or an admin can change them.</p>}
+          {!editsOwnProfile(user.role) && <p className="text-xs text-snow-faint">Profile details are locked. Your manager or an admin can change them.</p>}
         </div>
       </section>
 
-      {user.role === "user" && (
+      {editsOwnProfile(user.role) && (
         <ProfileEditor profile={{ name: p.name ?? "", dob: p.dob ?? "", phone: p.phone ?? "", email: p.email, photoUrl: p.photoUrl }} />
       )}
       {user.role === "user" && <FollowCategories categories={categories} initial={following} />}

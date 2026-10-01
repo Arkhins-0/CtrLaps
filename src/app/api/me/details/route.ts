@@ -2,19 +2,20 @@ import { handle } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { run } from "@/lib/db";
 import { fail, json } from "@/lib/http";
+import { editsOwnProfile } from "@/lib/roles";
 import { dropOldPhoto, profileFromForm, storePhoto } from "@/lib/profile";
 import { audit, toPublic, userById } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Someone who registered and has no role yet changes their own name, date of
- * birth, contact number and (optionally) photo. Once promoted, the profile is
- * locked and only their manager or an admin changes it.
+ * Someone who registered and has no role yet, or an admin, changes their own
+ * name, date of birth, contact number and (optionally) photo. Anyone else's
+ * profile is locked: only their manager or an admin changes it.
  */
 export const POST = handle(async (request) => {
   const user = await requireUser();
-  if (user.role !== "user") return fail("Your profile is locked. Ask your manager or an admin to change it.", 403);
+  if (!editsOwnProfile(user.role)) return fail("Your profile is locked. Ask your manager or an admin to change it.", 403);
   if (!user.profile_completed_at) return fail("Finish setting up your profile first.", 409);
   const form = await request.formData();
   const fields = profileFromForm(form);
