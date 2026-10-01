@@ -83,7 +83,7 @@ export default async function Account() {
       </section>
 
       {editsOwnProfile(user.role) && (
-        <ProfileEditor profile={{ name: p.name ?? "", dob: p.dob ?? "", phone: p.phone ?? "", email: p.email, photoUrl: p.photoUrl }} />
+        <ProfileEditor profile={{ name: p.name ?? "", dob: p.dob ?? "", phone: p.phone ?? "", email: p.email, photoUrl: p.photoUrl, admin: user.role === "admin" }} />
       )}
       {user.role === "user" && <FollowCategories categories={categories} initial={following} />}
       </div>
