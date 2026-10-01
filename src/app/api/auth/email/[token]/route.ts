@@ -3,6 +3,7 @@ import { consumeToken, emailChange } from "@/lib/auth";
 import { run } from "@/lib/db";
 import { sendEmailChanged } from "@/lib/email";
 import { fail, json } from "@/lib/http";
+import { editsOwnProfile } from "@/lib/roles";
 import { audit, userByEmail } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export const POST = handle<Params<"token">>(async (_request, { params }) => {
   const { token } = await params;
   const change = await emailChange(token);
   if (!change) return fail(GONE, 404);
-  if (change.user.role !== "user") {
+  if (!editsOwnProfile(change.user.role)) {
     await consumeToken(token);
     return fail("Your profile is locked now. Ask your manager or an admin to change your email.", 403);
   }
