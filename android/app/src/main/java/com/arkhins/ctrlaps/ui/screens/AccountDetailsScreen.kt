@@ -46,6 +46,10 @@ import com.arkhins.ctrlaps.ui.components.ErrorText
 import com.arkhins.ctrlaps.ui.components.Field
 import com.arkhins.ctrlaps.ui.components.GhostButton
 import com.arkhins.ctrlaps.ui.components.GoldButton
+import com.arkhins.ctrlaps.ui.components.IconAction
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Edit
+import com.arkhins.ctrlaps.ui.theme.Gold
 import com.arkhins.ctrlaps.ui.components.KeyValue
 import com.arkhins.ctrlaps.ui.components.Panel
 import com.arkhins.ctrlaps.ui.components.SquareCropDialog
@@ -64,6 +68,9 @@ fun AccountDetailsScreen(vm: AppViewModel) {
     val me = vm.me ?: return
     val u = me.user
     var showPassword by remember { mutableStateOf(false) }
+    // Users (no role yet) and admins, who have no manager above them, edit their own details: the pencil opens the form.
+    val canEdit = u.role == "user" || u.role == "admin"
+    var editing by remember { mutableStateOf(false) }
 
     Column(
         Modifier
@@ -72,26 +79,26 @@ fun AccountDetailsScreen(vm: AppViewModel) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Panel {
-            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                KeyValue("Name", u.displayName)
-                KeyValue("Email", u.email)
-                KeyValue("Contact", u.phone ?: "—")
-                KeyValue("Date of birth", u.dob ?: "—")
-                KeyValue("Role", u.roleLabel + (u.teamName?.let { " · $it" } ?: ""))
-                me.parent?.let { KeyValue("Reports to", "${it.name} · ${it.roleLabel}") }
-                if (u.role != "user" && u.role != "admin") {
-                    Spacer(Modifier.height(4.dp))
-                    Text("Profile details are locked. Your manager or an admin can change them.", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+        if (editing) EditProfilePanel(vm) { editing = false }
+        else Panel {
+            Box(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    KeyValue("Name", u.displayName)
+                    KeyValue("Email", u.email)
+                    KeyValue("Contact", u.phone ?: "—")
+                    KeyValue("Date of birth", u.dob ?: "—")
+                    KeyValue("Role", u.roleLabel + (u.teamName?.let { " · $it" } ?: ""))
+                    me.parent?.let { KeyValue("Reports to", "${it.name} · ${it.roleLabel}") }
+                    if (u.role != "user" && u.role != "admin") {
+                        Spacer(Modifier.height(4.dp))
+                        Text("Profile details are locked. Your manager or an admin can change them.", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                    }
                 }
+                if (canEdit) Box(Modifier.align(Alignment.TopEnd)) { IconAction(Icons.Outlined.Edit, "Edit profile", Gold) { editing = true } }
             }
         }
 
-        // Users (no role yet) and admins, who have no manager above them, edit their own details.
-        if (u.role == "user" || u.role == "admin") {
-            EditProfilePanel(vm)
-            ChangeEmailPanel()
-        }
+        if (canEdit) ChangeEmailPanel()
 
         Panel {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -186,14 +193,13 @@ private fun ForgotPasswordPanel(email: String) {
     }
 }
 
-/** Someone with no role yet changes their own name, date of birth, contact number and photo. */
+/** Someone with no role yet, or an admin, changes their own name, date of birth, contact number and photo; [onDone] closes the form. */
 @Composable
-private fun EditProfilePanel(vm: AppViewModel) {
+private fun EditProfilePanel(vm: AppViewModel, onDone: () -> Unit) {
     val app = LocalApp.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val u = vm.me?.user ?: return
-    var editing by remember { mutableStateOf(false) }
     var name by remember(u) { mutableStateOf(u.name ?: "") }
     var dob by remember(u) { mutableStateOf(u.dob ?: "") }
     var phone by remember(u) { mutableStateOf(u.phone ?: "") }
@@ -208,12 +214,8 @@ private fun EditProfilePanel(vm: AppViewModel) {
     cropping?.let { src -> SquareCropDialog(src, onCancel = { cropping = null }) { photo = it; cropping = null } }
     Panel {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Your details", style = MaterialTheme.typography.titleMedium, color = Snow)
-            if (!editing) {
-                Text(if (u.role == "admin") "Your name, contact, date of birth and photo." else "You can change your details until an organiser gives you a role.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
-                GhostButton("Edit profile") { editing = true }
-                return@Column
-            }
+            Text("Edit profile", style = MaterialTheme.typography.titleMedium, color = Snow)
+            if (u.role == "user") Text("You can change your details until an organiser gives you a role.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
             ErrorText(error)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(72.dp).clip(CircleShape).clickable(enabled = !busy) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
@@ -243,9 +245,9 @@ private fun EditProfilePanel(vm: AppViewModel) {
                             "image/jpeg",
                             UserResponse.serializer(),
                         )
-                        editing = false
                         photo = null
                         vm.refreshMe()
+                        onDone()
                     } catch (e: Exception) {
                         error = e.message ?: "Could not save."
                     } finally {
@@ -254,14 +256,7 @@ private fun EditProfilePanel(vm: AppViewModel) {
                     }
                 }
             }
-            GhostButton("Cancel", enabled = !busy) {
-                editing = false
-                photo = null
-                error = null
-                name = u.name ?: ""
-                dob = u.dob ?: ""
-                phone = u.phone ?: ""
-            }
+            GhostButton("Cancel", enabled = !busy, onClick = onDone)
         }
     }
 }
