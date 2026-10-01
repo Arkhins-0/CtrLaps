@@ -82,6 +82,11 @@ import com.arkhins.ctrlaps.ui.screens.SettingsScreen
 import com.arkhins.ctrlaps.ui.screens.PermissionsScreen
 import com.arkhins.ctrlaps.ui.screens.ThemeScreen
 import com.arkhins.ctrlaps.ui.screens.AboutScreen
+import com.arkhins.ctrlaps.ui.screens.FaqScreen
+import com.arkhins.ctrlaps.ui.screens.SupportScreen
+import com.arkhins.ctrlaps.ui.screens.TicketFormScreen
+import com.arkhins.ctrlaps.ui.screens.TicketScreen
+import com.arkhins.ctrlaps.ui.screens.TicketsScreen
 import com.arkhins.ctrlaps.ui.screens.AccountDetailsScreen
 import com.arkhins.ctrlaps.ui.screens.StorageScreen
 import com.arkhins.ctrlaps.ui.screens.NewGroupScreen
@@ -412,7 +417,15 @@ private fun MainNav(vm: AppViewModel) {
             composable("settings") { Pushed("Settings") { SettingsScreen(onPermissions = { nav.open("permissions") }, onTheme = { nav.open("theme") }) } }
             composable("theme") { Pushed("Theme") { ThemeScreen() } }
             composable("permissions") { Pushed("Permissions") { PermissionsScreen() } }
-            composable("about") { Pushed("About") { AboutScreen(vm, onChangelog = { nav.open("changelog") }, onLegal = { nav.open("legal/$it") }) } }
+            composable("about") { Pushed("About") { AboutScreen(vm, onChangelog = { nav.open("changelog") }, onLegal = { nav.open("legal/$it") }, onSupport = { nav.open("support") }) } }
+            composable("support") { Pushed("Support") { SupportScreen(vm, onFaqs = { nav.open("support/faqs") }, onForm = { nav.open("support/new") }, onTickets = { nav.open("support/tickets") }) } }
+            composable("support/faqs") { Pushed("FAQs") { FaqScreen(vm) } }
+            composable("support/new") { Pushed("Support form") { TicketFormScreen(vm) { id -> nav.navigate("support/ticket/$id") { popUpTo("support") } } } }
+            composable("support/tickets") { Pushed("Tickets") { TicketsScreen(vm) { nav.open("support/ticket/$it") } } }
+            composable("support/ticket/{id}") { e ->
+                var t by remember { mutableStateOf("Ticket") }
+                Pushed(t) { TicketScreen(vm, e.arguments?.getString("id") ?: "", view) { t = it } }
+            }
             composable("changelog") { Pushed("What's new") { ChangelogScreen() } }
             composable("legal/{doc}") { e ->
                 var t by remember { mutableStateOf("") }

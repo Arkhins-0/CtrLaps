@@ -92,6 +92,8 @@
                 <data android:path="/account" />
                 <data android:path="/archive" />
                 <data android:pathPrefix="/archive/" />
+                <data android:path="/support" />
+                <data android:pathPrefix="/support/" />
             </intent-filter>
         </activity>
 

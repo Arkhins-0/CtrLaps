@@ -49,6 +49,8 @@ data class Me(
     val unread: Int = 0,
     val unreadChats: Int = 0,
     val unreadHome: Int = 0,
+    /** Unread support replies (a developer: new messages on tickets). */
+    val unreadSupport: Int = 0,
     val pushConfigured: Boolean = false,
     /** "My categories" this season; null = everything. */
     val categoryIds: List<String>? = null,

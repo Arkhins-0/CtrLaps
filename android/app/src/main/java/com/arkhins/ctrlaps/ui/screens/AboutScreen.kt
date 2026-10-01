@@ -25,9 +25,9 @@ import com.arkhins.ctrlaps.ui.theme.Gold
 import com.arkhins.ctrlaps.ui.theme.Snow
 import com.arkhins.ctrlaps.ui.theme.SnowFaint
 
-/** The app's version and updates, what's new, and the Terms and Privacy Policy. */
+/** The app's version and updates, what's new, the Terms and Privacy Policy, and Support. */
 @Composable
-fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> Unit) {
+fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> Unit, onSupport: () -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
@@ -44,6 +44,16 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
                 HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
                 MenuRow("Privacy Policy", "What CTR[L]APS keeps and why") { onLegal("privacy") }
             }
+        }
+        // Support: FAQs, the support form and tickets.
+        Panel {
+            val unread = vm.me?.unreadSupport ?: 0
+            MenuRow(
+                "Support",
+                if (unread > 0) "$unread new ${if (unread == 1) "reply" else "replies"}" else if (vm.me?.isDev == true) "Tickets and FAQs" else "FAQs, the support form and your tickets",
+                highlight = unread > 0,
+                onClick = onSupport,
+            )
         }
         Text("CTR[L]APS v${BuildConfig.VERSION_NAME} · ${Config.POWERED_BY_NAME}", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
     }
