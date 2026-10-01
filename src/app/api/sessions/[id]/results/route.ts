@@ -2,7 +2,7 @@ import { body, handle, isUuid, type Params } from "@/lib/api";
 import { AuthError, requireUser } from "@/lib/auth";
 import { categoryInfo } from "@/lib/categoryChannels";
 import { fail, json } from "@/lib/http";
-import { canEnterResults, categoryScoring, resultInput, resultSession, saveResults, sessionResults, teamsForResults } from "@/lib/results";
+import { canEnterResults, categoryScoring, entrants, resultInput, resultSession, saveResults, sessionResults, teamsForResults } from "@/lib/results";
 import { audit } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -28,13 +28,15 @@ export const GET = handle<Params<"id">>(async (_request, { params }) => {
     category: category && { id: category.id, name: category.name, code: category.code, color: category.color },
     results,
     canEdit,
+    // For those who may enter results: every team (older apps), and the teams with their racers to pick from.
     teams: canEdit && session.categoryId ? await teamsForResults(session.categoryId) : [],
+    entrants: canEdit && session.categoryId ? await entrants(session.categoryId) : [],
   });
 });
 
 /**
- * Replace the results `{results: [{position, status, carNumber, driverName, teamId, points, bestLap, pole, fastestLap,
- * manualPoints}], scores}`: a row's points come from the category's table unless `manualPoints`; `scores` says
+ * Replace the results `{results: [{position, status, carNumber, driverName, userId, teamId, points, bestLap, pole,
+ * fastestLap, manualPoints}], scores}` (`userId`: the racer picked; none for a name typed in): a row's points come from the category's table unless `manualPoints`; `scores` says
  * whether this session scores from the table at all.
  */
 export const PUT = handle<Params<"id">>(async (request, { params }) => {
