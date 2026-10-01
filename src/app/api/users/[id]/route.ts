@@ -3,7 +3,7 @@ import { requireUser, revokeAll } from "@/lib/auth";
 import { q, run } from "@/lib/db";
 import { canEdit, isBelow } from "@/lib/hierarchy";
 import { fail, json } from "@/lib/http";
-import { isStatus } from "@/lib/roles";
+import { isDeveloper, isStatus } from "@/lib/roles";
 import { categoriesOf } from "@/lib/categories";
 import { currentSeason } from "@/lib/seasons";
 import { assignedCategories, syncTeamIds, teamCategories } from "@/lib/teams";
@@ -32,6 +32,8 @@ export const GET = handle<Params<"id">>(async (_request, { params }) => {
     categoryIds: assignable ? await assignedCategories(id, season) : [],
     teamCategoryIds: await teamCategories(team, season),
     canSetCategories: assignable && user.id !== me.id && (me.role === "admin" || me.role === "coordinator" || canEdit(me, user)),
+    // A developer may make another active admin a developer, or take it back.
+    canSetDev: isDeveloper(me) && user.id !== me.id && user.role === "admin" && user.status === "active",
   });
 });
 

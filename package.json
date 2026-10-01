@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "migrate": "node scripts/migrate.mjs",
     "create-admin": "node scripts/create-admin.mjs",
+    "make-dev": "node scripts/make-dev.mjs",
     "clean-files": "node scripts/clean-files.mjs"
   },
   "dependencies": {

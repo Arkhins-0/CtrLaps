@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { json } from "@/lib/http";
 import { unread } from "@/lib/messages";
 import { isPushConfigured } from "@/lib/push";
-import { CREATE_RULES, CHANNEL_POSTERS, ROLE_LABEL } from "@/lib/roles";
+import { CREATE_RULES, CHANNEL_POSTERS, isDeveloper, roleLabel } from "@/lib/roles";
 import { myCategories } from "@/lib/teams";
 import { qrUrl, toPublic, userById } from "@/lib/users";
 
@@ -17,12 +17,14 @@ export const GET = handle(async () => {
   return json({
     user: toPublic(user),
     qrUrl: qrUrl(user),
-    parent: parent ? { id: parent.id, name: parent.name || parent.email, roleLabel: ROLE_LABEL[parent.role] } : null,
+    parent: parent ? { id: parent.id, name: parent.name || parent.email, roleLabel: roleLabel(parent.role, isDeveloper(parent)) } : null,
     canCreate: CREATE_RULES[user.role] ?? [],
     canPostChannel: CHANNEL_POSTERS.includes(user.role),
     canRelay: user.role === "coordinator",
     canBulkEmail: user.role === "admin",
     isAdmin: user.role === "admin",
+    /** A developer: answers support tickets, and may make other admins developers. */
+    isDev: isDeveloper(user),
     unread: counts.total,
     unreadChats: counts.chats,
     unreadHome: counts.home,

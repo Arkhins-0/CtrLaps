@@ -4,7 +4,7 @@ import QRCode from "qrcode";
 import { Icon } from "@/components/Icon";
 import { VerifyCard } from "@/components/VerifyCard";
 import { canRead, conversationById, photoUrl } from "@/lib/messages";
-import { ROLE_LABEL } from "@/lib/roles";
+import { isDeveloper, roleLabel } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 import { categoryBadges } from "@/lib/teams";
 import { qrUrl, userById } from "@/lib/users";
@@ -39,7 +39,7 @@ export default async function ChatProfile({ params }: { params: Promise<{ id: st
           v={{
             id: user.id,
             name: user.name,
-            roleLabel: ROLE_LABEL[user.role],
+            roleLabel: roleLabel(user.role, isDeveloper(user)),
             teamName: user.team_name,
             status: user.status,
             verifyCode: user.verify_code,

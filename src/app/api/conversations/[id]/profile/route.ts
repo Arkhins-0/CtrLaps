@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { fail, json } from "@/lib/http";
 import { categoryBadges } from "@/lib/teams";
 import { canRead, conversationById, photoUrl } from "@/lib/messages";
-import { ROLE_LABEL, STATUS_LABEL } from "@/lib/roles";
+import { isDeveloper, roleLabel, STATUS_LABEL } from "@/lib/roles";
 import { qrUrl, userById } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export const GET = handle<Params<"id">>(async (_request, { params }) => {
     id: user.id,
     name: user.name,
     role: user.role,
-    roleLabel: ROLE_LABEL[user.role],
+    roleLabel: roleLabel(user.role, isDeveloper(user)),
     teamName: user.team_name,
     status: user.status,
     statusLabel: STATUS_LABEL[user.status],

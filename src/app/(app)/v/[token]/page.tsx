@@ -1,7 +1,7 @@
 import { VerifyCard } from "@/components/VerifyCard";
 import { userColumns, type SessionUser } from "@/lib/auth";
 import { one } from "@/lib/db";
-import { ROLE_LABEL } from "@/lib/roles";
+import { isDeveloper, roleLabel } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 import { userPhotoUrl } from "@/lib/profile";
 
@@ -21,7 +21,7 @@ export default async function Verify({ params }: { params: Promise<{ token: stri
           v={{
             id: user.id,
             name: user.name,
-            roleLabel: ROLE_LABEL[user.role],
+            roleLabel: roleLabel(user.role, isDeveloper(user)),
             teamName: user.team_name,
             status: user.status,
             verifyCode: user.verify_code,

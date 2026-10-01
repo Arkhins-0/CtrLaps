@@ -3,11 +3,12 @@ import QRCode from "qrcode";
 import { Avatar } from "@/components/Avatar";
 import { PersonPhoto } from "@/components/EditablePhoto";
 import { CopyButton } from "@/components/CopyButton";
+import { DeveloperToggle } from "@/components/DeveloperToggle";
 import { PersonActions } from "@/components/PersonActions";
 import { PromoteForm } from "@/components/PromoteForm";
 import { StatusBadge } from "@/components/StatusBadge";
 import { canChat, canEdit, canPromote, isBelow } from "@/lib/hierarchy";
-import { CREATE_RULES } from "@/lib/roles";
+import { CREATE_RULES, isDeveloper } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 import { qrUrl, toPublic, userById } from "@/lib/users";
 import { one, q } from "@/lib/db";
@@ -80,6 +81,8 @@ export default async function Person({ params }: { params: Promise<{ id: string 
         teamIds={teamIds}
         canSet={(user.role === "racer" || user.role === "race_official") && user.id !== me.id && (me.role === "admin" || me.role === "coordinator" || canEdit(me, user))}
       />
+
+      {isDeveloper(me) && user.id !== me.id && user.role === "admin" && user.status === "active" && <DeveloperToggle personId={p.id} isDev={p.isDev} />}
 
       <PersonActions
         person={p}

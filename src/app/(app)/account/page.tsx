@@ -10,7 +10,7 @@ import { categoriesOf } from "@/lib/categories";
 import { editsOwnProfile } from "@/lib/roles";
 import { currentSeason } from "@/lib/seasons";
 import { followedCategories } from "@/lib/teams";
-import { ROLE_LABEL } from "@/lib/roles";
+import { isDeveloper, roleLabel } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 import { qrUrl, toPublic, userById } from "@/lib/users";
 
@@ -73,7 +73,7 @@ export default async function Account() {
               <div>
                 <p className="label">Reports to</p>
                 <p className="truncate">
-                  {parent.name || parent.email} <span className="text-snow-faint">· {ROLE_LABEL[parent.role]}</span>
+                  {parent.name || parent.email} <span className="text-snow-faint">· {roleLabel(parent.role, isDeveloper(parent))}</span>
                 </p>
               </div>
             )}

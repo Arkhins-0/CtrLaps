@@ -1,6 +1,6 @@
 import { Shell } from "@/components/Shell";
 import { unread } from "@/lib/messages";
-import { hasChats, ROLE_LABEL } from "@/lib/roles";
+import { hasChats, isDeveloper, roleLabel } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 import { userPhotoUrl } from "@/lib/profile";
 
@@ -12,7 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const counts = await unread(user.id);
   return (
     <Shell
-      user={{ name: user.name || user.email, roleLabel: ROLE_LABEL[user.role], photoUrl: userPhotoUrl(user.id, user.photo_key), hasChats: hasChats(user.role) }}
+      user={{ name: user.name || user.email, roleLabel: roleLabel(user.role, isDeveloper(user)), photoUrl: userPhotoUrl(user.id, user.photo_key), hasChats: hasChats(user.role) }}
       unreadHome={counts.home}
       unreadChats={counts.chats}
     >
