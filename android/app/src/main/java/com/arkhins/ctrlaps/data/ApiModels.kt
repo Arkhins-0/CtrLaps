@@ -382,7 +382,55 @@ data class RaceSession(
 
 /** A race category (class) of a season: "ITC", its colour and order. */
 @Serializable
-data class Category(val id: String, val seasonId: String, val name: String, val code: String, val color: String, val position: Int = 0)
+data class Category(
+    val id: String,
+    val seasonId: String,
+    val name: String,
+    val code: String,
+    val color: String,
+    val position: Int = 0,
+    /** The points table; null when points are typed by hand. */
+    val scoring: Scoring? = null,
+)
+
+/** A category's points table (src/lib/scoring.ts): points by finishing position, for DNF / DNS / DSQ, and bonuses. */
+@Serializable
+data class Scoring(
+    val points: List<Double> = emptyList(),
+    val dnf: Double = 0.0,
+    val dns: Double = 0.0,
+    val dsq: Double = 0.0,
+    val pole: Double = 0.0,
+    val fastestLap: Double = 0.0,
+) {
+    /** What one result scores: its position (or DNF / DNS / DSQ), plus pole and fastest lap. */
+    fun pointsFor(status: String, position: Int?, pole: Boolean, fastestLap: Boolean): Double {
+        val base = when (status) {
+            "finished" -> position?.let { points.getOrNull(it - 1) } ?: 0.0
+            "dnf" -> dnf
+            "dns" -> dns
+            "dsq" -> dsq
+            else -> 0.0
+        }
+        return Math.round((base + (if (pole) this.pole else 0.0) + (if (fastestLap) this.fastestLap else 0.0)) * 100) / 100.0
+    }
+
+    /** "25, 18, 15… · DNF 0 · pole +1 · fastest lap +1" */
+    fun summary(): String {
+        val head = points.take(6).joinToString(", ") { pointsText(it) } + if (points.size > 6) "…" else ""
+        val extras = listOfNotNull(
+            dnf.takeIf { it > 0 }?.let { "DNF ${pointsText(it)}" },
+            dns.takeIf { it > 0 }?.let { "DNS ${pointsText(it)}" },
+            dsq.takeIf { it > 0 }?.let { "DSQ ${pointsText(it)}" },
+            pole.takeIf { it > 0 }?.let { "pole +${pointsText(it)}" },
+            fastestLap.takeIf { it > 0 }?.let { "fastest lap +${pointsText(it)}" },
+        )
+        return (listOf(head.ifBlank { "No points" }) + extras).joinToString(" · ")
+    }
+}
+
+/** Points without a needless ".0". */
+fun pointsText(p: Double): String = if (p % 1.0 == 0.0) p.toLong().toString() else p.toString()
 
 @Serializable
 data class Weekend(
@@ -545,6 +593,9 @@ val Message.attachments: List<FileInfo> get() = files.ifEmpty { listOfNotNull(fi
 /** This season's standings for one race category (step 5 of the race-categories plan). */
 @Serializable
 data class StandingsResponse(
+    /** The seasons to choose from (the current one first), and the one shown. */
+    val seasons: List<StandingsSeason> = emptyList(),
+    val seasonId: String? = null,
     val categories: List<Category> = emptyList(),
     val categoryId: String? = null,
     val drivers: List<DriverStanding> = emptyList(),
@@ -566,6 +617,9 @@ data class DriverStanding(
 )
 
 @Serializable
+data class StandingsSeason(val id: String, val name: String, val current: Boolean = false)
+
+@Serializable
 data class TeamStanding(val id: String, val name: String, val points: Double = 0.0, val wins: Int = 0)
 
 @Serializable
@@ -580,6 +634,9 @@ data class SessionResultsResponse(
     val canEdit: Boolean = false,
     /** For those who may enter results: the teams to pick from. */
     val teams: List<ResultTeam> = emptyList(),
+    /** The category's points table (null: points are typed), and whether this session scores from it. */
+    val scoring: Scoring? = null,
+    val scores: Boolean = true,
 )
 
 @Serializable
@@ -609,4 +666,8 @@ data class SessionResult(
     val teamName: String? = null,
     val points: Double = 0.0,
     val bestLap: String = "",
+    val pole: Boolean = false,
+    val fastestLap: Boolean = false,
+    /** Typed by hand: the table doesn't change it. */
+    val manualPoints: Boolean = true,
 )

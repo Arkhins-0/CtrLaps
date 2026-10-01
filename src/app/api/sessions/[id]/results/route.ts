@@ -2,7 +2,7 @@ import { body, handle, isUuid, type Params } from "@/lib/api";
 import { AuthError, requireUser } from "@/lib/auth";
 import { categoryInfo } from "@/lib/categoryChannels";
 import { fail, json } from "@/lib/http";
-import { canEnterResults, resultInput, resultSession, saveResults, sessionResults, teamsForResults } from "@/lib/results";
+import { canEnterResults, categoryScoring, resultInput, resultSession, saveResults, sessionResults, teamsForResults } from "@/lib/results";
 import { audit } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -14,12 +14,16 @@ export const GET = handle<Params<"id">>(async (_request, { params }) => {
   if (!isUuid(id)) return fail("No such session.", 404);
   const session = await resultSession(id);
   if (!session) return fail("No such session.", 404);
-  const [category, results, canEdit] = await Promise.all([
+  const [category, results, canEdit, scoring] = await Promise.all([
     session.categoryId ? categoryInfo(session.categoryId) : Promise.resolve(null),
     sessionResults(id),
     canEnterResults(user, session.categoryId),
+    categoryScoring(session.categoryId),
   ]);
   return json({
+    // The category's points table (null: points are typed), and whether this session scores from it.
+    scoring,
+    scores: session.scores,
     session,
     category: category && { id: category.id, name: category.name, code: category.code, color: category.color },
     results,
@@ -28,7 +32,11 @@ export const GET = handle<Params<"id">>(async (_request, { params }) => {
   });
 });
 
-/** Replace the results `{results: [{position, status, carNumber, driverName, teamId, points, bestLap}]}`. */
+/**
+ * Replace the results `{results: [{position, status, carNumber, driverName, teamId, points, bestLap, pole, fastestLap,
+ * manualPoints}], scores}`: a row's points come from the category's table unless `manualPoints`; `scores` says
+ * whether this session scores from the table at all.
+ */
 export const PUT = handle<Params<"id">>(async (request, { params }) => {
   const user = await requireUser();
   const { id } = await params;
@@ -36,9 +44,10 @@ export const PUT = handle<Params<"id">>(async (request, { params }) => {
   const session = await resultSession(id);
   if (!session) return fail("No such session.", 404);
   if (!(await canEnterResults(user, session.categoryId))) throw new AuthError(403, "Only admins, coordinators and this category's race officials enter results.");
-  const raw = (await body(request)).results;
+  const b = await body(request);
+  const raw = b.results;
   if (!Array.isArray(raw)) return fail("Send the results as a list.");
-  await saveResults(session, raw.map(resultInput));
+  await saveResults(session, raw.map(resultInput), typeof b.scores === "boolean" ? b.scores : undefined);
   await audit(user.id, null, "session.results_saved", { sessionId: id, rows: raw.length });
   return json({ results: await sessionResults(id) });
 });

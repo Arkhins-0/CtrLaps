@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar } from "@/components/Avatar";
 import { LocalTime } from "@/components/LocalTime";
@@ -23,7 +24,12 @@ export default async function SeasonArchivePage({ params }: { params: Promise<{ 
     <div className="space-y-6">
       <section className="card">
         <p className="label">{a.season.status === "archived" ? "Archived season" : a.season.current ? "Current season" : "Season"}</p>
-        <h1 className="text-xl font-semibold">{a.season.name}</h1>
+        <div className="flex items-start gap-2">
+          <h1 className="min-w-0 flex-1 text-xl font-semibold">{a.season.name}</h1>
+          <Link href={`/standings?season=${a.season.id}`} className="btn-ghost shrink-0 px-3 py-1.5 text-xs">
+            Standings
+          </Link>
+        </div>
         <p className="text-sm text-snow-soft">
           {a.season.startsOn}
           {a.season.endsOn ? ` → ${a.season.endsOn}` : ""}

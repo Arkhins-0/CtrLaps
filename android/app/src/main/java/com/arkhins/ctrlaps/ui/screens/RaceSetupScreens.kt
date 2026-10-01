@@ -51,6 +51,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.arkhins.ctrlaps.LocalApp
+import com.arkhins.ctrlaps.data.Scoring
+import com.arkhins.ctrlaps.data.pointsText
+import com.arkhins.ctrlaps.data.Ok
 import com.arkhins.ctrlaps.data.CategoriesResponse
 import com.arkhins.ctrlaps.data.ResultTeam
 import com.arkhins.ctrlaps.data.SessionResult
@@ -91,7 +94,7 @@ private fun hex(c: String): Color = runCatching { Color(android.graphics.Color.p
 
 /* ───────────────────────────── Categories ───────────────────────────── */
 
-private data class CategoryDraft(val id: String?, val name: String, val code: String, val color: String)
+private data class CategoryDraft(val id: String?, val name: String, val code: String, val color: String, val scoring: Scoring? = null)
 
 /** Admin: the current season's race categories — name, short code, colour and order — saved as one list. */
 @Composable
@@ -111,7 +114,7 @@ fun CategoriesEditorScreen(onSaved: () -> Unit) {
         try {
             val r = app.api.get("/api/teams", TeamsResponse.serializer())
             seasonId = r.seasonId
-            rows = r.categories.map { CategoryDraft(it.id, it.name, it.code, it.color) }
+            rows = r.categories.map { CategoryDraft(it.id, it.name, it.code, it.color, it.scoring) }
             original = rows.orEmpty()
         } catch (e: Exception) {
             error = e.message
@@ -165,6 +168,13 @@ fun CategoriesEditorScreen(onSaved: () -> Unit) {
                             }
                             Field(c.name, { v -> set(i) { it.copy(name = v) } }, "Name", placeholder = "Indian Touring Cars")
                             Field(c.code, { v -> set(i) { it.copy(code = v.uppercase().filter { ch -> ch.isLetterOrDigit() }.take(8)) } }, "Code", placeholder = "ITC")
+                            // The points table is saved on its own (a saved category only).
+                            c.id?.let { id ->
+                                PointsTablePanel(id, c.scoring) { saved ->
+                                    rows = rows?.map { if (it.id == id) it.copy(scoring = saved) else it }
+                                    original = original.map { if (it.id == id) it.copy(scoring = saved) else it }
+                                }
+                            }
                         }
                     }
                 }
@@ -194,7 +204,7 @@ fun CategoriesEditorScreen(onSaved: () -> Unit) {
                                         }
                                     }
                                 }
-                                    .categories.let { saved -> rows = saved.map { CategoryDraft(it.id, it.name, it.code, it.color) }; original = rows.orEmpty() }
+                                    .categories.let { saved -> rows = saved.map { CategoryDraft(it.id, it.name, it.code, it.color, it.scoring) }; original = rows.orEmpty() }
                                 android.widget.Toast.makeText(context, "Categories saved", android.widget.Toast.LENGTH_SHORT).show()
                                 onSaved()
                             } catch (e: Exception) {
@@ -205,6 +215,82 @@ fun CategoriesEditorScreen(onSaved: () -> Unit) {
                         }
                     }
                   }
+                }
+            }
+        }
+    }
+}
+
+/** A common table to start from. */
+private val DEFAULT_SCORING = Scoring(points = listOf(25.0, 18.0, 15.0, 12.0, 10.0, 8.0, 6.0, 4.0, 2.0, 1.0))
+
+/**
+ * A category's points table: points for 1st, 2nd…; for a DNF, DNS or DSQ; and the pole and fastest-lap bonuses.
+ * Saved at once; results not typed by hand are scored again from it.
+ */
+@Composable
+private fun PointsTablePanel(categoryId: String, scoring: Scoring?, onSaved: (Scoring?) -> Unit) {
+    val app = LocalApp.current
+    val scope = rememberCoroutineScope()
+    var editing by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val start = scoring ?: DEFAULT_SCORING
+    var points by remember(editing) { mutableStateOf(start.points.joinToString(", ") { pointsText(it) }) }
+    var extras by remember(editing) {
+        mutableStateOf(listOf(start.dnf, start.dns, start.dsq, start.pole, start.fastestLap).map { pointsText(it) })
+    }
+    fun save(s: Scoring?) {
+        busy = true
+        error = null
+        scope.launch {
+            try {
+                app.api.put("/api/categories/$categoryId/scoring", Ok.serializer()) {
+                    if (s == null) put("scoring", kotlinx.serialization.json.JsonNull)
+                    else put("scoring", kotlinx.serialization.json.buildJsonObject {
+                        putJsonArray("points") { s.points.forEach { add(it) } }
+                        put("dnf", s.dnf); put("dns", s.dns); put("dsq", s.dsq); put("pole", s.pole); put("fastestLap", s.fastestLap)
+                    })
+                }
+                onSaved(s)
+                editing = false
+            } catch (e: Exception) {
+                error = e.message ?: "Could not save."
+            } finally {
+                busy = false
+            }
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Points table", style = MaterialTheme.typography.labelMedium, color = SnowSoft)
+                Text(scoring?.summary() ?: "None: points are typed", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+            }
+            if (!editing) Chip(if (scoring == null) "Add" else "Edit", Gold) { editing = true }
+        }
+        if (editing) {
+            ErrorText(error)
+            Field(points, { points = it }, "Points for 1st, 2nd, 3rd…", placeholder = "25, 18, 15, 12, 10")
+            val labels = listOf("DNF", "DNS", "DSQ", "Pole bonus", "Fastest lap")
+            labels.chunked(3).forEachIndexed { row, chunk ->
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    chunk.forEachIndexed { k, label ->
+                        val idx = row * 3 + k
+                        Field(extras[idx], { v -> extras = extras.toMutableList().also { it[idx] = v.filter { ch -> ch.isDigit() || ch == '.' }.take(6) } }, label, modifier = Modifier.weight(1f), keyboard = KeyboardType.Decimal)
+                    }
+                    if (chunk.size < 3) Spacer(Modifier.weight((3 - chunk.size).toFloat()))
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (scoring != null) GhostButton("Remove", enabled = !busy, danger = true) { save(null) }
+                Spacer(Modifier.weight(1f))
+                GhostButton("Cancel", enabled = !busy) { editing = false; error = null }
+                GoldButton(if (busy) "Saving…" else "Save", enabled = !busy) {
+                    val list = points.split(Regex("[\\s,]+")).filter { it.isNotBlank() }.map { it.toDoubleOrNull() }
+                    if (list.any { it == null }) { error = "Points must be numbers, with commas between."; return@GoldButton }
+                    val e = extras.map { it.toDoubleOrNull() ?: 0.0 }
+                    save(Scoring(list.filterNotNull(), e[0], e[1], e[2], e[3], e[4]))
                 }
             }
         }
@@ -374,37 +460,81 @@ private data class ResultDraft(
     val teamId: String?,
     val points: String,
     val bestLap: String,
+    val pole: Boolean = false,
+    val fastestLap: Boolean = false,
+    /** Points typed by hand: the table no longer fills them in. */
+    val manual: Boolean = false,
 )
 
 private val STATUSES = listOf("finished" to "Finished", "dnf" to "DNF", "dns" to "DNS", "dsq" to "DSQ")
 
 private fun SessionResult.draft() = ResultDraft(
     position?.toString().orEmpty(), status, carNumber, driverName, teamId,
-    if (points == 0.0) "" else if (points % 1.0 == 0.0) points.toLong().toString() else points.toString(), bestLap,
+    if (points == 0.0) "" else pointsText(points), bestLap, pole, fastestLap, manualPoints,
 )
 
 private fun blankRow(position: Int) = ResultDraft(position.toString(), "finished", "", "", null, "", "")
 
 /**
  * Enter a session's results on the phone: one card per driver (position, DNF / DNS / DSQ, car, driver, team, points,
- * best lap). Saving replaces the list; finishers are kept in position order.
+ * best lap, pole, fastest lap). With a points table, points fill in from it (when the session scores) and can be typed
+ * over; typed ones stay. Saving replaces the list; finishers are kept in position order.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ResultsEditor(sessionId: String, data: SessionResultsResponse, onSaved: (SessionResultsResponse) -> Unit, onCancel: () -> Unit) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
-    var rows by remember { mutableStateOf(if (data.results.isEmpty()) (1..3).map(::blankRow) else data.results.map { it.draft() }) }
+    val scoring = data.scoring
+    var scores by remember { mutableStateOf(data.scores) }
+    // A row's points from the table (blank for none; 0 in a session that doesn't score), unless typed by hand.
+    fun fill(r: ResultDraft, scored: Boolean = scores): ResultDraft {
+        if (scoring == null || r.manual) return r
+        val n = if (scored) scoring.pointsFor(r.status, r.position.toIntOrNull(), r.pole, r.fastestLap) else 0.0
+        return r.copy(points = if (n == 0.0) "" else pointsText(n))
+    }
+    var rows by remember { mutableStateOf(if (data.results.isEmpty()) (1..3).map { fill(blankRow(it)) } else data.results.map { it.draft() }) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val teams = data.teams
-    fun set(i: Int, f: (ResultDraft) -> ResultDraft) { rows = rows.mapIndexed { j, r -> if (j == i) f(r) else r } }
+    fun set(i: Int, f: (ResultDraft) -> ResultDraft) {
+        val next = f(rows[i])
+        rows = rows.mapIndexed { j, r ->
+            when {
+                j == i -> fill(next)
+                // One pole and one fastest lap: ticking one takes it from whoever had it.
+                (next.pole && !rows[i].pole && r.pole) || (next.fastestLap && !rows[i].fastestLap && r.fastestLap) ->
+                    fill(r.copy(pole = if (next.pole && !rows[i].pole) false else r.pole, fastestLap = if (next.fastestLap && !rows[i].fastestLap) false else r.fastestLap))
+                else -> r
+            }
+        }
+    }
 
     LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Column {
                 Text("Results · ${data.session.name}", style = MaterialTheme.typography.titleLarge, color = Snow)
-                Text("A driver whose name matches a racer's account is linked to them. Points are as your series scores them.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                Text(
+                    "A driver whose name matches a racer's account is linked to them. " +
+                        if (scoring != null) "Points fill in from the category's table; type over one to set it by hand (↺ puts the table's back)." else "Points are as your series scores them (an admin can give the category a points table).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SnowFaint,
+                )
+            }
+        }
+        if (scoring != null) item {
+            Panel {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Points from the table", style = MaterialTheme.typography.titleSmall, color = Snow)
+                        Text(scoring.summary(), style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                    }
+                    androidx.compose.material3.Switch(
+                        checked = scores,
+                        onCheckedChange = { on -> scores = on; rows = rows.map { fill(it, on) } },
+                        colors = androidx.compose.material3.SwitchDefaults.colors(checkedThumbColor = OnGold, checkedTrackColor = Gold),
+                    )
+                }
             }
         }
         item { ErrorText(error) }
@@ -420,7 +550,12 @@ fun ResultsEditor(sessionId: String, data: SessionResultsResponse, onSaved: (Ses
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (r.status == "finished") Field(r.position, { v -> set(i) { it.copy(position = v.filter(Char::isDigit).take(3)) } }, "Pos", modifier = Modifier.weight(1f), keyboard = KeyboardType.Number)
                         Field(r.carNumber, { v -> set(i) { it.copy(carNumber = v.take(10)) } }, "Car #", modifier = Modifier.weight(1f))
-                        Field(r.points, { v -> set(i) { it.copy(points = v.filter { ch -> ch.isDigit() || ch == '.' }.take(7)) } }, "Points", modifier = Modifier.weight(1f), keyboard = KeyboardType.Decimal)
+                        Field(r.points, { v -> set(i) { it.copy(points = v.filter { ch -> ch.isDigit() || ch == '.' }.take(7), manual = true) } }, if (scoring != null && !r.manual) "Points (table)" else "Points", modifier = Modifier.weight(1f), keyboard = KeyboardType.Decimal)
+                    }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Chip("Pole", Gold, filled = r.pole) { set(i) { it.copy(pole = !it.pole) } }
+                        Chip("Fastest lap", Gold, filled = r.fastestLap) { set(i) { it.copy(fastestLap = !it.fastestLap) } }
+                        if (scoring != null && r.manual) Chip("↺ Table's points", SnowSoft) { set(i) { it.copy(manual = false) } }
                     }
                     Field(r.driverName, { v -> set(i) { it.copy(driverName = v.take(120)) } }, "Driver")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -431,7 +566,7 @@ fun ResultsEditor(sessionId: String, data: SessionResultsResponse, onSaved: (Ses
             }
         }
         item {
-            GhostButton("Add driver", Modifier.fillMaxWidth(), enabled = !busy) { rows = rows + blankRow(rows.count { it.status == "finished" } + 1) }
+            GhostButton("Add driver", Modifier.fillMaxWidth(), enabled = !busy) { rows = rows + fill(blankRow(rows.count { it.status == "finished" } + 1)) }
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -454,9 +589,13 @@ fun ResultsEditor(sessionId: String, data: SessionResultsResponse, onSaved: (Ses
                                             d.teamId?.let { put("teamId", it) }
                                             put("points", d.points.toDoubleOrNull() ?: 0.0)
                                             put("bestLap", d.bestLap)
+                                            put("pole", d.pole)
+                                            put("fastestLap", d.fastestLap)
+                                            put("manualPoints", d.manual || scoring == null)
                                         }
                                     }
                                 }
+                                put("scores", scores)
                             }
                             onSaved(app.api.get("/api/sessions/$sessionId/results", SessionResultsResponse.serializer()))
                         } catch (e: Exception) {

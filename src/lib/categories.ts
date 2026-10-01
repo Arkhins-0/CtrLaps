@@ -2,24 +2,26 @@ import "server-only";
 
 import { q, tx } from "./db";
 import { isColor } from "./categoryColors";
+import type { Scoring } from "./scoring";
 
 /*
  * Race categories (classes) per season — Formula LGB 1300, ITC… A weekend lists the ones racing that round; a
  * session may belong to one. See wink-docs/13-race-categories-plan.md.
  */
 
-export type Category = { id: string; seasonId: string; name: string; code: string; color: string; position: number };
+/** `scoring`: the category's points table (see scoring.ts); null when points are typed by hand. */
+export type Category = { id: string; seasonId: string; name: string; code: string; color: string; position: number; scoring: Scoring | null };
 
-type Row = { id: string; season_id: string; name: string; code: string; color: string; position: number };
+type Row = { id: string; season_id: string; name: string; code: string; color: string; position: number; scoring: Scoring | null };
 
-const category = (r: Row): Category => ({ id: r.id, seasonId: r.season_id, name: r.name, code: r.code, color: r.color, position: r.position });
+const category = (r: Row): Category => ({ id: r.id, seasonId: r.season_id, name: r.name, code: r.code, color: r.color, position: r.position, scoring: r.scoring ?? null });
 
 /** The categories of these seasons, in their order. */
 export async function categoriesOf(seasonIds: string[]): Promise<Category[]> {
   const ids = Array.from(new Set(seasonIds.filter(Boolean)));
   if (ids.length === 0) return [];
   const rows = await q<Row>(
-    "SELECT id, season_id, name, code, color, position FROM categories WHERE season_id = ANY($1::uuid[]) ORDER BY position, name",
+    "SELECT id, season_id, name, code, color, position, scoring FROM categories WHERE season_id = ANY($1::uuid[]) ORDER BY position, name",
     [ids],
   );
   return rows.map(category);

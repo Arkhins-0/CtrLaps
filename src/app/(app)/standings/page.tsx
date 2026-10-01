@@ -5,21 +5,38 @@ import { requireProfile } from "@/lib/session";
 
 export const metadata = { title: "Standings" };
 
-/** This season's standings, one race category at a time: drivers, teams, and the sessions with results. */
-export default async function Standings({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
+/** A season's standings (this one, or an archived one), one race category at a time: drivers, teams, and the sessions with results. */
+export default async function Standings({ searchParams }: { searchParams: Promise<{ category?: string; season?: string }> }) {
   const user = await requireProfile();
-  const { category } = await searchParams;
-  const page = await standingsPage(user, category && /^[0-9a-f-]{36}$/i.test(category) ? category : null);
+  const { category, season } = await searchParams;
+  const uuid = (v?: string) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : null);
+  const page = await standingsPage(user, uuid(category), uuid(season));
   const chosen = page.categories.find((c) => c.id === page.categoryId);
+  const thisSeason = page.seasons.find((s) => s.id === page.seasonId);
+  // Links keep the season unless it is the current one.
+  const seasonQuery = thisSeason && !thisSeason.current ? `season=${thisSeason.id}&` : "";
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="page-title">Standings</h1>
+        <h1 className="page-title">Standings{thisSeason && !thisSeason.current ? ` · ${thisSeason.name}` : ""}</h1>
         <Link href="/schedule" className="btn-ghost px-3 py-1.5 text-xs">
           Schedule
         </Link>
       </div>
+      {page.seasons.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {page.seasons.map((s) => (
+            <Link
+              key={s.id}
+              href={s.current ? "/standings" : `/standings?season=${s.id}`}
+              className={s.id === page.seasonId ? "btn-gold px-3 py-1 text-xs" : "btn-ghost px-3 py-1 text-xs"}
+            >
+              {s.name}
+            </Link>
+          ))}
+        </div>
+      )}
       {page.categories.length === 0 && <p className="card text-sm text-snow-faint">This season has no race categories yet.</p>}
       {page.categories.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -28,7 +45,7 @@ export default async function Standings({ searchParams }: { searchParams: Promis
             return (
               <Link
                 key={c.id}
-                href={`/standings?category=${c.id}`}
+                href={`/standings?${seasonQuery}category=${c.id}`}
                 className="chip"
                 style={on ? { backgroundColor: c.color, borderColor: c.color, color: "#0B0B0C" } : { borderColor: `${c.color}80`, color: c.color }}
                 title={c.name}
