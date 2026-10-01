@@ -37,6 +37,12 @@ object Links {
                 else -> "person/$second"
             }
             "account" -> "account"
+            "help" -> "support"
+            "support" -> when {
+                second == "tickets" && parts.getOrNull(2) != null -> "support/ticket/${parts[2]}"
+                second == "tickets" -> "support/tickets"
+                else -> "support"
+            }
             "archive" -> if (second == null) "archive" else "archive/$second"
             else -> null
         }

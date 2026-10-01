@@ -124,7 +124,19 @@ fun LoginScreen(onSignedIn: (String) -> Unit, onForgot: () -> Unit, onRegister: 
         Spacer(Modifier.height(10.dp))
         GhostButton("Create an account", Modifier.fillMaxWidth(), enabled = !busy, onClick = onRegister)
         Spacer(Modifier.height(12.dp))
-        Text("Forgot password", style = MaterialTheme.typography.labelMedium, color = SnowFaint, modifier = Modifier.clickable { onForgot() })
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Forgot password", style = MaterialTheme.typography.labelMedium, color = SnowFaint, modifier = Modifier.clickable { onForgot() })
+            // Help before signing in: the FAQs and the support form, on the website.
+            val context = androidx.compose.ui.platform.LocalContext.current
+            Text(
+                "Need help?",
+                style = MaterialTheme.typography.labelMedium,
+                color = SnowFaint,
+                modifier = Modifier.clickable {
+                    runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("${com.arkhins.ctrlaps.Config.BASE_URL}/help"))) }
+                },
+            )
+        }
     }
 }
 

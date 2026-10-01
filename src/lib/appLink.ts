@@ -14,6 +14,7 @@ const APP_PATHS = [
   /^\/people(\/|\?|$)/,
   /^\/account$/,
   /^\/archive(\/|$)/,
+  /^\/support(\/|\?|$)/,
 ];
 
 export const appPath = (path: string | null | undefined): string =>

@@ -142,10 +142,15 @@ fun AccountScreen(
                 MenuRow("Settings", "Permissions and theme", onClick = onSettings)
                 HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
                 val update = vm.updateInfo
+                val support = vm.me?.unreadSupport ?: 0
                 MenuRow(
                     "About",
-                    if (update != null) "v${update.version} is available" else "Version, updates, terms and privacy",
-                    highlight = update != null,
+                    when {
+                        update != null -> "v${update.version} is available"
+                        support > 0 -> "$support new support ${if (support == 1) "reply" else "replies"}"
+                        else -> "Version, updates, terms, privacy and support"
+                    },
+                    highlight = update != null || support > 0,
                     onClick = onAbout,
                 )
             }
