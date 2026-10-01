@@ -6,9 +6,9 @@ import { useEffect, useState } from "react";
 import { api, shrinkImage } from "@/lib/client";
 import { PhotoCropDialog } from "./PhotoCropDialog";
 
-type Profile = { name: string; dob: string; phone: string; email: string; photoUrl: string | null };
+type Profile = { name: string; dob: string; phone: string; email: string; photoUrl: string | null; admin?: boolean };
 
-/** For someone with no role yet: change their own details, and their email through a link to the new address. */
+/** For someone with no role yet, or an admin: change their own details, and their email through a link to the new address. */
 export function ProfileEditor({ profile }: { profile: Profile }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -102,7 +102,7 @@ export function ProfileEditor({ profile }: { profile: Profile }) {
         </form>
       ) : (
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-snow-soft">You can change your details until an organiser gives you a role.</p>
+          <p className="text-sm text-snow-soft">{profile.admin ? "Your name, contact, date of birth and photo." : "You can change your details until an organiser gives you a role."}</p>
           <button className="btn-ghost shrink-0 text-xs" onClick={() => setEditing(true)}>Edit profile</button>
         </div>
       )}

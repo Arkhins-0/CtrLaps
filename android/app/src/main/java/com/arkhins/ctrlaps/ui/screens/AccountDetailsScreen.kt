@@ -210,7 +210,7 @@ private fun EditProfilePanel(vm: AppViewModel) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Your details", style = MaterialTheme.typography.titleMedium, color = Snow)
             if (!editing) {
-                Text("You can change your details until an organiser gives you a role.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                Text(if (u.role == "admin") "Your name, contact, date of birth and photo." else "You can change your details until an organiser gives you a role.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
                 GhostButton("Edit profile") { editing = true }
                 return@Column
             }
