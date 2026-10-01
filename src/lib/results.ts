@@ -1,7 +1,7 @@
 import "server-only";
 
 import { AuthError, type SessionUser } from "./auth";
-import { isCategoryMember } from "./categoryChannels";
+import { categoryMemberSql, isCategoryMember } from "./categoryChannels";
 import { categoriesOf } from "./categories";
 import { one, q, tx } from "./db";
 import { currentSeason, listSeasons } from "./seasons";
@@ -119,6 +119,8 @@ export type ResultInput = {
   status: ResultStatus;
   carNumber: string;
   driverName: string;
+  /** The racer picked from the list (their account); null for a name typed in. */
+  userId: string | null;
   teamId: string | null;
   points: number;
   bestLap: string;
@@ -139,12 +141,14 @@ export function resultInput(raw: unknown): ResultInput {
   const position = status === "finished" && Number.isInteger(pos) && pos > 0 && pos < 1000 ? pos : null;
   const pts = Number(r.points);
   const points = Number.isFinite(pts) && pts >= 0 && pts < 10000 ? Math.round(pts * 100) / 100 : 0;
-  const teamId = typeof r.teamId === "string" && /^[0-9a-f-]{36}$/i.test(r.teamId) ? r.teamId : null;
+  const uuid = (v: unknown) => (typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v) ? v : null);
+  const teamId = uuid(r.teamId);
   return {
     position,
     status,
     carNumber: text(r.carNumber, 10),
     driverName,
+    userId: uuid(r.userId),
     teamId,
     points,
     bestLap: text(r.bestLap, 20),
@@ -157,7 +161,8 @@ export function resultInput(raw: unknown): ResultInput {
 
 /**
  * Replace a session's results, and whether it scores from the points table (`scores`, when given). A row's points
- * come from the table unless they were typed by hand. A driver whose name matches exactly one active racer is linked.
+ * come from the table unless they were typed by hand. A driver picked from the list is that racer; a typed name is
+ * linked to a racer when it matches exactly one.
  */
 export async function saveResults(session: ResultSession, rows: ResultInput[], scores?: boolean): Promise<void> {
   if (!session.categoryId) throw new AuthError(400, "Give this session a category first: results belong to a category.");
@@ -169,13 +174,15 @@ export async function saveResults(session: ResultSession, rows: ResultInput[], s
   const scoring = await categoryScoring(session.categoryId);
   const scored = scores ?? session.scores;
   const pointsOf = (r: ResultInput) => (r.manualPoints || !scoring ? r.points : scored ? rowPoints(scoring, r) : 0);
-  const racers = await q<{ id: string; name: string }>(
-    `SELECT id, lower(trim(name)) AS name FROM users
-     WHERE role = 'racer' AND status = 'active' AND name IS NOT NULL AND trim(name) <> ''`,
+  const racers = await q<{ id: string; name: string | null }>(
+    "SELECT id, lower(trim(name)) AS name FROM users WHERE role = 'racer' AND status = 'active'",
   );
+  const racerIds = new Set(racers.map((r) => r.id));
   const byName = new Map<string, string | null>();
   // A name two racers share links to neither.
-  for (const r of racers) byName.set(r.name, byName.has(r.name) ? null : r.id);
+  for (const r of racers) if (r.name) byName.set(r.name, byName.has(r.name) ? null : r.id);
+  const picked = rows.map((r) => r.userId).filter((id): id is string => Boolean(id));
+  if (new Set(picked).size !== picked.length) throw new AuthError(400, "A driver is in the list twice.");
   const teamIds = rows.map((r) => r.teamId).filter((id): id is string => Boolean(id));
   const teams = new Set((await q<{ id: string }>("SELECT id FROM teams WHERE id = ANY($1::uuid[])", [teamIds])).map((t) => t.id));
   await tx(async (c) => {
@@ -192,7 +199,7 @@ export async function saveResults(session: ResultSession, rows: ResultInput[], s
           r.status,
           r.carNumber,
           r.driverName,
-          byName.get(r.driverName.toLowerCase()) ?? null,
+          r.userId && racerIds.has(r.userId) ? r.userId : (byName.get(r.driverName.toLowerCase()) ?? null),
           r.teamId && teams.has(r.teamId) ? r.teamId : null,
           pointsOf(r),
           r.bestLap,
@@ -205,7 +212,14 @@ export async function saveResults(session: ResultSession, rows: ResultInput[], s
   });
 }
 
+/** A session with results, as a column of the standings grid (oldest first). */
+export type StandingSession = { id: string; name: string; startsAt: string; weekendName: string; rows: number };
+
+/** One driver's result in one session, for the grid. */
+export type DriverRound = { position: number | null; status: ResultStatus; points: number; pole: boolean; fastestLap: boolean };
+
 export type DriverStanding = {
+  /** The account id, or the typed name in lower case. */
   key: string;
   name: string;
   userId: string | null;
@@ -213,66 +227,154 @@ export type DriverStanding = {
   teamName: string | null;
   points: number;
   wins: number;
+  podiums: number;
   starts: number;
   best: number | null;
+  /** Their result per session id (sessions they weren't in are left out). */
+  rounds: Record<string, DriverRound>;
 };
-export type TeamStanding = { id: string; name: string; points: number; wins: number };
-export type StandingSession = { id: string; name: string; startsAt: string; weekendName: string; rows: number };
+export type TeamStanding = { id: string; name: string; points: number; wins: number; podiums: number; rounds: Record<string, number> };
 
-/** A category's standings, and the sessions that have results (newest first). */
+type StandingRow = {
+  session_id: string;
+  starts_at: string;
+  position: number | null;
+  status: ResultStatus;
+  car_number: string;
+  driver_name: string;
+  user_id: string | null;
+  user_name: string | null;
+  team_id: string | null;
+  team_name: string | null;
+  points: string;
+  pole: boolean;
+  fastest_lap: boolean;
+};
+
+const byPoints = <T extends { points: number; wins: number; podiums: number; name: string }>(a: T, b: T) =>
+  b.points - a.points || b.wins - a.wins || b.podiums - a.podiums || a.name.localeCompare(b.name);
+
+/**
+ * A category's standings: drivers (an account's results together, else by the typed name) and teams, each with
+ * points per session for the round-by-round grid; and the sessions with results, oldest first. Order: points, then
+ * wins, then podiums (then the best finish for drivers), then the name.
+ */
 export async function standings(categoryId: string): Promise<{ drivers: DriverStanding[]; teams: TeamStanding[]; sessions: StandingSession[] }> {
-  const [drivers, teams, sessions] = await Promise.all([
-    q<{ key: string; name: string; user_id: string | null; car_number: string | null; team_name: string | null; points: string; wins: string; starts: string; best: number | null }>(
-      `WITH r AS (
-         SELECT r.*, s.starts_at, COALESCE(r.user_id::text, lower(trim(r.driver_name))) AS key
-         FROM session_results r JOIN race_sessions s ON s.id = r.session_id WHERE s.category_id = $1
-       )
-       SELECT r.key,
-              (array_agg(COALESCE(NULLIF(u.name, ''), r.driver_name) ORDER BY r.starts_at DESC))[1] AS name,
-              (array_agg(r.user_id) FILTER (WHERE r.user_id IS NOT NULL))[1] AS user_id,
-              (array_agg(r.car_number ORDER BY r.starts_at DESC) FILTER (WHERE r.car_number <> ''))[1] AS car_number,
-              (array_agg(t.name ORDER BY r.starts_at DESC) FILTER (WHERE t.name IS NOT NULL))[1] AS team_name,
-              sum(r.points)::text AS points,
-              count(*) FILTER (WHERE r.position = 1)::text AS wins,
-              count(*) FILTER (WHERE r.status <> 'dns')::text AS starts,
-              min(r.position) AS best
-       FROM r LEFT JOIN users u ON u.id = r.user_id LEFT JOIN teams t ON t.id = r.team_id
-       GROUP BY r.key`,
-      [categoryId],
-    ),
-    q<{ id: string; name: string; points: string; wins: string }>(
-      `SELECT t.id, t.name, sum(r.points)::text AS points, count(*) FILTER (WHERE r.position = 1)::text AS wins
-       FROM session_results r JOIN race_sessions s ON s.id = r.session_id JOIN teams t ON t.id = r.team_id
-       WHERE s.category_id = $1 GROUP BY t.id, t.name`,
+  const [rows, sessions] = await Promise.all([
+    q<StandingRow>(
+      `SELECT r.session_id, s.starts_at, r.position, r.status, r.car_number, r.driver_name, r.user_id,
+              NULLIF(u.name, '') AS user_name, r.team_id, t.name AS team_name, r.points::text AS points, r.pole, r.fastest_lap
+       FROM session_results r JOIN race_sessions s ON s.id = r.session_id
+       LEFT JOIN users u ON u.id = r.user_id LEFT JOIN teams t ON t.id = r.team_id
+       WHERE s.category_id = $1 ORDER BY s.starts_at, r.row_order`,
       [categoryId],
     ),
     q<{ id: string; name: string; starts_at: string; weekend_name: string; rows: string }>(
       `SELECT s.id, s.name, s.starts_at, w.name AS weekend_name, count(r.id)::text AS rows
        FROM race_sessions s JOIN race_weekends w ON w.id = s.weekend_id JOIN session_results r ON r.session_id = s.id
-       WHERE s.category_id = $1 GROUP BY s.id, w.name ORDER BY s.starts_at DESC`,
+       WHERE s.category_id = $1 GROUP BY s.id, w.name ORDER BY s.starts_at`,
       [categoryId],
     ),
   ]);
+  const drivers = new Map<string, DriverStanding>();
+  const teams = new Map<string, TeamStanding>();
+  // A name typed before the racer had an account (a late entry) counts with that account: one active racer of that
+  // exact name (letter case aside), or a racer already in these results under it. A name two racers share stays typed.
+  const typedNames = Array.from(new Set(rows.filter((r) => !r.user_id).map((r) => r.driver_name.trim().toLowerCase())));
+  const named = typedNames.length
+    ? await q<{ id: string; name: string; user_name: string }>(
+        `SELECT id, lower(trim(name)) AS name, name AS user_name FROM users
+         WHERE role = 'racer' AND status = 'active' AND lower(trim(name)) = ANY($1::text[])`,
+        [typedNames],
+      )
+    : [];
+  const accountByName = new Map<string, string>();
+  const nameOf = new Map<string, string>();
+  for (const n of named) {
+    if (named.filter((x) => x.name === n.name).length === 1) accountByName.set(n.name, n.id);
+    nameOf.set(n.id, n.user_name);
+  }
+  for (const r of rows) if (r.user_id && r.user_name) accountByName.set(r.user_name.trim().toLowerCase(), r.user_id);
+  // Rows come oldest first, so the latest name, car and team win.
+  for (const r of rows) {
+    const typed = r.driver_name.trim().toLowerCase();
+    const key = r.user_id ?? accountByName.get(typed) ?? typed;
+    const points = Number(r.points);
+    const won = r.position === 1;
+    const podium = r.position !== null && r.position <= 3;
+    const d = drivers.get(key) ?? { key, name: "", userId: null, carNumber: "", teamName: null, points: 0, wins: 0, podiums: 0, starts: 0, best: null, rounds: {} };
+    // The account: picked on the row, or found by the typed name; it carries the account's own name.
+    if (r.user_id || nameOf.has(key)) d.userId = r.user_id ?? key;
+    d.name = r.user_name ?? nameOf.get(key) ?? (d.userId ? d.name || r.driver_name : r.driver_name);
+    if (r.car_number) d.carNumber = r.car_number;
+    if (r.team_name) d.teamName = r.team_name;
+    d.points += points;
+    d.wins += won ? 1 : 0;
+    d.podiums += podium ? 1 : 0;
+    d.starts += r.status === "dns" ? 0 : 1;
+    if (r.position !== null) d.best = d.best === null ? r.position : Math.min(d.best, r.position);
+    d.rounds[r.session_id] = { position: r.position, status: r.status, points, pole: r.pole, fastestLap: r.fastest_lap };
+    drivers.set(key, d);
+    if (r.team_id && r.team_name) {
+      const t = teams.get(r.team_id) ?? { id: r.team_id, name: r.team_name, points: 0, wins: 0, podiums: 0, rounds: {} };
+      t.points += points;
+      t.wins += won ? 1 : 0;
+      t.podiums += podium ? 1 : 0;
+      t.rounds[r.session_id] = (t.rounds[r.session_id] ?? 0) + points;
+      teams.set(r.team_id, t);
+    }
+  }
+  const round2 = (n: number) => Math.round(n * 100) / 100;
   return {
-    drivers: drivers
-      .map((r) => ({
-        key: r.key,
-        name: r.name,
-        userId: r.user_id,
-        carNumber: r.car_number ?? "",
-        teamName: r.team_name,
-        points: Number(r.points),
-        wins: Number(r.wins),
-        starts: Number(r.starts),
-        best: r.best,
-      }))
-      // Points, then wins, then the best finish, then the name.
-      .sort((a, b) => b.points - a.points || b.wins - a.wins || (a.best ?? 999) - (b.best ?? 999) || a.name.localeCompare(b.name)),
-    teams: teams
-      .map((r) => ({ id: r.id, name: r.name, points: Number(r.points), wins: Number(r.wins) }))
-      .sort((a, b) => b.points - a.points || b.wins - a.wins || a.name.localeCompare(b.name)),
-    sessions: sessions.map((s) => ({ id: s.id, name: s.name, startsAt: new Date(s.starts_at).toISOString(), weekendName: s.weekend_name, rows: Number(s.rows) })),
+    drivers: Array.from(drivers.values())
+      .map((d) => ({ ...d, points: round2(d.points) }))
+      .sort((a, b) => byPoints(a, b) || (a.best ?? 999) - (b.best ?? 999)),
+    teams: Array.from(teams.values())
+      .map((t) => ({ ...t, points: round2(t.points) }))
+      .sort(byPoints),
+    sessions: sessions.map((x) => ({ id: x.id, name: x.name, startsAt: new Date(x.starts_at).toISOString(), weekendName: x.weekend_name, rows: Number(x.rows) })),
   };
+}
+
+/** A racer who may be picked for a result: their account, name, and the car number of their last result here. */
+export type Entrant = { id: string; name: string; carNumber: string };
+export type EntrantTeam = { id: string; name: string; entered: boolean; racers: Entrant[] };
+
+/**
+ * Who can be picked when entering a category's results: the teams entered in it (and any team one of its racers is
+ * in), each with its racers in this category; racers without a team under a null team id; and every other team, to
+ * pick for a driver typed in. Racers in a category: their own classes, else their team's entries.
+ */
+export async function entrants(categoryId: string): Promise<EntrantTeam[]> {
+  const [racers, teamRows] = await Promise.all([
+    q<{ id: string; name: string; team_id: string | null; car: string | null }>(
+      `SELECT u.id, COALESCE(NULLIF(u.name, ''), u.email) AS name, u.team_id,
+              (SELECT r.car_number FROM session_results r JOIN race_sessions s ON s.id = r.session_id
+                WHERE r.user_id = u.id AND s.category_id = $1 AND r.car_number <> '' ORDER BY s.starts_at DESC LIMIT 1) AS car
+       FROM users u WHERE u.role = 'racer' AND ${categoryMemberSql("u", "$1")}
+       ORDER BY lower(COALESCE(NULLIF(u.name, ''), u.email))`,
+      [categoryId],
+    ),
+    q<{ id: string; name: string; entered: boolean }>(
+      `SELECT t.id, t.name, EXISTS (SELECT 1 FROM team_entries te WHERE te.team_id = t.id AND te.category_id = $1) AS entered
+       FROM teams t ORDER BY lower(t.name)`,
+      [categoryId],
+    ),
+  ]);
+  const withRacers = new Set(racers.map((r) => r.team_id));
+  const teams: EntrantTeam[] = teamRows.map((t) => ({
+    id: t.id,
+    name: t.name,
+    entered: t.entered || withRacers.has(t.id),
+    racers: racers.filter((r) => r.team_id === t.id).map((r) => ({ id: r.id, name: r.name, carNumber: r.car ?? "" })),
+  }));
+  const loose = racers.filter((r) => !r.team_id || !teamRows.some((t) => t.id === r.team_id));
+  // Entered teams first, then the rest; racers with no team last.
+  return [
+    ...teams.filter((t) => t.entered),
+    ...teams.filter((t) => !t.entered),
+    ...(loose.length ? [{ id: "", name: "No team", entered: true, racers: loose.map((r) => ({ id: r.id, name: r.name, carNumber: r.car ?? "" })) }] : []),
+  ];
 }
 
 /**

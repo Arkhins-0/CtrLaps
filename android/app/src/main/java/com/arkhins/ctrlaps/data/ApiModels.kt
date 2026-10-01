@@ -612,15 +612,22 @@ data class DriverStanding(
     val teamName: String? = null,
     val points: Double = 0.0,
     val wins: Int = 0,
+    val podiums: Int = 0,
     val starts: Int = 0,
     val best: Int? = null,
+    /** Their result per session id (sessions they weren't in are left out). */
+    val rounds: Map<String, DriverRound> = emptyMap(),
 )
+
+/** One driver's result in one session, for the standings grid. */
+@Serializable
+data class DriverRound(val position: Int? = null, val status: String = "finished", val points: Double = 0.0, val pole: Boolean = false, val fastestLap: Boolean = false)
 
 @Serializable
 data class StandingsSeason(val id: String, val name: String, val current: Boolean = false)
 
 @Serializable
-data class TeamStanding(val id: String, val name: String, val points: Double = 0.0, val wins: Int = 0)
+data class TeamStanding(val id: String, val name: String, val points: Double = 0.0, val wins: Int = 0, val podiums: Int = 0, val rounds: Map<String, Double> = emptyMap())
 
 @Serializable
 data class StandingSession(val id: String, val name: String, val startsAt: String, val weekendName: String = "", val rows: Int = 0)
@@ -632,12 +639,22 @@ data class SessionResultsResponse(
     val category: CategoryChannelInfo? = null,
     val results: List<SessionResult> = emptyList(),
     val canEdit: Boolean = false,
-    /** For those who may enter results: the teams to pick from. */
+    /** For those who may enter results: the teams to pick from (older servers). */
     val teams: List<ResultTeam> = emptyList(),
+    /** For those who may enter results: the teams (entered ones first) with their racers in this category. */
+    val entrants: List<EntrantTeam> = emptyList(),
     /** The category's points table (null: points are typed), and whether this session scores from it. */
     val scoring: Scoring? = null,
     val scores: Boolean = true,
 )
+
+/** A team to pick when entering results, with its racers in the category ("" id: racers with no team). */
+@Serializable
+data class EntrantTeam(val id: String, val name: String, val entered: Boolean = false, val racers: List<Entrant> = emptyList())
+
+/** A racer to pick: their account, name, and the car number of their last result in the category. */
+@Serializable
+data class Entrant(val id: String, val name: String, val carNumber: String = "")
 
 @Serializable
 data class ResultTeam(val id: String, val name: String, val entered: Boolean = false)

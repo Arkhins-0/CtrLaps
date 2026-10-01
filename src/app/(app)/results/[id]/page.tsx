@@ -4,7 +4,7 @@ import { LocalTime } from "@/components/LocalTime";
 import { CategoryTag } from "@/components/schedule/CategoryTag";
 import { ResultsEditor } from "@/components/schedule/ResultsEditor";
 import { categoryInfo } from "@/lib/categoryChannels";
-import { canEnterResults, categoryScoring, resultSession, sessionResults, teamsForResults } from "@/lib/results";
+import { canEnterResults, categoryScoring, entrants, resultSession, sessionResults } from "@/lib/results";
 import { requireProfile } from "@/lib/session";
 
 export const metadata = { title: "Results" };
@@ -22,7 +22,7 @@ export default async function Results({ params }: { params: Promise<{ id: string
     canEnterResults(user, session.categoryId),
     categoryScoring(session.categoryId),
   ]);
-  const teams = canEdit && session.categoryId ? await teamsForResults(session.categoryId) : [];
+  const teams = canEdit && session.categoryId ? await entrants(session.categoryId) : [];
 
   return (
     <div className="space-y-5">
@@ -44,7 +44,7 @@ export default async function Results({ params }: { params: Promise<{ id: string
         )}
       </div>
       {!category && <p className="card text-sm text-snow-faint">This session has no category, so it has no results.</p>}
-      {category && <ResultsEditor sessionId={id} initial={results} canEdit={canEdit} teams={teams} scoring={scoring} scores={session.scores} />}
+      {category && <ResultsEditor sessionId={id} initial={results} canEdit={canEdit} entrants={teams} scoring={scoring} scores={session.scores} />}
     </div>
   );
 }
