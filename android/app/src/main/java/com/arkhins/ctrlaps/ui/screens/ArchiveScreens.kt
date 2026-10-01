@@ -264,6 +264,11 @@ private fun Overview(
                         Text(a.season.name, style = MaterialTheme.typography.titleLarge, color = Snow)
                         Text(a.season.startsOn + (a.season.endsOn?.let { " → $it" } ?: ""), style = MaterialTheme.typography.bodySmall, color = SnowSoft)
                     }
+                    // This season's standings.
+                    val open = LocalOpen.current
+                    IconButton(onClick = { open("standings?season=${a.season.id}") }) {
+                        Icon(painterResource(R.drawable.ic_trophy), contentDescription = "Standings", tint = SnowSoft)
+                    }
                     if (isAdmin) {
                         IconButton(onClick = onToggleArchive, enabled = !busy) {
                             Icon(

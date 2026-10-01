@@ -112,8 +112,8 @@ export async function createSeason(input: SeasonInput): Promise<Season> {
   ]);
   // Its race categories start as the current season's, to edit.
   await run(
-    `INSERT INTO categories (season_id, name, code, color, position)
-     SELECT $1, c.name, c.code, c.color, c.position FROM categories c JOIN seasons s ON s.id = c.season_id WHERE s.is_current`,
+    `INSERT INTO categories (season_id, name, code, color, position, scoring)
+     SELECT $1, c.name, c.code, c.color, c.position, c.scoring FROM categories c JOIN seasons s ON s.id = c.season_id WHERE s.is_current`,
     [row!.id],
   );
   return (await seasonById(row!.id))!;

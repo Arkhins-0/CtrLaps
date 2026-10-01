@@ -8,6 +8,7 @@ import type { Category } from "@/lib/categories";
 import { CATEGORY_COLORS } from "@/lib/categoryColors";
 import type { Season } from "@/lib/seasons";
 import { CategoryTag } from "./CategoryTag";
+import { PointsTables } from "./PointsTables";
 
 type Row = { key: string; id: string | null; name: string; code: string; color: string };
 
@@ -21,6 +22,8 @@ export function CategoriesEditor({ seasons, categories, onClose }: { seasons: Se
   const router = useRouter();
   const [seasonId, setSeasonId] = useState(seasons.find((s) => s.current)?.id ?? seasons[0]?.id ?? "");
   const [rows, setRows] = useState<Row[]>(rowsOf(categories.filter((c) => c.seasonId === seasonId)));
+  // The season's saved categories, for their points tables.
+  const [saved, setSaved] = useState<Category[]>(categories.filter((c) => c.seasonId === seasonId));
   const [picking, setPicking] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +34,7 @@ export function CategoriesEditor({ seasons, categories, onClose }: { seasons: Se
     try {
       const r = await api<{ categories: Category[] }>(`/api/seasons/${id}/categories`);
       setRows(rowsOf(r.categories));
+      setSaved(r.categories);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load the categories.");
     }
@@ -168,6 +172,7 @@ export function CategoriesEditor({ seasons, categories, onClose }: { seasons: Se
           </button>
         </div>
       </div>
+      <PointsTables key={`${seasonId}:${saved.map((c) => c.id).join()}`} categories={saved} />
     </section>
   );
 }

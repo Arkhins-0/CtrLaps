@@ -44,21 +44,25 @@ import com.arkhins.ctrlaps.ui.theme.SnowFaint
 import com.arkhins.ctrlaps.ui.theme.SnowSoft
 import com.arkhins.ctrlaps.ui.whenLabel
 
-/** Points without a needless ".0". */
-private fun pts(p: Double): String = if (p % 1.0 == 0.0) p.toLong().toString() else p.toString()
+private fun pts(p: Double): String = com.arkhins.ctrlaps.data.pointsText(p)
 
-/** This season's standings, one race category at a time: drivers, teams, and the sessions with results. */
+/**
+ * A season's standings (the current one, or [startSeason]; archived seasons keep theirs), one race category at a
+ * time: drivers, teams, and the sessions with results.
+ */
 @Composable
-fun StandingsScreen(vm: AppViewModel, onOpenResults: (String) -> Unit) {
+fun StandingsScreen(vm: AppViewModel, onOpenResults: (String) -> Unit, startSeason: String? = null) {
     val app = LocalApp.current
     var chosen by rememberSaveable { mutableStateOf<String?>(null) }
+    var season by rememberSaveable { mutableStateOf(startSeason) }
     var data by remember { mutableStateOf<StandingsResponse?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(chosen, vm.refreshTick) {
-        val path = "/api/standings" + (chosen?.let { "?category=$it" } ?: "")
+    LaunchedEffect(chosen, season, vm.refreshTick) {
+        val query = listOfNotNull(season?.let { "season=$it" }, chosen?.let { "category=$it" }).joinToString("&")
+        val path = "/api/standings" + if (query.isEmpty()) "" else "?$query"
         try {
-            data = app.store.get(path, StandingsResponse.serializer()) { if (data?.categoryId != it.categoryId || data == null) data = it }
+            data = app.store.get(path, StandingsResponse.serializer()) { if (data?.categoryId != it.categoryId || data?.seasonId != it.seasonId || data == null) data = it }
             error = null
         } catch (e: Exception) {
             if (data == null) error = e.message
@@ -70,18 +74,24 @@ fun StandingsScreen(vm: AppViewModel, onOpenResults: (String) -> Unit) {
         when {
             error != null && d == null -> item { ErrorText(error) }
             d == null -> item { Loading() }
-            d.categories.isEmpty() -> item { Empty("This season has no race categories yet.") }
             else -> {
-                item {
+                // Past seasons keep their standings.
+                if (d.seasons.size > 1) item {
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        d.seasons.forEach { s -> Chip(s.name, SnowSoft, filled = s.id == d.seasonId) { if (s.id != d.seasonId) { season = s.id; chosen = null } } }
+                    }
+                }
+                if (d.categories.isEmpty()) item { Empty("This season has no race categories yet.") }
+                else item {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         d.categories.forEach { c -> Chip(c.code, categoryColor(c), filled = c.id == d.categoryId) { chosen = c.id } }
                     }
                 }
                 val category = d.categories.firstOrNull { it.id == d.categoryId }
-                item {
+                if (category != null) item {
                     Panel {
                         Column {
-                            SectionTitle("${category?.name ?: ""} · DRIVERS".uppercase())
+                            SectionTitle("${category.name} · DRIVERS".uppercase())
                             if (d.drivers.isEmpty()) Text("No results yet.", style = MaterialTheme.typography.bodySmall, color = SnowFaint, modifier = Modifier.padding(top = 8.dp))
                             d.drivers.forEachIndexed { i, s ->
                                 if (i > 0) Divider()
@@ -200,7 +210,7 @@ fun ResultsScreen(vm: AppViewModel, sessionId: String) {
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                         )
-                                        val sub = listOfNotNull(r.teamName, r.bestLap.takeIf { it.isNotBlank() }?.let { "Best $it" }).joinToString(" · ")
+                                        val sub = listOfNotNull(r.teamName, r.bestLap.takeIf { it.isNotBlank() }?.let { "Best $it" }, if (r.pole) "Pole" else null, if (r.fastestLap) "Fastest lap" else null).joinToString(" · ")
                                         if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Default), color = SnowFaint, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                     if (r.points > 0) {

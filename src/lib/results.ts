@@ -4,14 +4,16 @@ import { AuthError, type SessionUser } from "./auth";
 import { isCategoryMember } from "./categoryChannels";
 import { categoriesOf } from "./categories";
 import { one, q, tx } from "./db";
-import { currentSeason } from "./seasons";
+import { currentSeason, listSeasons } from "./seasons";
 import { myCategories } from "./teams";
+import { rowPoints, scoresByName, type Scoring } from "./scoring";
 
 /*
  * Results and standings per race category. Results belong to a session that has a category; admins, coordinators and
  * the category's race officials enter them on the website. A driver is a name (with a car number and a team), linked
- * to a racer's account when the name matches exactly one racer. Points are typed in, as each series scores its own
- * way; standings add them up for the category (a category belongs to one season): drivers, then teams.
+ * to a racer's account when the name matches exactly one racer. Points come from the category's points table (see
+ * scoring.ts) when it has one and the session scores, unless typed by hand; standings add them up for the category (a
+ * category belongs to one season): drivers, then teams.
  */
 
 export const RESULT_STATUS = ["finished", "dnf", "dns", "dsq"] as const;
@@ -27,6 +29,10 @@ export type ResultRow = {
   teamName: string | null;
   points: number;
   bestLap: string;
+  pole: boolean;
+  fastestLap: boolean;
+  /** Typed by hand: kept whatever the table says. */
+  manualPoints: boolean;
 };
 
 export type ResultSession = {
@@ -36,11 +42,13 @@ export type ResultSession = {
   weekendId: string;
   weekendName: string;
   categoryId: string | null;
+  /** Whether it scores from the points table (asked, else by its name: qualifying and practice don't). */
+  scores: boolean;
 };
 
 export async function resultSession(sessionId: string): Promise<ResultSession | null> {
-  const row = await one<{ id: string; name: string; starts_at: string; weekend_id: string; weekend_name: string; category_id: string | null }>(
-    `SELECT s.id, s.name, s.starts_at, s.weekend_id, w.name AS weekend_name, s.category_id
+  const row = await one<{ id: string; name: string; starts_at: string; weekend_id: string; weekend_name: string; category_id: string | null; scores: boolean | null }>(
+    `SELECT s.id, s.name, s.starts_at, s.weekend_id, w.name AS weekend_name, s.category_id, s.scores
      FROM race_sessions s JOIN race_weekends w ON w.id = s.weekend_id WHERE s.id = $1`,
     [sessionId],
   );
@@ -52,8 +60,15 @@ export async function resultSession(sessionId: string): Promise<ResultSession | 
         weekendId: row.weekend_id,
         weekendName: row.weekend_name,
         categoryId: row.category_id,
+        scores: row.scores ?? scoresByName(row.name),
       }
     : null;
+}
+
+/** A category's points table, if it has one. */
+export async function categoryScoring(categoryId: string | null): Promise<Scoring | null> {
+  if (!categoryId) return null;
+  return (await one<{ scoring: Scoring | null }>("SELECT scoring FROM categories WHERE id = $1", [categoryId]))?.scoring ?? null;
 }
 
 /** Admins, coordinators and the category's race officials (or officials who look after every class). */
@@ -74,8 +89,12 @@ export async function sessionResults(sessionId: string): Promise<ResultRow[]> {
     team_name: string | null;
     points: string;
     best_lap: string;
+    pole: boolean;
+    fastest_lap: boolean;
+    manual_points: boolean;
   }>(
-    `SELECT r.position, r.status, r.car_number, r.driver_name, r.user_id, r.team_id, t.name AS team_name, r.points::text AS points, r.best_lap
+    `SELECT r.position, r.status, r.car_number, r.driver_name, r.user_id, r.team_id, t.name AS team_name, r.points::text AS points, r.best_lap,
+            r.pole, r.fastest_lap, r.manual_points
      FROM session_results r LEFT JOIN teams t ON t.id = r.team_id WHERE r.session_id = $1 ORDER BY r.row_order`,
     [sessionId],
   );
@@ -89,10 +108,25 @@ export async function sessionResults(sessionId: string): Promise<ResultRow[]> {
     teamName: r.team_name,
     points: Number(r.points),
     bestLap: r.best_lap,
+    pole: r.pole,
+    fastestLap: r.fastest_lap,
+    manualPoints: r.manual_points,
   }));
 }
 
-export type ResultInput = { position: number | null; status: ResultStatus; carNumber: string; driverName: string; teamId: string | null; points: number; bestLap: string };
+export type ResultInput = {
+  position: number | null;
+  status: ResultStatus;
+  carNumber: string;
+  driverName: string;
+  teamId: string | null;
+  points: number;
+  bestLap: string;
+  pole: boolean;
+  fastestLap: boolean;
+  /** Points typed by hand; otherwise they come from the table (when the session scores from one). */
+  manualPoints: boolean;
+};
 
 /** One row from a request body. A position only counts for a finisher; points are 0 or more. */
 export function resultInput(raw: unknown): ResultInput {
@@ -106,15 +140,35 @@ export function resultInput(raw: unknown): ResultInput {
   const pts = Number(r.points);
   const points = Number.isFinite(pts) && pts >= 0 && pts < 10000 ? Math.round(pts * 100) / 100 : 0;
   const teamId = typeof r.teamId === "string" && /^[0-9a-f-]{36}$/i.test(r.teamId) ? r.teamId : null;
-  return { position, status, carNumber: text(r.carNumber, 10), driverName, teamId, points, bestLap: text(r.bestLap, 20) };
+  return {
+    position,
+    status,
+    carNumber: text(r.carNumber, 10),
+    driverName,
+    teamId,
+    points,
+    bestLap: text(r.bestLap, 20),
+    pole: r.pole === true,
+    fastestLap: r.fastestLap === true,
+    // Older apps send no flag: their points were typed.
+    manualPoints: r.manualPoints !== false,
+  };
 }
 
-/** Replace a session's results. A driver whose name matches exactly one active racer is linked to them. */
-export async function saveResults(session: ResultSession, rows: ResultInput[]): Promise<void> {
+/**
+ * Replace a session's results, and whether it scores from the points table (`scores`, when given). A row's points
+ * come from the table unless they were typed by hand. A driver whose name matches exactly one active racer is linked.
+ */
+export async function saveResults(session: ResultSession, rows: ResultInput[], scores?: boolean): Promise<void> {
   if (!session.categoryId) throw new AuthError(400, "Give this session a category first: results belong to a category.");
   if (rows.length > 200) throw new AuthError(400, "Up to 200 rows.");
   const positions = rows.map((r) => r.position).filter((p): p is number => p !== null);
   if (new Set(positions).size !== positions.length) throw new AuthError(400, "Two drivers have the same position.");
+  if (rows.filter((r) => r.pole).length > 1) throw new AuthError(400, "Only one driver can have pole.");
+  if (rows.filter((r) => r.fastestLap).length > 1) throw new AuthError(400, "Only one driver can have the fastest lap.");
+  const scoring = await categoryScoring(session.categoryId);
+  const scored = scores ?? session.scores;
+  const pointsOf = (r: ResultInput) => (r.manualPoints || !scoring ? r.points : scored ? rowPoints(scoring, r) : 0);
   const racers = await q<{ id: string; name: string }>(
     `SELECT id, lower(trim(name)) AS name FROM users
      WHERE role = 'racer' AND status = 'active' AND name IS NOT NULL AND trim(name) <> ''`,
@@ -125,11 +179,12 @@ export async function saveResults(session: ResultSession, rows: ResultInput[]): 
   const teamIds = rows.map((r) => r.teamId).filter((id): id is string => Boolean(id));
   const teams = new Set((await q<{ id: string }>("SELECT id FROM teams WHERE id = ANY($1::uuid[])", [teamIds])).map((t) => t.id));
   await tx(async (c) => {
+    if (scores !== undefined) await c.query("UPDATE race_sessions SET scores = $2 WHERE id = $1", [session.id, scores]);
     await c.query("DELETE FROM session_results WHERE session_id = $1", [session.id]);
     for (const [i, r] of rows.entries()) {
       await c.query(
-        `INSERT INTO session_results (session_id, row_order, position, status, car_number, driver_name, user_id, team_id, points, best_lap)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        `INSERT INTO session_results (session_id, row_order, position, status, car_number, driver_name, user_id, team_id, points, best_lap, pole, fastest_lap, manual_points)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [
           session.id,
           i,
@@ -139,8 +194,11 @@ export async function saveResults(session: ResultSession, rows: ResultInput[]): 
           r.driverName,
           byName.get(r.driverName.toLowerCase()) ?? null,
           r.teamId && teams.has(r.teamId) ? r.teamId : null,
-          r.points,
+          pointsOf(r),
           r.bestLap,
+          r.pole,
+          r.fastestLap,
+          r.manualPoints && Boolean(scoring),
         ],
       );
     }
@@ -217,6 +275,29 @@ export async function standings(categoryId: string): Promise<{ drivers: DriverSt
   };
 }
 
+/**
+ * A category's points table changed: every result row not typed by hand is scored again (zero in sessions that
+ * don't score from the table).
+ */
+export async function setCategoryScoring(categoryId: string, scoring: Scoring | null): Promise<void> {
+  await tx(async (c) => {
+    await c.query("UPDATE categories SET scoring = $2 WHERE id = $1", [categoryId, scoring === null ? null : JSON.stringify(scoring)]);
+    if (!scoring) return;
+    const rows = (
+      await c.query<{ id: string; status: string; position: number | null; pole: boolean; fastest_lap: boolean; name: string; scores: boolean | null }>(
+        `SELECT r.id, r.status, r.position, r.pole, r.fastest_lap, s.name, s.scores
+         FROM session_results r JOIN race_sessions s ON s.id = r.session_id
+         WHERE s.category_id = $1 AND NOT r.manual_points`,
+        [categoryId],
+      )
+    ).rows;
+    for (const r of rows) {
+      const points = (r.scores ?? scoresByName(r.name)) ? rowPoints(scoring, { status: r.status, position: r.position, pole: r.pole, fastestLap: r.fastest_lap }) : 0;
+      await c.query("UPDATE session_results SET points = $2 WHERE id = $1", [r.id, points]);
+    }
+  });
+}
+
 /** The teams offered when entering a session's results: the ones entered in its category first, then the rest. */
 export async function teamsForResults(categoryId: string): Promise<{ id: string; name: string; entered: boolean }[]> {
   const rows = await q<{ id: string; name: string; entered: boolean }>(
@@ -227,11 +308,22 @@ export async function teamsForResults(categoryId: string): Promise<{ id: string;
   return rows;
 }
 
-/** What the Standings page shows: this season's categories, the one chosen (the person's own first), its standings. */
-export async function standingsPage(user: SessionUser, asked: string | null) {
-  const categories = await categoriesOf([(await currentSeason()).id]);
-  const mine = (await myCategories(user)) ?? [];
+/**
+ * What the Standings page shows: the seasons to choose from (current first), the season asked for (else the current
+ * one), its categories, the one chosen (the person's own first), and its standings. Archived seasons keep theirs.
+ */
+export async function standingsPage(user: SessionUser, asked: string | null, seasonAsked: string | null = null) {
+  const current = await currentSeason();
+  const all = await listSeasons();
+  const season = all.find((s) => s.id === seasonAsked) ?? current;
+  const seasons = [...all.filter((s) => s.id === current.id), ...all.filter((s) => s.id !== current.id)].map((s) => ({
+    id: s.id,
+    name: s.name,
+    current: s.id === current.id,
+  }));
+  const categories = await categoriesOf([season.id]);
+  const mine = season.id === current.id ? ((await myCategories(user)) ?? []) : [];
   const chosen = categories.find((c) => c.id === asked) ?? categories.find((c) => mine.includes(c.id)) ?? categories[0] ?? null;
   const empty = { drivers: [] as DriverStanding[], teams: [] as TeamStanding[], sessions: [] as StandingSession[] };
-  return { categories, categoryId: chosen?.id ?? null, ...(chosen ? await standings(chosen.id) : empty) };
+  return { seasons, seasonId: season.id, categories, categoryId: chosen?.id ?? null, ...(chosen ? await standings(chosen.id) : empty) };
 }
