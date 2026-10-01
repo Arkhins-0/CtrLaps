@@ -2,20 +2,25 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ROLE_LABEL, ROLES, type Role } from "@/lib/roles";
+import { DEVELOPER_LABEL, ROLE_LABEL, ROLES, type Role } from "@/lib/roles";
 import type { RosterCategory } from "@/lib/categoryChannels";
 import type { PublicUser } from "@/lib/users";
 import { Avatar } from "./Avatar";
 import { Icon } from "./Icon";
 import { StatusBadge } from "./StatusBadge";
 
-const KEY = "ctrlaps:people-hidden-roles";
-/** People who registered and have no role yet start hidden. */
-const DEFAULT_HIDDEN: Role[] = ["user"];
+const KEY = "ctrlaps:people-hidden";
+/** A list group: a role, or developers (admins who answer support), who show apart. */
+type Group = Role | "developer";
+const GROUPS: Group[] = ["developer", ...ROLES];
+const GROUP_LABEL = (g: Group): string => (g === "developer" ? DEVELOPER_LABEL : ROLE_LABEL[g]);
+const groupOf = (p: PublicUser): Group => (p.isDev ? "developer" : p.role);
+/** People who registered and have no role yet, and developers, start hidden. */
+const DEFAULT_HIDDEN: Group[] = ["user", "developer"];
 
 /** Everyone below the viewer by role, with a filter: which roles show, and one race category or one team. */
 export function PeopleList({ people, emptyText, categories = [] }: { people: PublicUser[]; emptyText: string; categories?: RosterCategory[] }) {
-  const [hidden, setHidden] = useState<Role[]>(DEFAULT_HIDDEN);
+  const [hidden, setHidden] = useState<Group[]>(DEFAULT_HIDDEN);
   const [category, setCategory] = useState("");
   const [team, setTeam] = useState("");
   const [open, setOpen] = useState(false);
@@ -34,7 +39,7 @@ export function PeopleList({ people, emptyText, categories = [] }: { people: Pub
     return () => document.removeEventListener("mousedown", close);
   }, [open]);
 
-  const toggle = (r: Role) => {
+  const toggle = (r: Group) => {
     const next = hidden.includes(r) ? hidden.filter((x) => x !== r) : [...hidden, r];
     setHidden(next);
     try { localStorage.setItem(KEY, JSON.stringify(next)); } catch {}
@@ -45,10 +50,10 @@ export function PeopleList({ people, emptyText, categories = [] }: { people: Pub
   const kept = people.filter(
     (p) => (!inCategory || inCategory.includes(p.id)) && (!team || p.teamName?.trim().toLowerCase() === team.toLowerCase()),
   );
-  const present = ROLES.filter((r) => people.some((p) => p.role === r));
+  const present = GROUPS.filter((r) => people.some((p) => groupOf(p) === r));
   const groups = present
     .filter((r) => !hidden.includes(r))
-    .map((r) => ({ role: r, people: kept.filter((p) => p.role === r) }))
+    .map((r) => ({ role: r, people: kept.filter((p) => groupOf(p) === r) }))
     .filter((g) => g.people.length > 0);
   const narrowed = Boolean(category || team);
 
@@ -67,7 +72,7 @@ export function PeopleList({ people, emptyText, categories = [] }: { people: Pub
               {present.map((r) => (
                 <label key={r} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-snow/5">
                   <input type="checkbox" className="h-4 w-4 accent-gold" checked={!hidden.includes(r)} onChange={() => toggle(r)} />
-                  {ROLE_LABEL[r]}
+                  {GROUP_LABEL(r)}
                 </label>
               ))}
               {categories.length > 0 && (
@@ -111,7 +116,7 @@ export function PeopleList({ people, emptyText, categories = [] }: { people: Pub
       {groups.map((g) => (
         <section key={g.role}>
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-snow-faint">
-            {ROLE_LABEL[g.role]}s · {g.people.length}
+            {GROUP_LABEL(g.role)}s · {g.people.length}
           </h2>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {g.people.map((p) => (

@@ -25,6 +25,8 @@ data class PublicUser(
     val profileComplete: Boolean = false,
     /** From /api/users?group=1: "direct" (invite) or "request" (someone higher up, asked). */
     val groupMode: String? = null,
+    /** A developer: an admin who also answers support, shown as "Developer" (People hides them to start). */
+    val isDev: Boolean = false,
 ) {
     val displayName: String get() = name ?: email
 }
@@ -42,6 +44,8 @@ data class Me(
     val canRelay: Boolean = false,
     val canBulkEmail: Boolean = false,
     val isAdmin: Boolean = false,
+    /** A developer: answers support tickets, and may make other admins developers. */
+    val isDev: Boolean = false,
     val unread: Int = 0,
     val unreadChats: Int = 0,
     val unreadHome: Int = 0,
@@ -431,6 +435,8 @@ data class UserResponse(
     val categoryIds: List<String> = emptyList(),
     val teamCategoryIds: List<String> = emptyList(),
     val canSetCategories: Boolean = false,
+    /** The viewer is a developer and this person an active admin: they may be made a developer, or stop being one. */
+    val canSetDev: Boolean = false,
 )
 
 @Serializable

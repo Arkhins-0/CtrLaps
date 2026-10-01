@@ -3,7 +3,7 @@ import "server-only";
 import { one, q, run } from "./db";
 import { userColumns, type SessionUser } from "./auth";
 import { verifyCode, randomToken } from "./ids";
-import { ROLE_LABEL, STATUS_LABEL, type Role, type Status } from "./roles";
+import { isDeveloper, roleLabel, STATUS_LABEL, type Role, type Status } from "./roles";
 import { SITE_URL } from "./config";
 import { userPhotoUrl } from "./profile";
 
@@ -28,6 +28,8 @@ export type PublicUser = {
   verifyCode: string;
   profileComplete: boolean;
   createdAt: string;
+  /** A developer: an admin who answers support, shown as "Developer". */
+  isDev: boolean;
 };
 
 export function toPublic(u: SessionUser): PublicUser {
@@ -35,7 +37,7 @@ export function toPublic(u: SessionUser): PublicUser {
     id: u.id,
     email: u.email,
     role: u.role,
-    roleLabel: ROLE_LABEL[u.role],
+    roleLabel: roleLabel(u.role, isDeveloper(u)),
     status: u.status,
     statusLabel: STATUS_LABEL[u.status],
     name: u.name,
@@ -47,6 +49,7 @@ export function toPublic(u: SessionUser): PublicUser {
     verifyCode: u.verify_code,
     profileComplete: Boolean(u.profile_completed_at),
     createdAt: new Date(u.created_at).toISOString(),
+    isDev: isDeveloper(u),
   };
 }
 

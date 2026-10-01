@@ -22,7 +22,7 @@ export const GET = handle<Params<"id">>(async (_request, { params }) => {
   if (!m || (m.kind !== "direct" && m.kind !== "group")) return fail("No such message.", 404);
   if (m.sender_id !== user.id) return fail("Only the sender can see who it reached.", 403);
   const rows = await q<PersonRow & { delivered_at: string | null; read_at: string | null }>(
-    `SELECT u.id, u.name, u.email, u.role, u.photo_key, r.delivered_at, r.read_at
+    `SELECT u.id, u.name, u.email, u.role, u.photo_key, u.is_dev, r.delivered_at, r.read_at
      FROM message_recipients r JOIN users u ON u.id = r.user_id
      WHERE r.message_id = $1 ORDER BY r.read_at DESC NULLS LAST, r.delivered_at DESC NULLS LAST, u.name`,
     [id],

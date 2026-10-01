@@ -31,6 +31,15 @@ export const ROLE_LABEL: Record<Role, string> = {
   user: "User",
 };
 
+/** A developer is an admin who also answers support; everywhere but support they show as this. */
+export const DEVELOPER_LABEL = "Developer";
+
+/** A person's designation: their role's name, or "Developer" for an admin who is one. */
+export const roleLabel = (role: Role, isDev?: boolean | null): string => (isDev && role === "admin" ? DEVELOPER_LABEL : ROLE_LABEL[role]);
+
+/** Whether someone is a developer: an admin with the flag (a flag left on someone no longer an admin counts for nothing). */
+export const isDeveloper = (u: { role: Role; is_dev?: boolean | null }): boolean => u.role === "admin" && Boolean(u.is_dev);
+
 export const STATUS_LABEL: Record<Status, string> = {
   pending: "Pending",
   active: "Active",

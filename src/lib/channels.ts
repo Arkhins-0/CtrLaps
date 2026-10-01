@@ -59,7 +59,7 @@ export async function listChannels(user: SessionUser): Promise<ChannelSeason[]> 
       [user.id],
     ),
     q<PersonRow & { weekend_id: string }>(
-      `SELECT cm.weekend_id, u.id, u.name, u.email, u.role, u.photo_key
+      `SELECT cm.weekend_id, u.id, u.name, u.email, u.role, u.photo_key, u.is_dev
        FROM channel_managers cm JOIN users u ON u.id = cm.user_id ORDER BY u.name NULLS LAST, u.email`,
     ),
   ]);
@@ -90,7 +90,7 @@ export async function listChannels(user: SessionUser): Promise<ChannelSeason[]> 
 
 export async function channelManagers(weekendId: string): Promise<ChannelManager[]> {
   const rows = await q<PersonRow>(
-    `SELECT u.id, u.name, u.email, u.role, u.photo_key FROM channel_managers cm JOIN users u ON u.id = cm.user_id
+    `SELECT u.id, u.name, u.email, u.role, u.photo_key, u.is_dev FROM channel_managers cm JOIN users u ON u.id = cm.user_id
      WHERE cm.weekend_id = $1 ORDER BY u.name NULLS LAST, u.email`,
     [weekendId],
   );

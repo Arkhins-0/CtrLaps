@@ -114,10 +114,15 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
 val ROLE_ORDER = listOf("admin", "coordinator", "race_official", "team_manager", "racer", "crew", "security_head", "security", "volunteer", "user")
+/** The People list's groups: developers first, apart from other admins, then each role. */
+private val PEOPLE_GROUPS = listOf("developer") + ROLE_ORDER
 val ROLE_LABELS = mapOf(
-    "admin" to "Admin", "coordinator" to "Coordinator", "race_official" to "Race official", "team_manager" to "Team manager",
+    "developer" to "Developer", "admin" to "Admin", "coordinator" to "Coordinator", "race_official" to "Race official", "team_manager" to "Team manager",
     "racer" to "Racer", "crew" to "Crew", "security_head" to "Security head", "security" to "Security", "volunteer" to "Volunteer", "user" to "User",
 )
+
+/** The People list's group for a person: developers show apart from other admins. */
+private val PublicUser.group: String get() = if (isDev) "developer" else role
 
 /** The People tab's pages, as its header names them: People; Teams for admins and coordinators; Categories for admins. */
 fun peoplePages(role: String?): List<String> = when (role) {
@@ -156,8 +161,8 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
     var query by remember { mutableStateOf("") }
     var mailMenu by remember { mutableStateOf(false) }
     var filterMenu by remember { mutableStateOf(false) }
-    // Roles left out of the list; people who registered and have no role yet start hidden.
-    var hiddenRoles by rememberSaveable { mutableStateOf(listOf("user")) }
+    // Roles left out of the list; people who registered and have no role yet, and developers, start hidden.
+    var hiddenRoles by rememberSaveable { mutableStateOf(listOf("user", "developer")) }
     // Only the people starred (on their page, their card or Verify); off to start.
     var starredOnly by rememberSaveable { mutableStateOf(false) }
     val starred by app.verifyHistory.starred.collectAsState()
@@ -181,10 +186,10 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
     val inCategory = roster.firstOrNull { it.id == category }?.memberIds?.toSet()
     val teams = people.orEmpty().mapNotNull { it.teamName?.trim()?.takeIf { t -> t.isNotEmpty() } }.distinctBy { it.lowercase() }.sortedBy { it.lowercase() }
     val p = people?.filter { u ->
-        u.role !in hiddenRoles && (!starredOnly || u.id in starred) &&
+        u.group !in hiddenRoles && (!starredOnly || u.id in starred) &&
             (inCategory == null || u.id in inCategory) && (team.isBlank() || u.teamName?.trim().equals(team, ignoreCase = true)) && (query.isBlank() || "${u.displayName} ${u.roleLabel} ${u.teamName ?: ""}".contains(query.trim(), ignoreCase = true))
     }
-    val presentRoles = ROLE_ORDER.filter { r -> people?.any { it.role == r } == true }
+    val presentRoles = PEOPLE_GROUPS.filter { r -> people?.any { it.group == r } == true }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -298,7 +303,7 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
                 )
             }
             else -> {
-                val groups = ROLE_ORDER.mapNotNull { r -> p.filter { it.role == r }.takeIf { it.isNotEmpty() }?.let { r to it } }
+                val groups = PEOPLE_GROUPS.mapNotNull { r -> p.filter { it.group == r }.takeIf { it.isNotEmpty() }?.let { r to it } }
                 items(groups, key = { it.first }) { (role, list) ->
                     Column {
                         SectionTitle("${ROLE_LABELS[role]}s · ${list.size}".uppercase())
@@ -507,6 +512,7 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
                 }
             }
         }
+        if (d.canSetDev) item { DeveloperPanel(u.isDev, busy) { dev -> run(if (dev) "Now a developer." else "No longer a developer.") { app.api.put("/api/users/${u.id}/developer", UserResponse.serializer()) { put("dev", dev) } } } }
         if (d.canEdit) {
             item {
                 Panel {
@@ -877,5 +883,34 @@ private fun RaceCategoriesPanel(d: UserResponse) {
                 )
             }
         }
+    }
+}
+
+/** For a developer on another admin's page: make them a developer (they answer support), or take it back after asking. */
+@Composable
+private fun DeveloperPanel(isDev: Boolean, busy: Boolean, onChange: (Boolean) -> Unit) {
+    var asking by remember { mutableStateOf(false) }
+    Panel {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionTitle("DEVELOPER")
+            Text(
+                if (isDev) "A developer: an admin who also answers support tickets. Shown as Developer here, and only as Support to people who ask for help."
+                else "Make this admin a developer: they also answer support tickets, and show as Developer.",
+                style = MaterialTheme.typography.bodySmall,
+                color = SnowFaint,
+            )
+            if (isDev) GhostButton("Remove developer", enabled = !busy) { asking = true }
+            else GoldButton("Make developer", Modifier.fillMaxWidth(), enabled = !busy) { onChange(true) }
+        }
+    }
+    if (asking) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { asking = false },
+            containerColor = NightPanel,
+            title = { Text("Remove developer?", color = Snow) },
+            text = { Text("They stay an admin, and no longer see support tickets.", color = SnowSoft) },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { asking = false; onChange(false) }) { Text("Remove", color = Gold) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { asking = false }) { Text("Cancel", color = SnowSoft) } },
+        )
     }
 }

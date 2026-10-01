@@ -4,7 +4,7 @@ import { one } from "@/lib/db";
 import { fail, json } from "@/lib/http";
 import { categoryBadges } from "@/lib/teams";
 import { normaliseCode } from "@/lib/ids";
-import { ROLE_LABEL, STATUS_LABEL } from "@/lib/roles";
+import { isDeveloper, roleLabel, STATUS_LABEL } from "@/lib/roles";
 import { userPhotoUrl } from "@/lib/profile";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export const GET = handle(async (request) => {
     id: user.id,
     name: user.name,
     role: user.role,
-    roleLabel: ROLE_LABEL[user.role],
+    roleLabel: roleLabel(user.role, isDeveloper(user)),
     teamName: user.team_name,
     status: user.status,
     statusLabel: STATUS_LABEL[user.status],

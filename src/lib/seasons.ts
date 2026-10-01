@@ -2,7 +2,7 @@ import "server-only";
 
 import { one, q, run, tx } from "./db";
 import { AuthError, type SessionUser } from "./auth";
-import { ROLE_LABEL, type Role } from "./roles";
+import { isDeveloper, roleLabel, type Role } from "./roles";
 import { userPhotoUrl } from "./profile";
 
 /*
@@ -185,6 +185,7 @@ type MRow = {
   sender_name: string | null;
   sender_email: string | null;
   sender_role: Role | null;
+  sender_dev: boolean | null;
   body: string;
   urgent: boolean;
   created_at: string;
@@ -200,7 +201,7 @@ const message = (r: MRow, me: string): ArchivedMessage => ({
   urgent: r.urgent,
   createdAt: new Date(r.created_at).toISOString(),
   sender: r.sender_id
-    ? { id: r.sender_id, name: r.sender_name || r.sender_email || "Unknown", roleLabel: r.sender_role ? ROLE_LABEL[r.sender_role] : "" }
+    ? { id: r.sender_id, name: r.sender_name || r.sender_email || "Unknown", roleLabel: r.sender_role ? roleLabel(r.sender_role, r.sender_dev) : "" }
     : null,
   file: r.file_id ? { id: r.file_id, name: r.file_name ?? "file", mime: r.file_mime ?? "", size: Number(r.file_size ?? 0) } : null,
   mine: r.sender_id === me,
@@ -227,7 +228,7 @@ export async function seasonArchive(user: SessionUser, id: string): Promise<Seas
   // Every message of the season this person sent or received.
   const rows = await q<MRow>(
     `SELECT m.id, m.conversation_id, c.kind, c.weekend_id, c.owner_id, c.member_id, m.sender_id,
-            s.name AS sender_name, s.email AS sender_email, s.role AS sender_role,
+            s.name AS sender_name, s.email AS sender_email, s.role AS sender_role, s.is_dev AS sender_dev,
             m.body, m.urgent, m.created_at, m.file_id, f.name AS file_name, f.mime AS file_mime, f.size::text AS file_size
      FROM messages m
      LEFT JOIN conversations c ON c.id = m.conversation_id
@@ -249,8 +250,8 @@ export async function seasonArchive(user: SessionUser, id: string): Promise<Seas
     byOther.set(other, [...(byOther.get(other) ?? []), r]);
   }
   const others = byOther.size
-    ? await q<{ id: string; name: string | null; email: string; role: Role; photo_key: string | null }>(
-        "SELECT id, name, email, role, photo_key FROM users WHERE id = ANY($1::uuid[])",
+    ? await q<{ id: string; name: string | null; email: string; role: Role; photo_key: string | null; is_dev: boolean }>(
+        "SELECT id, name, email, role, photo_key, is_dev FROM users WHERE id = ANY($1::uuid[])",
         [Array.from(byOther.keys())],
       )
     : [];
@@ -273,7 +274,7 @@ export async function seasonArchive(user: SessionUser, id: string): Promise<Seas
     })),
     announcements,
     chats: others.map((o) => ({
-      other: { id: o.id, name: o.name || o.email, role: o.role, roleLabel: ROLE_LABEL[o.role], photoUrl: userPhotoUrl(o.id, o.photo_key) },
+      other: { id: o.id, name: o.name || o.email, role: o.role, roleLabel: roleLabel(o.role, isDeveloper(o)), photoUrl: userPhotoUrl(o.id, o.photo_key) },
       messages: (byOther.get(o.id) ?? []).map((r) => message(r, user.id)),
     })),
   };

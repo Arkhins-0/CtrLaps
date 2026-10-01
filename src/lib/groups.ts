@@ -68,13 +68,13 @@ export async function groupInfo(user: SessionUser, id: string): Promise<GroupInf
   if (!myRole) return null;
   const [members, invited] = await Promise.all([
     q<MemberRow>(
-      `SELECT u.id, u.name, u.email, u.role, u.photo_key, gm.role AS group_role
+      `SELECT u.id, u.name, u.email, u.role, u.photo_key, u.is_dev, gm.role AS group_role
        FROM group_members gm JOIN users u ON u.id = gm.user_id
        WHERE gm.conversation_id = $1 ORDER BY gm.role, gm.joined_at`,
       [id],
     ),
     q<MemberRow>(
-      `SELECT u.id, u.name, u.email, u.role, u.photo_key, 'member' AS group_role
+      `SELECT u.id, u.name, u.email, u.role, u.photo_key, u.is_dev, 'member' AS group_role
        FROM group_invites gi JOIN users u ON u.id = gi.user_id
        WHERE gi.conversation_id = $1 AND gi.status = 'pending' AND gi.expires_at > now() ORDER BY gi.created_at`,
       [id],

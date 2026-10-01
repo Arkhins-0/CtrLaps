@@ -37,6 +37,8 @@ export type SessionUser = {
   qr_token: string;
   profile_completed_at: string | null;
   created_at: string;
+  /** An admin who also answers support (see roles.isDeveloper). */
+  is_dev: boolean;
 };
 
 /** The user columns every query selects, optionally qualified with a table alias. */
@@ -44,7 +46,7 @@ export function userColumns(alias = ""): string {
   const p = alias ? `${alias}.` : "";
   return (
     `${p}id, ${p}email, ${p}role, ${p}status, ${p}parent_id, ${p}team_name, ${p}name, ${p}dob::text AS dob, ` +
-    `${p}phone, ${p}photo_key, ${p}verify_code, ${p}qr_token, ${p}profile_completed_at, ${p}created_at`
+    `${p}phone, ${p}photo_key, ${p}verify_code, ${p}qr_token, ${p}profile_completed_at, ${p}created_at, ${p}is_dev`
   );
 }
 export const USER_COLUMNS = userColumns();

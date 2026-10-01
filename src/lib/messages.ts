@@ -12,7 +12,7 @@ import { canChat, filterBelow } from "./hierarchy";
 import { userById } from "./users";
 import { activeUserIds, deliver, describeFiles, fileKind, preview } from "./notify";
 import { pushSync } from "./push";
-import { CHANNEL_POSTERS, ROLE_LABEL, type Role } from "./roles";
+import { CHANNEL_POSTERS, isDeveloper, roleLabel, type Role } from "./roles";
 import { APP_NAME } from "./config";
 import { userPhotoUrl } from "./profile";
 import { currentSeason, LIVE_SEASON } from "./seasons";
@@ -38,9 +38,9 @@ export const MAX_FILES = 50;
 export const photoUrl = (u: { id: string; photo_key: string | null }): string | null => userPhotoUrl(u.id, u.photo_key);
 
 /** A person the way a chat shows them: name, role and picture. */
-export type PersonRow = { id: string; name: string | null; email: string; role: Role; photo_key: string | null };
+export type PersonRow = { id: string; name: string | null; email: string; role: Role; photo_key: string | null; is_dev?: boolean | null };
 export type PersonCard = { id: string; name: string; roleLabel: string; photoUrl: string | null };
-export const personCard = (r: PersonRow): PersonCard => ({ id: r.id, name: r.name || r.email, roleLabel: ROLE_LABEL[r.role], photoUrl: photoUrl(r) });
+export const personCard = (r: PersonRow): PersonCard => ({ id: r.id, name: r.name || r.email, roleLabel: roleLabel(r.role, isDeveloper(r)), photoUrl: photoUrl(r) });
 
 /** An invitation to a group, carried by a message in a private chat. */
 export type GroupInviteRef = {
@@ -122,6 +122,7 @@ type Row = {
   sender_email: string | null;
   sender_role: Role | null;
   sender_photo: string | null;
+  sender_dev: boolean | null;
   body: string;
   file_id: string | null;
   file_name: string | null;
@@ -239,7 +240,7 @@ function pollOut(row: PollRow, viewerId: string, named: boolean): PollOut {
 
 const SELECT = `
   SELECT m.id, m.conversation_id, c.kind, c.weekend_id, c.category_id, m.sender_id,
-         s.name AS sender_name, s.email AS sender_email, s.role AS sender_role, s.photo_key AS sender_photo,
+         s.name AS sender_name, s.email AS sender_email, s.role AS sender_role, s.photo_key AS sender_photo, s.is_dev AS sender_dev,
          m.body, m.file_id, f.name AS file_name, f.mime AS file_mime, f.size::text AS file_size, f.as_document AS file_document, f.thumb AS file_thumb,
          m.urgent, m.created_at, r.read_at, m.reply_to_id, m.edited_at, m.deleted_at, m.changed_at, m.forwarded,
          rm.sender_id AS rm_sender_id, COALESCE(NULLIF(rs.name, ''), rs.email) AS rm_sender_name, rm.body AS rm_body,
@@ -288,7 +289,7 @@ function out(row: Row, viewerId: string): MessageOut {
           id: row.sender_id,
           name: row.sender_name || row.sender_email || "Unknown",
           role: row.sender_role ?? "admin",
-          roleLabel: row.sender_role ? ROLE_LABEL[row.sender_role] : "",
+          roleLabel: row.sender_role ? roleLabel(row.sender_role, row.sender_dev) : "",
           photoUrl: userPhotoUrl(row.sender_id, row.sender_photo),
         }
       : null,
@@ -413,7 +414,7 @@ export function popupData(
   return {
     kind,
     senderName: sender.name || sender.email,
-    senderRole: ROLE_LABEL[sender.role],
+    senderRole: roleLabel(sender.role, isDeveloper(sender)),
     senderPhoto: photoUrl(sender) ?? "",
     // Notifications and popups show the words, not the formatting markers.
     text: location ? "" : plainText(draft.body).trim().replace(/\s+/g, " ").slice(0, 300),
@@ -423,7 +424,7 @@ export function popupData(
 }
 
 function senderLabel(sender: SessionUser): string {
-  return `${sender.name || sender.email} · ${ROLE_LABEL[sender.role]}`;
+  return `${sender.name || sender.email} · ${roleLabel(sender.role, isDeveloper(sender))}`;
 }
 
 /** The message this sender already sent under this client id, if any: a resend is the same message. */
@@ -787,7 +788,7 @@ export async function groupEvent(groupId: string, actorId: string, text: string)
 export async function sendGroupInvite(actor: SessionUser, invitee: SessionUser, inviteId: string, groupName: string): Promise<void> {
   if (!canChat(actor, invitee)) return;
   const convId = await openDirect(actor, invitee.id);
-  const body = `${actor.name || actor.email} (${ROLE_LABEL[actor.role]}) asks you to join the group "${groupName}"`;
+  const body = `${actor.name || actor.email} (${roleLabel(actor.role, isDeveloper(actor))}) asks you to join the group "${groupName}"`;
   const season = await currentSeason();
   const row = await one<{ id: string; created_at: string }>(
     `INSERT INTO messages (conversation_id, sender_id, body, season_id, group_invite_id)
@@ -940,6 +941,7 @@ export async function myConversations(user: SessionUser): Promise<ConversationOu
     o_email: string;
     o_role: Role;
     o_photo: string | null;
+    o_dev: boolean;
     o_status: string;
     unread: string;
     last_body: string | null;
@@ -949,7 +951,7 @@ export async function myConversations(user: SessionUser): Promise<ConversationOu
     total: string;
   }>(
     `SELECT c.id, c.owner_id, c.member_id, c.last_message_at,
-            o.id AS o_id, o.name AS o_name, o.email AS o_email, o.role AS o_role, o.photo_key AS o_photo, o.status AS o_status,
+            o.id AS o_id, o.name AS o_name, o.email AS o_email, o.role AS o_role, o.photo_key AS o_photo, o.is_dev AS o_dev, o.status AS o_status,
             (SELECT count(*) FROM messages m JOIN message_recipients r ON r.message_id = m.id AND r.user_id = $1
               WHERE m.conversation_id = c.id AND r.read_at IS NULL AND ${LIVE_SEASON("m")})::text AS unread,
             (SELECT CASE WHEN m.deleted_at IS NOT NULL THEN 'This message was deleted' ELSE m.body END
@@ -1007,7 +1009,7 @@ export async function myConversations(user: SessionUser): Promise<ConversationOu
         id: r.o_id,
         name: r.o_name || r.o_email,
         role: r.o_role,
-        roleLabel: ROLE_LABEL[r.o_role],
+        roleLabel: roleLabel(r.o_role, r.o_dev),
         photoUrl: userPhotoUrl(r.o_id, r.o_photo),
         status: r.o_status,
       },
