@@ -28,6 +28,8 @@ export const GET = handle(async () => {
     unread: counts.total,
     unreadChats: counts.chats,
     unreadHome: counts.home,
+    /** Unread support replies (and, for a developer, messages on tickets). */
+    unreadSupport: counts.support,
     pushConfigured: isPushConfigured(),
     /** "My categories" this season; null = everything. */
     categoryIds: await myCategories(user),

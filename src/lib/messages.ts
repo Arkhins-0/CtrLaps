@@ -25,7 +25,7 @@ import { canPostCategory, categoryConversation, categoryInfo, categoryMemberIds,
  * the recipients' inbox the same way.
  */
 
-export type Kind = "broadcast" | "channel" | "direct" | "group" | "category";
+export type Kind = "broadcast" | "channel" | "direct" | "group" | "category" | "support";
 
 /** `document`: sent through "Document", so it shows as a document whatever its type. */
 export type FileRef = { id: string; name: string; mime: string; size: number; document?: boolean; thumb?: string | null };
@@ -439,7 +439,7 @@ export const duplicateSend = (error: unknown): boolean =>
   typeof error === "object" && error !== null && (error as { code?: string; constraint?: string }).code === "23505" &&
   (error as { constraint?: string }).constraint === "messages_sender_client_idx";
 
-async function insertMessage(conversationId: string | null, sender: SessionUser, draft: Draft, files: FileRow[]) {
+export async function insertMessage(conversationId: string | null, sender: SessionUser, draft: Draft, files: FileRow[]) {
   const season = await currentSeason();
   const row = await one<{ id: string; created_at: string }>(
     `INSERT INTO messages (conversation_id, sender_id, body, file_id, urgent, season_id, reply_to_id, forwarded, client_id, batch_id, batch_pos, link_url)
@@ -721,7 +721,7 @@ async function checkReply(conversationId: string, replyToId: string | null | und
  * text or a file present, the reply still there, the file the sender's.
  * A forwarded file was checked when it was first sent; it stays whoever's it was.
  */
-async function prepareDraft(sender: SessionUser, conversationId: string, draft: Draft): Promise<{ draft: Draft; files: FileRow[] }> {
+export async function prepareDraft(sender: SessionUser, conversationId: string, draft: Draft): Promise<{ draft: Draft; files: FileRow[] }> {
   draft = await resolveForward(sender, draft);
   if (!hasContent(draft)) throw new AuthError(400, "Write something or attach a document.");
   await checkReply(conversationId, draft.replyToId);
@@ -1058,6 +1058,26 @@ export async function conversationMessages(user: SessionUser, conversationId: st
   return rows.reverse().map((r) => out(r, user.id));
 }
 
+/** How a developer shows in support, to anyone who isn't one: no name, no photo, no account. */
+export const SUPPORT_SENDER = { id: "support", name: "Support", role: "admin" as Role, roleLabel: "", photoUrl: null };
+
+/**
+ * A support ticket's chat, oldest first. It is not tied to a season: archiving one never hides a ticket. To someone
+ * who is not a developer, everything not their own was said by "Support" (only they and developers are in it).
+ */
+export async function supportThread(user: SessionUser, conversationId: string, viewerIsDev: boolean): Promise<MessageOut[]> {
+  const rows = await q<Row>(`${SELECT} WHERE m.conversation_id = $2 ORDER BY m.created_at DESC LIMIT 500`, [user.id, conversationId]);
+  return rows.reverse().map((r) => {
+    const m = out(r, user.id);
+    if (viewerIsDev) return m;
+    return {
+      ...m,
+      sender: m.sender && !m.mine ? SUPPORT_SENDER : m.sender,
+      replyTo: m.replyTo && !m.replyTo.mine ? { ...m.replyTo, senderName: SUPPORT_SENDER.name } : m.replyTo,
+    };
+  });
+}
+
 /**
  * For a phone that keeps its own copy of a chat: the messages new, edited
  * or deleted after `after` (oldest first), and the ids of every message
@@ -1087,7 +1107,7 @@ export async function inbox(user: SessionUser, limit = 60, before?: string): Pro
   const rows = await q<Row>(
     `${SELECT}
      WHERE (r.user_id = $1 OR m.sender_id = $1)
-       AND (c.kind IS NULL OR c.kind NOT IN ('direct', 'group'))
+       AND (c.kind IS NULL OR c.kind NOT IN ('direct', 'group', 'support'))
        AND ${LIVE_SEASON("m")}
        AND ($2::timestamptz IS NULL OR m.created_at < $2)
      ORDER BY m.created_at DESC LIMIT $3`,
@@ -1097,7 +1117,7 @@ export async function inbox(user: SessionUser, limit = 60, before?: string): Pro
 }
 
 export async function messageById(user: SessionUser, id: string): Promise<MessageOut | null> {
-  const row = await one<Row>(`${SELECT} WHERE m.id = $2 AND (r.user_id = $1 OR m.sender_id = $1)`, [user.id, id]);
+  const row = await one<Row>(`${SELECT} WHERE m.id = $2 AND (r.user_id = $1 OR m.sender_id = $1) AND c.kind IS DISTINCT FROM 'support'`, [user.id, id]);
   return row ? out(row, user.id) : null;
 }
 
@@ -1156,22 +1176,26 @@ export async function markDelivered(userId: string): Promise<void> {
   await touch(ids.filter((r) => r.kind === "direct"));
 }
 
-export type Unread = { total: number; chats: number; home: number };
+export type Unread = { total: number; chats: number; home: number; support: number };
 
-/** What is unread, split the way the tabs are: private chats, and everything else (Home). */
+/**
+ * What is unread, split the way the tabs are: private chats, and everything else (Home). Support replies count on
+ * their own (Account → About → Support), and not in the total; they are read whatever season they were sent in.
+ */
 export async function unread(userId: string): Promise<Unread> {
-  const row = await one<{ chats: string; home: string }>(
-    `SELECT count(*) FILTER (WHERE c.kind IN ('direct', 'group'))::text AS chats,
-            count(*) FILTER (WHERE c.kind IS NULL OR c.kind NOT IN ('direct', 'group'))::text AS home
+  const row = await one<{ chats: string; home: string; support: string }>(
+    `SELECT count(*) FILTER (WHERE c.kind IN ('direct', 'group') AND ${LIVE_SEASON("m")})::text AS chats,
+            count(*) FILTER (WHERE (c.kind IS NULL OR c.kind NOT IN ('direct', 'group', 'support')) AND ${LIVE_SEASON("m")})::text AS home,
+            count(*) FILTER (WHERE c.kind = 'support')::text AS support
      FROM message_recipients r
      JOIN messages m ON m.id = r.message_id
      LEFT JOIN conversations c ON c.id = m.conversation_id
-     WHERE r.user_id = $1 AND r.read_at IS NULL AND ${LIVE_SEASON("m")}`,
+     WHERE r.user_id = $1 AND r.read_at IS NULL`,
     [userId],
   );
   const chats = Number(row?.chats ?? 0);
   const home = Number(row?.home ?? 0);
-  return { total: chats + home, chats, home };
+  return { total: chats + home, chats, home, support: Number(row?.support ?? 0) };
 }
 
 export async function unreadCount(userId: string): Promise<number> {
@@ -1183,6 +1207,7 @@ export async function unseenSince(user: SessionUser, since: string | null): Prom
   const rows = await q<Row>(
     `${SELECT}
      WHERE r.user_id = $1 AND r.read_at IS NULL AND ${LIVE_SEASON("m")} AND ($2::timestamptz IS NULL OR m.created_at > $2)
+       AND c.kind IS DISTINCT FROM 'support'
      ORDER BY m.created_at DESC LIMIT 10`,
     [user.id, since],
   );
