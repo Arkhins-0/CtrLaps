@@ -401,6 +401,7 @@ private fun MainNav(vm: AppViewModel) {
             composable("compose") { Pushed("New message") { ComposeScreen { nav.popBackStack(); vm.changed() } } }
             composable("weekend/{id}") { e -> Pushed("Race weekend") { WeekendScreen(vm, e.arguments?.getString("id") ?: "", view) } }
             composable("teams") { LaunchedEffect(Unit) { peoplePage = 1; nav.navigate("people") { popUpTo("home"); launchSingleTop = true } } }
+            composable("categories") { LaunchedEffect(Unit) { peoplePage = 2; nav.navigate("people") { popUpTo("home"); launchSingleTop = true } } }
             composable("standings") { Pushed("Standings") { StandingsScreen(vm, onOpenResults = { nav.open("results/$it") }) } }
             composable("standings?season={season}") { e -> Pushed("Standings") { StandingsScreen(vm, onOpenResults = { nav.open("results/$it") }, startSeason = e.arguments?.getString("season")) } }
             composable("results/{id}") { e -> Pushed("Results") { ResultsScreen(vm, e.arguments?.getString("id") ?: "") } }

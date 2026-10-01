@@ -44,7 +44,7 @@ export function rowPoints(s: Scoring, r: { status: string; position: number | nu
 }
 
 /** Whether a session scores from the table when nobody said: not qualifying, practice, warm-up, test or shakedown. */
-export const scoresByName = (name: string): boolean => !/qualif|practi|warm|test|shakedown|\bfp\d?\b|\bq\d?\b/i.test(name);
+export const scoresByName = (name: string): boolean => !/\b(qualif\w*|practi[cs]e\w*|warm[- ]?up|test|shakedown|fp\d?|q\d?)\b/i.test(name);
 
 /** One line about a table: "25, 18, 15… · DNF 0 · pole +1 · fastest lap +1". */
 export function scoringSummary(s: Scoring): string {
