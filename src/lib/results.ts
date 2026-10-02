@@ -138,9 +138,10 @@ export async function sessionResults(sessionId: string): Promise<ResultRow[]> {
     fastest_lap: boolean;
     manual_points: boolean;
   }>(
-    `SELECT r.position, r.status, r.car_number, r.driver_name, r.user_id, r.team_id, t.name AS team_name, r.points::text AS points, r.best_lap,
-            r.pole, r.fastest_lap, r.manual_points
-     FROM session_results r LEFT JOIN teams t ON t.id = r.team_id WHERE r.session_id = $1 ORDER BY r.row_order`,
+    `SELECT r.position, r.status, r.car_number, r.driver_name, CASE WHEN u.status = 'deleted' THEN NULL ELSE r.user_id END AS user_id,
+            r.team_id, t.name AS team_name, r.points::text AS points, r.best_lap, r.pole, r.fastest_lap, r.manual_points
+     FROM session_results r LEFT JOIN teams t ON t.id = r.team_id LEFT JOIN users u ON u.id = r.user_id
+     WHERE r.session_id = $1 ORDER BY r.row_order`,
     [sessionId],
   );
   return rows.map((r) => ({
@@ -226,6 +227,16 @@ export async function saveResults(session: ResultSession, rows: ResultInput[], s
   const byName = new Map<string, string | null>();
   // A name two racers share links to neither.
   for (const r of racers) if (r.name) byName.set(r.name, byName.has(r.name) ? null : r.id);
+  // Rows of deleted accounts come back as typed names; they stay with that (empty) account, never a namesake's.
+  const gone = new Map(
+    (
+      await q<{ name: string; user_id: string }>(
+        `SELECT lower(trim(r.driver_name)) AS name, r.user_id FROM session_results r JOIN users u ON u.id = r.user_id
+         WHERE r.session_id = $1 AND u.status = 'deleted'`,
+        [session.id],
+      )
+    ).map((g) => [g.name, g.user_id]),
+  );
   const picked = rows.map((r) => r.userId).filter((id): id is string => Boolean(id));
   if (new Set(picked).size !== picked.length) throw new AuthError(400, "A driver is in the list twice.");
   const teamIds = rows.map((r) => r.teamId).filter((id): id is string => Boolean(id));
@@ -244,7 +255,9 @@ export async function saveResults(session: ResultSession, rows: ResultInput[], s
           r.status,
           r.carNumber,
           r.driverName,
-          r.userId && racerIds.has(r.userId) ? r.userId : (byName.get(r.driverName.toLowerCase()) ?? null),
+          r.userId && racerIds.has(r.userId)
+            ? r.userId
+            : (gone.get(r.driverName.trim().toLowerCase()) ?? byName.get(r.driverName.toLowerCase()) ?? null),
           r.teamId && teams.has(r.teamId) ? r.teamId : null,
           pointsOf(r),
           r.bestLap,
@@ -289,6 +302,8 @@ type StandingRow = {
   driver_name: string;
   user_id: string | null;
   user_name: string | null;
+  /** The account was deleted: the row keeps its published name and counts on its own. */
+  gone: boolean | null;
   team_id: string | null;
   team_name: string | null;
   points: string;
@@ -308,7 +323,8 @@ export async function standings(categoryId: string): Promise<{ drivers: DriverSt
   const [rows, sessions] = await Promise.all([
     q<StandingRow>(
       `SELECT r.session_id, s.starts_at, r.position, r.status, r.car_number, r.driver_name, r.user_id,
-              NULLIF(u.name, '') AS user_name, r.team_id, t.name AS team_name, r.points::text AS points, r.pole, r.fastest_lap
+              CASE WHEN u.status = 'deleted' THEN NULL ELSE NULLIF(u.name, '') END AS user_name, u.status = 'deleted' AS gone,
+              r.team_id, t.name AS team_name, r.points::text AS points, r.pole, r.fastest_lap
        FROM session_results r JOIN race_sessions s ON s.id = r.session_id
        LEFT JOIN users u ON u.id = r.user_id LEFT JOIN teams t ON t.id = r.team_id
        WHERE s.category_id = $1 ORDER BY s.starts_at, r.row_order`,
@@ -349,7 +365,7 @@ export async function standings(categoryId: string): Promise<{ drivers: DriverSt
     const podium = r.position !== null && r.position <= 3;
     const d = drivers.get(key) ?? { key, name: "", userId: null, carNumber: "", teamName: null, points: 0, wins: 0, podiums: 0, starts: 0, best: null, rounds: {} };
     // The account: picked on the row, or found by the typed name; it carries the account's own name.
-    if (r.user_id || nameOf.has(key)) d.userId = r.user_id ?? key;
+    if ((r.user_id && !r.gone) || nameOf.has(key)) d.userId = r.user_id ?? key;
     d.name = r.user_name ?? nameOf.get(key) ?? (d.userId ? d.name || r.driver_name : r.driver_name);
     if (r.car_number) d.carNumber = r.car_number;
     if (r.team_name) d.teamName = r.team_name;
@@ -396,7 +412,7 @@ export async function entrants(categoryId: string): Promise<EntrantTeam[]> {
       `SELECT u.id, COALESCE(NULLIF(u.name, ''), u.email) AS name, u.team_id,
               (SELECT r.car_number FROM session_results r JOIN race_sessions s ON s.id = r.session_id
                 WHERE r.user_id = u.id AND s.category_id = $1 AND r.car_number <> '' ORDER BY s.starts_at DESC LIMIT 1) AS car
-       FROM users u WHERE u.role = 'racer' AND ${categoryMemberSql("u", "$1")}
+       FROM users u WHERE u.role = 'racer' AND u.status <> 'deleted' AND ${categoryMemberSql("u", "$1")}
        ORDER BY lower(COALESCE(NULLIF(u.name, ''), u.email))`,
       [categoryId],
     ),
