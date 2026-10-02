@@ -45,6 +45,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Edit
@@ -154,6 +155,8 @@ fun PhotoEditor(
     firstCaption: String,
     hd: Boolean,
     onDiscard: () -> Unit,
+    /** True where the photos only join the message (the email page): the button adds them (✓) rather than sending. */
+    addOnly: Boolean = false,
     onSend: (photos: List<EditedPhoto>, hd: Boolean) -> Unit,
 ) {
     val context = LocalContext.current
@@ -288,6 +291,7 @@ fun PhotoEditor(
                             contentAlignment = Alignment.Center,
                         ) {
                             if (sending) CircularProgressIndicator(Modifier.size(22.dp), color = OnGold, strokeWidth = 2.dp)
+                            else if (addOnly) Icon(Icons.Filled.Check, contentDescription = "Add to the message", tint = OnGold, modifier = Modifier.size(24.dp))
                             else Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Send", tint = OnGold, modifier = Modifier.size(24.dp))
                             if (photos.size > 1) Box(
                                 Modifier.align(Alignment.TopEnd).size(20.dp).background(Night, CircleShape).border(1.dp, Gold, CircleShape),

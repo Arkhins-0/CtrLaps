@@ -83,6 +83,8 @@ fun FilesPage(
     onBrowseDocuments: () -> Unit,
     onGallery: () -> Unit,
     onBrowseAudio: () -> Unit,
+    /** True where the file only joins the message (the email page): it asks "Add …?" rather than "Send …?". */
+    addOnly: Boolean = false,
     onSendFile: (DeviceFile) -> Unit,
 ) {
     val context = LocalContext.current
@@ -185,8 +187,8 @@ fun FilesPage(
             AlertDialog(
                 onDismissRequest = { confirm = null },
                 containerColor = NightPanel,
-                text = { Text("Send ${f.name}?", color = Snow) },
-                confirmButton = { TextButton(onClick = { confirm = null; onSendFile(f) }) { Text("Send", color = Gold) } },
+                text = { Text("${if (addOnly) "Add" else "Send"} ${f.name}?", color = Snow) },
+                confirmButton = { TextButton(onClick = { confirm = null; onSendFile(f) }) { Text(if (addOnly) "Add" else "Send", color = Gold) } },
                 dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancel", color = SnowSoft) } },
             )
         }
