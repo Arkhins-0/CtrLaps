@@ -24,10 +24,11 @@ import com.arkhins.ctrlaps.ui.components.Panel
 import com.arkhins.ctrlaps.ui.theme.Gold
 import com.arkhins.ctrlaps.ui.theme.Snow
 import com.arkhins.ctrlaps.ui.theme.SnowFaint
+import com.arkhins.ctrlaps.ui.theme.SnowSoft
 
-/** The app's version and updates, what's new, the Terms and Privacy Policy, and Support. */
+/** The app's version and updates, what's new, the Terms, Privacy Policy and License, and Support. */
 @Composable
-fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> Unit, onSupport: () -> Unit) {
+fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> Unit, onSupport: () -> Unit, onLicense: () -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
@@ -43,6 +44,8 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
                 MenuRow("Terms and conditions", "The rules for using CTR[L]APS") { onLegal("terms") }
                 HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
                 MenuRow("Privacy Policy", "What CTR[L]APS keeps and why") { onLegal("privacy") }
+                HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
+                MenuRow("License", "Apache License 2.0 · © 2026 Arkhins", onClick = onLicense)
             }
         }
         // Support: FAQs, the support form and tickets.
@@ -55,7 +58,7 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
                 onClick = onSupport,
             )
         }
-        Text("CTR[L]APS v${BuildConfig.VERSION_NAME} · ${Config.POWERED_BY_NAME}", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+        Text("CTR[L]APS v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
     }
 }
 
@@ -84,6 +87,55 @@ private fun UpdatePanel(vm: AppViewModel) {
                 Spacer(Modifier.height(10.dp))
                 GoldButton("Update app") { vm.showUpdate() }
             }
+        }
+    }
+}
+
+/** The app's license: who holds the copyright, and the Apache License 2.0 as shipped with it (res/raw/license.txt). */
+@Composable
+fun LicenseScreen() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val text = androidx.compose.runtime.remember {
+        runCatching { context.resources.openRawResource(com.arkhins.ctrlaps.R.raw.license).bufferedReader().use { it.readText() } }.getOrDefault("")
+    }
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Panel {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("CTR[L]APS", style = MaterialTheme.typography.titleMedium, color = Snow)
+                Text("Copyright 2026 Arkhins", style = MaterialTheme.typography.bodyMedium, color = Snow)
+                Text(
+                    Config.POWERED_BY_NAME,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Gold,
+                    modifier = Modifier.clickable {
+                        runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(Config.POWERED_BY_URL))) }
+                    },
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Licensed under the Apache License, Version 2.0. You may use, copy, change and share it under the terms below; it comes with no warranty. The libraries it uses keep their own licenses.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SnowFaint,
+                )
+            }
+        }
+        // The file is wrapped for a wide screen: each paragraph is joined into one line so it flows to the phone's width.
+        val paragraphs = androidx.compose.runtime.remember(text) {
+            text.trim().split(Regex("\\n\\s*\\n")).map { p -> p.lines().joinToString(" ") { it.trim() } }.filter { it.isNotBlank() }
+        }
+        paragraphs.forEach { p ->
+            val heading = p.length < 70 && !p.endsWith(".")
+            Text(
+                p,
+                style = if (heading) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodySmall,
+                color = if (heading) Snow else SnowSoft,
+            )
         }
     }
 }
