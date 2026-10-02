@@ -137,8 +137,11 @@ fun LicenseScreen() {
     ) {
         OwnerPanel("Licensed under the Apache License, Version 2.0. You may use, copy, change and share it under the terms below; it comes with no warranty. The libraries it uses keep their own licenses.")
         // The file is wrapped for a wide screen: each paragraph is joined into one line so it flows to the phone's width.
+        // Only the terms: the appendix after them is a template for source files, with blanks to fill in.
         val paragraphs = androidx.compose.runtime.remember(text) {
-            text.trim().split(Regex("\\n\\s*\\n")).map { p -> p.lines().joinToString(" ") { it.trim() } }.filter { it.isNotBlank() }
+            val end = "END OF TERMS AND CONDITIONS"
+            val terms = text.indexOf(end).let { if (it >= 0) text.substring(0, it + end.length) else text }
+            terms.trim().split(Regex("\\n\\s*\\n")).map { p -> p.lines().joinToString(" ") { it.trim() } }.filter { it.isNotBlank() }
         }
         paragraphs.forEach { p ->
             val heading = p.length < 70 && !p.endsWith(".")
