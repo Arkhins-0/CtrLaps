@@ -1,5 +1,11 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,12 +33,14 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -42,6 +50,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -53,6 +62,7 @@ import androidx.compose.ui.zIndex
 import com.arkhins.ctrlaps.LocalApp
 import com.arkhins.ctrlaps.data.Entrant
 import com.arkhins.ctrlaps.data.EntrantTeam
+import com.arkhins.ctrlaps.data.Ok
 import com.arkhins.ctrlaps.data.SessionResult
 import com.arkhins.ctrlaps.data.SessionResultsResponse
 import com.arkhins.ctrlaps.data.pointsText
@@ -61,7 +71,6 @@ import com.arkhins.ctrlaps.ui.components.ErrorText
 import com.arkhins.ctrlaps.ui.components.Field
 import com.arkhins.ctrlaps.ui.components.GhostButton
 import com.arkhins.ctrlaps.ui.components.GoldButton
-import com.arkhins.ctrlaps.ui.components.IconAction
 import com.arkhins.ctrlaps.ui.components.Panel
 import com.arkhins.ctrlaps.ui.theme.Danger
 import com.arkhins.ctrlaps.ui.theme.Gold
@@ -109,12 +118,12 @@ private fun List<Row>.sortedRows() = filter { it.status == "finished" } + filter
 private fun List<Row>.position(key: String) = filter { it.status == "finished" }.indexOfFirst { it.key == key } + 1
 
 /**
- * Enter a session's results on the phone. The list is the finishing order: drag a card by its handle (the six dots)
- * to move it. Each card is a team, then one of its racers (or a name typed in for a late entry), the car, DNF / DNS /
- * DSQ, pole, fastest lap, best lap and points. With a points table, points fill in from it and can be typed over.
- * Saving replaces the list.
+ * Enter a session's results on the phone. The list is the finishing order: drag a row by its handle (the six dots).
+ * Each row reads "Racer (#car)", the team under it, chips for pole, fastest lap and DNF / DNS / DSQ, and the points in
+ * gold; tap it to open it and change the team, the racer (or a name typed in for a late entry), the car, the status,
+ * pole, fastest lap, best lap and points. With a points table, points fill in from it and can be typed over. Leaving
+ * with changes (Back, the header's arrow or Cancel) asks first. Saving replaces the list.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ResultsEditor(sessionId: String, data: SessionResultsResponse, onSaved: (SessionResultsResponse) -> Unit, onCancel: () -> Unit) {
     val app = LocalApp.current
@@ -124,6 +133,8 @@ fun ResultsEditor(sessionId: String, data: SessionResultsResponse, onSaved: (Ses
     var scores by remember { mutableStateOf(data.scores) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var open by remember { mutableStateOf<String?>(null) }
+    var discarding by remember { mutableStateOf(false) }
 
     // Points from the table for every row not typed by hand, with positions as the list now stands.
     fun scored(all: List<Row>, on: Boolean = scores): List<Row> = all.map { r ->
@@ -133,23 +144,27 @@ fun ResultsEditor(sessionId: String, data: SessionResultsResponse, onSaved: (Ses
             r.copy(points = if (n == 0.0) "" else pointsText(n))
         }
     }
-    var rows by remember { mutableStateOf(scored(if (data.results.isEmpty()) List(3) { Row(newKey()) } else data.results.map { it.row() })) }
+    val start = remember { scored(if (data.results.isEmpty()) List(3) { Row(newKey()) } else data.results.map { it.row() }) }
+    var rows by remember { mutableStateOf(start) }
+    val changed = rows != start || scores != data.scores
+    // Back (the system's or the header's arrow) closes the editor, asking first when something changed.
+    fun leave() { if (changed) discarding = true else onCancel() }
+    BackHandler(enabled = !busy) { leave() }
+
     fun commit(next: List<Row>) { rows = scored(next.sortedRows()) }
     fun set(key: String, f: (Row) -> Row) {
-        val changed = f(rows.first { it.key == key })
+        val edited = f(rows.first { it.key == key })
         commit(rows.map { r ->
-            when {
-                r.key == key -> changed
-                // One pole and one fastest lap: ticking one takes it from whoever had it.
-                else -> r.copy(pole = r.pole && !changed.pole, fastestLap = r.fastestLap && !changed.fastestLap)
-            }
+            if (r.key == key) edited
+            // One pole and one fastest lap: ticking one takes it from whoever had it.
+            else r.copy(pole = r.pole && !edited.pole, fastestLap = r.fastestLap && !edited.fastestLap)
         })
     }
     fun racer(id: String?): Pair<Entrant, String>? = entrants.firstNotNullOfOrNull { t -> t.racers.firstOrNull { it.id == id }?.let { it to t.id } }
     val used = rows.mapNotNull { it.userId }.toSet()
     val missing = entrants.filter { it.entered }.flatMap { t -> t.racers.map { it to t.id } }.filter { it.first.id !in used }
 
-    // Dragging: the card held, and how far it has moved from where it is laid out.
+    // Dragging: the row held, and how far it has moved from where it is laid out.
     val list = rememberLazyListState()
     var dragging by remember { mutableStateOf<String?>(null) }
     var dragY by remember { mutableFloatStateOf(0f) }
@@ -162,9 +177,8 @@ fun ResultsEditor(sessionId: String, data: SessionResultsResponse, onSaved: (Ses
         val over = items.firstOrNull { it.key != key && rows.any { r -> r.key == it.key } && centre > it.offset && centre < it.offset + it.size } ?: return
         val from = rows.indexOfFirst { it.key == key }
         val to = rows.indexOfFirst { it.key == over.key }
-        val next = rows.toMutableList().apply { add(to, removeAt(from)) }
-        rows = scored(next)
-        // The card is laid out at its new place now: keep it under the finger.
+        rows = scored(rows.toMutableList().apply { add(to, removeAt(from)) })
+        // The row is laid out at its new place now: keep it under the finger.
         dragY -= (over.offset - me.offset)
     }
     fun dropped() {
@@ -173,173 +187,263 @@ fun ResultsEditor(sessionId: String, data: SessionResultsResponse, onSaved: (Ses
         commit(rows)
     }
 
-    LazyColumn(Modifier.fillMaxSize().imePadding(), state = list, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item(key = "head") {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Results · ${data.session.name}", style = MaterialTheme.typography.titleLarge, color = Snow)
-                Text(
-                    "The list is the finishing order: hold the six dots and drag. Pick the team, then the racer; for someone without an account, choose \"Type a name\". DNF, DNS and DSQ go to the bottom.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SnowFaint,
-                )
-            }
-        }
-        if (scoring != null) item(key = "scoring") {
-            Panel {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Points from the table", style = MaterialTheme.typography.titleSmall, color = Snow)
-                        Text(scoring.summary(), style = MaterialTheme.typography.labelSmall, color = SnowFaint)
-                    }
-                    Switch(
-                        checked = scores,
-                        onCheckedChange = { on -> scores = on; rows = scored(rows, on) },
-                        colors = SwitchDefaults.colors(checkedThumbColor = OnGold, checkedTrackColor = Gold),
-                    )
-                }
-            }
-        }
-        if (missing.isNotEmpty()) item(key = "addall") {
-            GhostButton("Add all entrants · ${missing.size}", Modifier.fillMaxWidth(), enabled = !busy) {
-                commit(rows.filter { it.userId != null || it.typed || it.driverName.isNotBlank() } +
-                    missing.map { (p, team) -> Row(newKey(), teamId = team.ifEmpty { null }, userId = p.id, driverName = p.name, carNumber = p.carNumber) })
-            }
-        }
-        item(key = "error") { ErrorText(error) }
-        items(rows, key = { it.key }) { r ->
-            val held = dragging == r.key
-            ResultCard(
-                r = r,
-                position = if (r.status == "finished") rows.position(r.key) else null,
-                entrants = entrants,
-                used = used,
-                hasTable = scoring != null,
-                modifier = Modifier
-                    .zIndex(if (held) 1f else 0f)
-                    .graphicsLayer { translationY = if (held) dragY else 0f; shadowElevation = if (held) 16f else 0f }
-                    .then(if (held) Modifier else Modifier.animateItem()),
-                handle = Modifier.pointerInput(r.key) {
-                    detectDragGestures(
-                        onDragStart = { dragging = r.key; dragY = 0f },
-                        onDrag = { change, amount -> change.consume(); dragBy(amount.y) },
-                        onDragEnd = { dropped() },
-                        onDragCancel = { dropped() },
-                    )
-                },
-                onTeam = { team ->
-                    set(r.key) { x ->
-                        // A racer from another team no longer fits: the driver is chosen again.
-                        if (x.typed || racer(x.userId)?.second == (team ?: "")) x.copy(teamId = team) else x.copy(teamId = team, userId = null, driverName = "", carNumber = "")
-                    }
-                },
-                onDriver = { p, team -> set(r.key) { it.copy(userId = p.id, typed = false, driverName = p.name, teamId = team.ifEmpty { null } ?: it.teamId, carNumber = it.carNumber.ifBlank { p.carNumber }) } },
-                onType = { set(r.key) { it.copy(userId = null, typed = true, driverName = "") } },
-                onChange = { f -> set(r.key, f) },
-                onRemove = { commit(rows.filter { it.key != r.key }) },
-            )
-        }
-        item(key = "add") {
-            GhostButton("+ Add driver", Modifier.fillMaxWidth(), enabled = !busy) {
-                commit(rows.filter { it.status == "finished" } + Row(newKey()) + rows.filter { it.status != "finished" })
-            }
-        }
-        item(key = "save") {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GhostButton("Cancel", Modifier.weight(1f), enabled = !busy, onClick = onCancel)
-                GoldButton(if (busy) "Saving…" else "Save results", Modifier.weight(1f), enabled = !busy) {
-                    val kept = rows.filter { it.driverName.isNotBlank() }
-                    busy = true
-                    error = null
-                    scope.launch {
-                        try {
-                            app.api.put("/api/sessions/$sessionId/results", com.arkhins.ctrlaps.data.Ok.serializer()) {
-                                putJsonArray("results") {
-                                    kept.forEach { d ->
-                                        addJsonObject {
-                                            if (d.status == "finished") put("position", kept.position(d.key))
-                                            put("status", d.status)
-                                            put("carNumber", d.carNumber.trim())
-                                            put("driverName", d.driverName.trim())
-                                            d.userId?.let { put("userId", it) }
-                                            d.teamId?.takeIf { it.isNotEmpty() }?.let { put("teamId", it) }
-                                            put("points", d.points.toDoubleOrNull() ?: 0.0)
-                                            put("bestLap", d.bestLap.trim())
-                                            put("pole", d.pole)
-                                            put("fastestLap", d.fastestLap)
-                                            put("manualPoints", d.manual || scoring == null)
-                                        }
-                                    }
-                                }
-                                put("scores", scores)
+    fun save() {
+        val kept = rows.filter { it.driverName.isNotBlank() }
+        busy = true
+        error = null
+        scope.launch {
+            try {
+                app.api.put("/api/sessions/$sessionId/results", Ok.serializer()) {
+                    putJsonArray("results") {
+                        kept.forEach { d ->
+                            addJsonObject {
+                                if (d.status == "finished") put("position", kept.position(d.key))
+                                put("status", d.status)
+                                put("carNumber", d.carNumber.trim())
+                                put("driverName", d.driverName.trim())
+                                d.userId?.let { put("userId", it) }
+                                d.teamId?.takeIf { it.isNotEmpty() }?.let { put("teamId", it) }
+                                put("points", d.points.toDoubleOrNull() ?: 0.0)
+                                put("bestLap", d.bestLap.trim())
+                                put("pole", d.pole)
+                                put("fastestLap", d.fastestLap)
+                                put("manualPoints", d.manual || scoring == null)
                             }
-                            onSaved(app.api.get("/api/sessions/$sessionId/results", SessionResultsResponse.serializer()))
-                        } catch (e: Exception) {
-                            error = e.message ?: "Could not save."
-                        } finally {
-                            busy = false
                         }
                     }
+                    put("scores", scores)
                 }
+                onSaved(app.api.get("/api/sessions/$sessionId/results", SessionResultsResponse.serializer()))
+            } catch (e: Exception) {
+                error = e.message ?: "Could not save."
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    Column(Modifier.fillMaxSize().imePadding()) {
+        LazyColumn(Modifier.weight(1f), state = list, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item(key = "head") {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(data.session.name, style = MaterialTheme.typography.titleLarge, color = Snow)
+                    Text("Finishing order: drag by the dots. Tap a driver to change them.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                }
+            }
+            if (scoring != null) item(key = "scoring") {
+                Panel(padding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Points from the table", style = MaterialTheme.typography.titleSmall, color = Snow)
+                            Text(scoring.summary(), style = MaterialTheme.typography.labelSmall, color = SnowFaint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Switch(
+                            checked = scores,
+                            onCheckedChange = { on -> scores = on; rows = scored(rows, on) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = OnGold, checkedTrackColor = Gold),
+                        )
+                    }
+                }
+            }
+            item(key = "error") { ErrorText(error) }
+            items(rows, key = { it.key }) { r ->
+                val held = dragging == r.key
+                val team = entrants.firstOrNull { it.id.isNotEmpty() && it.id == r.teamId }?.name
+                ResultRow(
+                    r = r,
+                    position = if (r.status == "finished") rows.position(r.key) else null,
+                    teamName = team,
+                    open = open == r.key,
+                    modifier = Modifier
+                        .zIndex(if (held) 1f else 0f)
+                        .graphicsLayer { translationY = if (held) dragY else 0f; shadowElevation = if (held) 24f else 0f }
+                        .then(if (held) Modifier else Modifier.animateItem()),
+                    handle = Modifier.pointerInput(r.key) {
+                        detectDragGestures(
+                            onDragStart = { dragging = r.key; dragY = 0f },
+                            onDrag = { change, amount -> change.consume(); dragBy(amount.y) },
+                            onDragEnd = { dropped() },
+                            onDragCancel = { dropped() },
+                        )
+                    },
+                    onToggle = { open = if (open == r.key) null else r.key },
+                ) {
+                    RowEditor(
+                        r = r,
+                        entrants = entrants,
+                        used = used,
+                        hasTable = scoring != null,
+                        onTeam = { teamId ->
+                            set(r.key) { x ->
+                                // A racer from another team no longer fits: the driver is chosen again.
+                                if (x.typed || racer(x.userId)?.second == (teamId ?: "")) x.copy(teamId = teamId) else x.copy(teamId = teamId, userId = null, driverName = "", carNumber = "")
+                            }
+                        },
+                        onDriver = { p, t -> set(r.key) { it.copy(userId = p.id, typed = false, driverName = p.name, teamId = t.ifEmpty { null } ?: it.teamId, carNumber = it.carNumber.ifBlank { p.carNumber }) } },
+                        onType = { set(r.key) { it.copy(userId = null, typed = true, driverName = "") } },
+                        onChange = { f -> set(r.key, f) },
+                        onRemove = { commit(rows.filter { it.key != r.key }); open = null },
+                    )
+                }
+            }
+            item(key = "add") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GhostButton("+ Add driver", Modifier.weight(1f), enabled = !busy) {
+                        val fresh = Row(newKey())
+                        commit(rows.filter { it.status == "finished" } + fresh + rows.filter { it.status != "finished" })
+                        open = fresh.key
+                    }
+                    if (missing.isNotEmpty()) GhostButton("Add all entrants · ${missing.size}", Modifier.weight(1f), enabled = !busy) {
+                        commit(rows.filter { it.userId != null || it.typed || it.driverName.isNotBlank() } +
+                            missing.map { (p, t) -> Row(newKey(), teamId = t.ifEmpty { null }, userId = p.id, driverName = p.name, carNumber = p.carNumber) })
+                    }
+                }
+            }
+        }
+        // Save and Cancel stay at the bottom.
+        Row(
+            Modifier.fillMaxWidth().background(NightPanel).padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            GhostButton("Cancel", Modifier.weight(1f), enabled = !busy) { leave() }
+            GoldButton(if (busy) "Saving…" else "Save results", Modifier.weight(1f), enabled = !busy && changed) { save() }
+        }
+    }
+
+    if (discarding) {
+        AlertDialog(
+            onDismissRequest = { discarding = false },
+            containerColor = NightPanel,
+            title = { Text("Discard changes?", color = Snow) },
+            text = { Text("The results you changed here aren't saved.", color = SnowSoft) },
+            confirmButton = { TextButton(onClick = { discarding = false; onCancel() }) { Text("Discard", color = Danger) } },
+            dismissButton = { TextButton(onClick = { discarding = false }) { Text("Keep editing", color = Gold) } },
+        )
+    }
+}
+
+/**
+ * One driver, closed: handle, place (or DNF…), "Racer (#car)" over the team, chips (pole, fastest lap…) and the points in
+ * gold. Tapped, it opens below to [editor].
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ResultRow(
+    r: Row,
+    position: Int?,
+    teamName: String?,
+    open: Boolean,
+    modifier: Modifier,
+    handle: Modifier,
+    onToggle: () -> Unit,
+    editor: @Composable () -> Unit,
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier
+            .fillMaxWidth()
+            .background(NightPanel, shape)
+            .border(1.dp, if (open) Gold.copy(alpha = 0.5f) else NightLine, shape),
+    ) {
+        Row(Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(end = 12.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(handle.size(width = 34.dp, height = 44.dp), contentAlignment = Alignment.Center) { DragDots() }
+            PlaceBadge(position, r.status)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    (r.driverName.ifBlank { "Choose a driver" }) + if (r.carNumber.isNotBlank()) " (#${r.carNumber})" else "",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (r.driverName.isBlank()) SnowFaint else Snow,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(teamName ?: "No team", style = MaterialTheme.typography.bodySmall, color = SnowFaint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // DNF / DNS / DSQ is on the place badge already.
+                val chips = listOfNotNull(
+                    if (r.pole) "Pole" to SnowSoft else null,
+                    if (r.fastestLap) "Fastest lap" to Gold else null,
+                    if (r.typed) "No account" to SnowFaint else null,
+                    r.bestLap.takeIf { it.isNotBlank() }?.let { it to SnowFaint },
+                )
+                if (chips.isNotEmpty()) {
+                    FlowRow(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        chips.forEach { (text, tone) -> MiniChip(text, tone) }
+                    }
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            Column(horizontalAlignment = Alignment.End) {
+                Text(r.points.ifBlank { "0" }, style = MaterialTheme.typography.titleLarge, color = Gold, fontWeight = FontWeight.Bold)
+                Text(if (r.manual) "pts · set" else "pts", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+            }
+            Spacer(Modifier.width(6.dp))
+            Text("⌄", color = SnowFaint, style = MaterialTheme.typography.titleMedium, modifier = Modifier.rotate(if (open) 180f else 0f))
+        }
+        AnimatedVisibility(open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            Column(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp)) {
+                Box(Modifier.fillMaxWidth().height(1.dp).background(NightLine))
+                Spacer(Modifier.height(12.dp))
+                editor()
             }
         }
     }
 }
 
-/** One driver's card: handle and place; team and driver; car; status; pole, fastest lap, best lap and points. */
+/** A small chip on a closed row. */
+@Composable
+private fun MiniChip(text: String, tone: androidx.compose.ui.graphics.Color) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = tone,
+        modifier = Modifier.border(1.dp, tone.copy(alpha = 0.5f), RoundedCornerShape(50)).padding(horizontal = 7.dp, vertical = 1.dp),
+    )
+}
+
+/** An open row: team and driver, car, status, pole and fastest lap, best lap and points, and Remove. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ResultCard(
+private fun RowEditor(
     r: Row,
-    position: Int?,
     entrants: List<EntrantTeam>,
     used: Set<String>,
     hasTable: Boolean,
-    modifier: Modifier,
-    handle: Modifier,
     onTeam: (String?) -> Unit,
     onDriver: (Entrant, String) -> Unit,
     onType: () -> Unit,
     onChange: ((Row) -> Row) -> Unit,
     onRemove: () -> Unit,
 ) {
-    Panel(modifier, padding = PaddingValues(start = 6.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)) {
-        Row(verticalAlignment = Alignment.Top) {
-            // The handle: hold and drag.
-            Box(handle.size(width = 30.dp, height = 44.dp), contentAlignment = Alignment.Center) { DragDots() }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    PlaceBadge(position, r.status)
-                    Spacer(Modifier.width(8.dp))
-                    TeamBox(entrants, r.teamId, Modifier.weight(1f), onTeam)
-                    IconAction(Icons.Outlined.Delete, "Remove", Danger, onClick = onRemove)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (r.typed) {
-                        Field(r.driverName, { v -> onChange { it.copy(driverName = v.take(120)) } }, "Driver's name", modifier = Modifier.weight(1f))
-                    } else {
-                        DriverBox(entrants, r, used, Modifier.weight(1f), onDriver, onType)
-                    }
-                    Field(r.carNumber, { v -> onChange { it.copy(carNumber = v.take(10)) } }, "Car #", modifier = Modifier.width(76.dp))
-                }
-                if (r.typed) Text("Pick from the list instead", style = MaterialTheme.typography.labelSmall, color = Gold, modifier = Modifier.clickable { onChange { it.copy(typed = false, driverName = "") } })
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    STATUSES.forEach { (key, label) -> Chip(label, if (key == "finished") Gold else Danger, filled = r.status == key) { onChange { it.copy(status = key) } } }
-                }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-                    Chip("Pole", Gold, filled = r.pole) { onChange { it.copy(pole = !it.pole) } }
-                    Chip("Fastest lap", Gold, filled = r.fastestLap) { onChange { it.copy(fastestLap = !it.fastestLap) } }
-                    if (hasTable && r.manual) Chip("↺ Table", SnowSoft) { onChange { it.copy(manual = false) } }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Field(r.bestLap, { v -> onChange { it.copy(bestLap = v.take(20)) } }, "Best lap", modifier = Modifier.weight(1f), placeholder = "1:42.315")
-                    Field(
-                        r.points,
-                        { v -> onChange { it.copy(points = v.filter { ch -> ch.isDigit() || ch == '.' }.take(7), manual = true) } },
-                        if (hasTable && !r.manual) "Points (table)" else "Points",
-                        modifier = Modifier.weight(1f),
-                        keyboard = KeyboardType.Decimal,
-                    )
-                }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        TeamBox(entrants, r.teamId, Modifier.fillMaxWidth(), onTeam)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (r.typed) Field(r.driverName, { v -> onChange { it.copy(driverName = v.take(120)) } }, "Driver's name", modifier = Modifier.weight(1f))
+            else DriverBox(entrants, r, used, Modifier.weight(1f), onDriver, onType)
+            Field(r.carNumber, { v -> onChange { it.copy(carNumber = v.take(10)) } }, "Car #", modifier = Modifier.width(80.dp))
+        }
+        if (r.typed) Text("Pick from the list instead", style = MaterialTheme.typography.labelSmall, color = Gold, modifier = Modifier.clickable { onChange { it.copy(typed = false, driverName = "") } })
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            STATUSES.forEach { (key, label) -> Chip(label, if (key == "finished") Gold else Danger, filled = r.status == key) { onChange { it.copy(status = key) } } }
+            Chip("Pole", Gold, filled = r.pole) { onChange { it.copy(pole = !it.pole) } }
+            Chip("Fastest lap", Gold, filled = r.fastestLap) { onChange { it.copy(fastestLap = !it.fastestLap) } }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Field(r.bestLap, { v -> onChange { it.copy(bestLap = v.take(20)) } }, "Best lap", modifier = Modifier.weight(1f), placeholder = "1:42.315")
+            Field(
+                r.points,
+                { v -> onChange { it.copy(points = v.filter { ch -> ch.isDigit() || ch == '.' }.take(7), manual = true) } },
+                if (hasTable && !r.manual) "Points (table)" else "Points",
+                modifier = Modifier.weight(1f),
+                keyboard = KeyboardType.Decimal,
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (hasTable && r.manual) Chip("↺ Use the table's points", SnowSoft) { onChange { it.copy(manual = false) } }
+            Spacer(Modifier.weight(1f))
+            Row(Modifier.clickable(onClick = onRemove).padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.Icon(Icons.Outlined.Delete, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Remove", style = MaterialTheme.typography.labelLarge, color = Danger)
             }
         }
     }
@@ -397,7 +501,7 @@ private fun MenuHeading(text: String) = Text(text, style = MaterialTheme.typogra
 /** The team: the ones entered in this category first, then the others. */
 @Composable
 private fun TeamBox(entrants: List<EntrantTeam>, teamId: String?, modifier: Modifier, onPick: (String?) -> Unit) {
-    PickBox("Team", entrants.firstOrNull { it.id == (teamId ?: "") && it.id.isNotEmpty() }?.name, modifier) { close ->
+    PickBox("Team", entrants.firstOrNull { it.id.isNotEmpty() && it.id == teamId }?.name, modifier) { close ->
         val (entered, others) = entrants.filter { it.id.isNotEmpty() }.partition { it.entered }
         if (entered.isNotEmpty()) MenuHeading("ENTERED IN THIS CATEGORY")
         entered.forEach { t -> DropdownMenuItem(text = { Text(t.name, color = Snow) }, onClick = { close(); onPick(t.id) }) }
@@ -418,7 +522,7 @@ private fun DriverBox(entrants: List<EntrantTeam>, r: Row, used: Set<String>, mo
             t.racers.forEach { p ->
                 val taken = p.id in used && p.id != r.userId
                 DropdownMenuItem(
-                    text = { Text(p.name + if (p.carNumber.isNotBlank()) "  ·  #${p.carNumber}" else "", color = if (taken) SnowFaint else Snow) },
+                    text = { Text(p.name + if (p.carNumber.isNotBlank()) "  (#${p.carNumber})" else "", color = if (taken) SnowFaint else Snow) },
                     enabled = !taken,
                     onClick = { close(); onPick(p, t.id) },
                 )
@@ -427,4 +531,3 @@ private fun DriverBox(entrants: List<EntrantTeam>, r: Row, used: Set<String>, mo
         DropdownMenuItem(text = { Text("+ Type a name…", color = Gold) }, onClick = { close(); onType() })
     }
 }
-
