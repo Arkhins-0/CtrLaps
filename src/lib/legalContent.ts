@@ -101,13 +101,26 @@ const privacy: LegalDoc = {
       blocks: [
         {
           ul: [
-            "Your account and profile are kept while your account exists.",
+            "Your account and profile are kept until you delete your account (see below).",
             "Messages are grouped by season. Admins can archive a season (read-only) or delete it, which permanently removes that season’s messages.",
             "A private message you delete loses its text and attachment straight away, for both people.",
             "Sign-in attempt records are kept only as long as needed to limit repeated attempts.",
           ],
         },
         { p: "Emails and notifications that were already delivered cannot be recalled from the devices or inboxes that received them." },
+        {
+          p: "**Deleting your account.** You can delete your account yourself in the app (Account → Settings → Delete account) or on the website (Account → Delete account), or ask us to do it for you. You are signed out everywhere at once, and the account is deleted 7 days later; if you sign in again before then, the deletion is cancelled. When it is deleted:",
+        },
+        {
+          ul: [
+            "erased: your name, email, contact number, date of birth, photo, team, password, signed-in devices and notification registrations, email choices, followed categories, poll votes and event replies, group memberships, and your support tickets with their messages;",
+            "kept, shown as from “Deleted user”: the messages, photos and documents you sent in private chats and groups, so the people you wrote to keep their conversations whole (they can no longer see who you were), and announcements or channel posts you made as an organiser;",
+            "race results that were published keep the name as it was published, as part of the championship record; they are no longer linked to any account. Write to us if you want the name withheld;",
+            "our records keep only that an account was deleted, and when;",
+            "copies in our service providers’ backups are removed as those backups expire, within 30 days;",
+            "copies we cannot reach stay where they are: messages, notifications and emails already on other people’s phones or in their inboxes, and anything they saved or forwarded.",
+          ],
+        },
       ],
     },
     {
@@ -134,7 +147,7 @@ const privacy: LegalDoc = {
           ul: [
             "tell you what personal data we hold about you and who it has been shared with;",
             "correct or complete it (your profile is locked after setup, so your manager, an admin or we can change it for you);",
-            "erase it, and close your account;",
+            "erase it, and close your account: you can do this yourself at any time (see section 6), or we will do it on your request;",
             "name someone to act for you if you die or become unable to act.",
           ],
         },
@@ -241,7 +254,7 @@ const terms: LegalDoc = {
       title: "8. Ending your use",
       blocks: [
         {
-          p: `You can stop using CTR[L]APS at any time and ask us to close your account by writing to ${mail}. We may suspend or close an account that breaks these terms.`,
+          p: `You can stop using CTR[L]APS at any time and delete your account yourself (Account → Settings → Delete account in the app, or Account → Delete account on the website), or ask us to by writing to ${mail}. The account is deleted 7 days after you ask, and signing in before then cancels it. What is erased and what is kept, such as messages you sent to others and published race results, is set out in section 6 of the [Privacy Policy](/privacy). We may suspend or close an account that breaks these terms.`,
         },
       ],
     },

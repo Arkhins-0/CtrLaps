@@ -92,7 +92,7 @@ private data class Access(
  */
 /** Settings: a menu into its pages. */
 @Composable
-fun SettingsScreen(onPermissions: () -> Unit, onTheme: () -> Unit, onEmail: () -> Unit) {
+fun SettingsScreen(onPermissions: () -> Unit, onTheme: () -> Unit, onEmail: () -> Unit, onDelete: () -> Unit) {
     val context = LocalContext.current
     var items by remember { mutableStateOf(lastSeen) }
     LaunchedEffect(Unit) { items = withContext(Dispatchers.Default) { accessList(context) }.also { lastSeen = it } }
@@ -119,6 +119,7 @@ fun SettingsScreen(onPermissions: () -> Unit, onTheme: () -> Unit, onEmail: () -
                 MenuRow("Email", "Which emails you get", onClick = onEmail)
             }
         }
+        Panel { MenuRow("Delete account", "Erase your account and the details we hold", onClick = onDelete) }
     }
 }
 

@@ -487,6 +487,9 @@ data class UserResponse(
     val canSetCategories: Boolean = false,
     /** The viewer is a developer and this person an active admin: they may be made a developer, or stop being one. */
     val canSetDev: Boolean = false,
+    /** The viewer is a developer: they may delete this account on the person's request; when one waits, its date. */
+    val canDelete: Boolean = false,
+    val deletionDueAt: String? = null,
 )
 
 @Serializable

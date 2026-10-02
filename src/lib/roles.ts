@@ -15,7 +15,8 @@ export const ROLES = [
 
 export type Role = (typeof ROLES)[number];
 
-export const STATUSES = ["pending", "active", "suspended", "dismissed", "banned"] as const;
+/** `deleted` is set only by erasing an account (accountDeletion.ts), never by hand. */
+export const STATUSES = ["pending", "active", "suspended", "dismissed", "banned", "deleted"] as const;
 export type Status = (typeof STATUSES)[number];
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -46,6 +47,7 @@ export const STATUS_LABEL: Record<Status, string> = {
   suspended: "Suspended",
   dismissed: "Dismissed",
   banned: "Banned",
+  deleted: "Deleted",
 };
 
 /**

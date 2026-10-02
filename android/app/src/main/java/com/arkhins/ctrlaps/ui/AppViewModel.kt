@@ -143,7 +143,12 @@ class AppViewModel(private val app: CtrlapsApplication) : ViewModel() {
         }
     }
 
-    /** Chats stay on the phone through a sign-out or a suspension; only a ban clears them. */
+    /** This account is to be deleted: signed out, and what this phone kept of it is cleared. */
+    fun accountDeleted() {
+        viewModelScope.launch { signOutLocally(wipe = true) }
+    }
+
+    /** Chats stay on the phone through a sign-out or a suspension; only a ban (or deleting the account) clears them. */
     private suspend fun signOutLocally(wipe: Boolean = false) {
         app.session.clear()
         // Who was signed in is forgotten either way; what they saw stays unless the account was banned.
