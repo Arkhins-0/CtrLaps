@@ -20,6 +20,7 @@ export const POST = handle(async (request) => {
   if (rows.length === 0) return fail("Nobody active in those groups.");
   const result = await sendBroadcast(admin, {
     recipientIds: rows.map((r) => r.id),
+    subject: str(b.subject, 150),
     body: str(b.body, 5000),
     fileId: str(b.fileId, 64) || null,
     fileIds: uuids(b.fileIds),
