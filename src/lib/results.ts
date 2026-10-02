@@ -138,10 +138,9 @@ export async function sessionResults(sessionId: string): Promise<ResultRow[]> {
     fastest_lap: boolean;
     manual_points: boolean;
   }>(
-    `SELECT r.position, r.status, r.car_number, r.driver_name, CASE WHEN u.status = 'deleted' THEN NULL ELSE r.user_id END AS user_id,
-            r.team_id, t.name AS team_name, r.points::text AS points, r.best_lap, r.pole, r.fastest_lap, r.manual_points
-     FROM session_results r LEFT JOIN teams t ON t.id = r.team_id LEFT JOIN users u ON u.id = r.user_id
-     WHERE r.session_id = $1 ORDER BY r.row_order`,
+    `SELECT r.position, r.status, r.car_number, r.driver_name, r.user_id, r.team_id, t.name AS team_name, r.points::text AS points, r.best_lap,
+            r.pole, r.fastest_lap, r.manual_points
+     FROM session_results r LEFT JOIN teams t ON t.id = r.team_id WHERE r.session_id = $1 ORDER BY r.row_order`,
     [sessionId],
   );
   return rows.map((r) => ({
@@ -227,16 +226,11 @@ export async function saveResults(session: ResultSession, rows: ResultInput[], s
   const byName = new Map<string, string | null>();
   // A name two racers share links to neither.
   for (const r of racers) if (r.name) byName.set(r.name, byName.has(r.name) ? null : r.id);
-  // Rows of deleted accounts come back as typed names; they stay with that (empty) account, never a namesake's.
-  const gone = new Map(
-    (
-      await q<{ name: string; user_id: string }>(
-        `SELECT lower(trim(r.driver_name)) AS name, r.user_id FROM session_results r JOIN users u ON u.id = r.user_id
-         WHERE r.session_id = $1 AND u.status = 'deleted'`,
-        [session.id],
-      )
-    ).map((g) => [g.name, g.user_id]),
+  // Rows unlinked from a deleted account come back as typed names: they stay unlinked, never linked to a namesake.
+  const unlinked = new Set(
+    (await q<{ name: string }>("SELECT lower(trim(driver_name)) AS name FROM session_results WHERE session_id = $1 AND unlinked", [session.id])).map((u) => u.name),
   );
+  const stays = (r: ResultInput) => unlinked.has(r.driverName.trim().toLowerCase());
   const picked = rows.map((r) => r.userId).filter((id): id is string => Boolean(id));
   if (new Set(picked).size !== picked.length) throw new AuthError(400, "A driver is in the list twice.");
   const teamIds = rows.map((r) => r.teamId).filter((id): id is string => Boolean(id));
@@ -246,8 +240,8 @@ export async function saveResults(session: ResultSession, rows: ResultInput[], s
     await c.query("DELETE FROM session_results WHERE session_id = $1", [session.id]);
     for (const [i, r] of rows.entries()) {
       await c.query(
-        `INSERT INTO session_results (session_id, row_order, position, status, car_number, driver_name, user_id, team_id, points, best_lap, pole, fastest_lap, manual_points)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        `INSERT INTO session_results (session_id, row_order, position, status, car_number, driver_name, user_id, team_id, points, best_lap, pole, fastest_lap, manual_points, unlinked)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
         [
           session.id,
           i,
@@ -255,15 +249,14 @@ export async function saveResults(session: ResultSession, rows: ResultInput[], s
           r.status,
           r.carNumber,
           r.driverName,
-          r.userId && racerIds.has(r.userId)
-            ? r.userId
-            : (gone.get(r.driverName.trim().toLowerCase()) ?? byName.get(r.driverName.toLowerCase()) ?? null),
+          r.userId && racerIds.has(r.userId) ? r.userId : stays(r) ? null : (byName.get(r.driverName.toLowerCase()) ?? null),
           r.teamId && teams.has(r.teamId) ? r.teamId : null,
           pointsOf(r),
           r.bestLap,
           r.pole,
           r.fastestLap,
           r.manualPoints && Boolean(scoring),
+          !(r.userId && racerIds.has(r.userId)) && stays(r),
         ],
       );
     }
@@ -302,8 +295,8 @@ type StandingRow = {
   driver_name: string;
   user_id: string | null;
   user_name: string | null;
-  /** The account was deleted: the row keeps its published name and counts on its own. */
-  gone: boolean | null;
+  /** Unlinked from a deleted account: a typed name that never links to a namesake. */
+  unlinked: boolean;
   team_id: string | null;
   team_name: string | null;
   points: string;
@@ -323,7 +316,7 @@ export async function standings(categoryId: string): Promise<{ drivers: DriverSt
   const [rows, sessions] = await Promise.all([
     q<StandingRow>(
       `SELECT r.session_id, s.starts_at, r.position, r.status, r.car_number, r.driver_name, r.user_id,
-              CASE WHEN u.status = 'deleted' THEN NULL ELSE NULLIF(u.name, '') END AS user_name, u.status = 'deleted' AS gone,
+              NULLIF(u.name, '') AS user_name, r.unlinked,
               r.team_id, t.name AS team_name, r.points::text AS points, r.pole, r.fastest_lap
        FROM session_results r JOIN race_sessions s ON s.id = r.session_id
        LEFT JOIN users u ON u.id = r.user_id LEFT JOIN teams t ON t.id = r.team_id
@@ -359,13 +352,13 @@ export async function standings(categoryId: string): Promise<{ drivers: DriverSt
   // Rows come oldest first, so the latest name, car and team win.
   for (const r of rows) {
     const typed = r.driver_name.trim().toLowerCase();
-    const key = r.user_id ?? accountByName.get(typed) ?? typed;
+    const key = r.user_id ?? (r.unlinked ? typed : (accountByName.get(typed) ?? typed));
     const points = Number(r.points);
     const won = r.position === 1;
     const podium = r.position !== null && r.position <= 3;
     const d = drivers.get(key) ?? { key, name: "", userId: null, carNumber: "", teamName: null, points: 0, wins: 0, podiums: 0, starts: 0, best: null, rounds: {} };
     // The account: picked on the row, or found by the typed name; it carries the account's own name.
-    if ((r.user_id && !r.gone) || nameOf.has(key)) d.userId = r.user_id ?? key;
+    if (r.user_id || nameOf.has(key)) d.userId = r.user_id ?? key;
     d.name = r.user_name ?? nameOf.get(key) ?? (d.userId ? d.name || r.driver_name : r.driver_name);
     if (r.car_number) d.carNumber = r.car_number;
     if (r.team_name) d.teamName = r.team_name;
