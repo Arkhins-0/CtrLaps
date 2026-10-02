@@ -216,8 +216,12 @@ fun Composer(
         else -> null
     }
 
-    /** One kind at a time: picking [kind] empties the tray of any other, and says so. */
+    /**
+     * One kind at a time in a chat: picking [kind] empties the tray of any other, and says so. Where everything goes as
+     * one message (the email page), photos, documents and audio sit together.
+     */
     fun makeRoomFor(kind: String) {
+        if (!oneMessagePerFile) return
         val had = trayKind() ?: return
         if (had == kind) return
         // A recorded note lives only in cache; dropping it throws it away.
@@ -675,12 +679,14 @@ fun Composer(
                 filesOpen = false
                 pickAudioAsDocuments.launch(arrayOf("audio/*"))
             },
+            addOnly = !oneMessagePerFile,
             onSendFile = { f ->
-                // Tapped in Recents and confirmed: it goes now, as a document, on its own.
+                // Tapped in Recents and confirmed: in a chat it goes now, as a document, on its own; where everything
+                // goes as one message (the email page) it joins the tray and waits for Send.
                 filesOpen = false
                 makeRoomFor("documents")
                 docs = added(docs, listOf(f.uri), document = true)
-                doSend(false, withText = false)
+                if (oneMessagePerFile) doSend(false, withText = false)
             },
         )
     }
@@ -690,13 +696,20 @@ fun Composer(
             firstCaption = editorCaption,
             hd = editorHd,
             onDiscard = { editorPhotos = null },
+            addOnly = !oneMessagePerFile,
             onSend = { edited, hd ->
                 editorPhotos = null
-                // They go as the tray's photos do (one message each, in order), each with its own caption; whatever
-                // is typed in the message box stays there.
                 makeRoomFor("photos")
-                images = edited.map { describe(context, it.uri).copy(hd = hd, caption = it.caption) }
-                doSend(false, withText = false)
+                val picked = edited.map { describe(context, it.uri).copy(hd = hd, caption = it.caption) }
+                if (oneMessagePerFile) {
+                    // They go as the tray's photos do (one message each, in order), each with its own caption; whatever
+                    // is typed in the message box stays there.
+                    images = picked
+                    doSend(false, withText = false)
+                } else {
+                    // Everything goes as one message (the email page): they join the tray and wait for Send.
+                    images = (images + picked).take(MAX_PHOTOS)
+                }
             },
         )
     }
