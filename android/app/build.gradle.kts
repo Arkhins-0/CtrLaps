@@ -96,6 +96,13 @@ android {
         manifestPlaceholders["appLinkHost"] = appLinkHost
         buildConfigField("String", "UPDATE_URL", "\"${setting("CTRLAPS_UPDATE_URL", "ctrlaps.updateUrl")}\"")
         buildConfigField("String", "GITHUB_REPO", "\"${setting("CTRLAPS_GITHUB_REPO", "ctrlaps.githubRepo")}\"")
+        // Who made it and the organisation's domain (About → License), from POWERED_BY_NAME, POWERED_BY_DOMAIN and
+        // MAIN_DOMAIN in .env (CI: Actions variables). Blank ones are left out.
+        fun text(v: String) = "\"" + v.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+        fun domain(v: String) = v.replace(Regex("^https?://", RegexOption.IGNORE_CASE), "").trimEnd('/')
+        buildConfigField("String", "POWERED_BY_NAME", text(setting("POWERED_BY_NAME", "ctrlaps.poweredByName")))
+        buildConfigField("String", "POWERED_BY_DOMAIN", text(domain(setting("POWERED_BY_DOMAIN", "ctrlaps.poweredByDomain"))))
+        buildConfigField("String", "MAIN_DOMAIN", text(domain(setting("MAIN_DOMAIN", "ctrlaps.mainDomain"))))
     }
 
     signingConfigs {
@@ -193,3 +200,12 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 }
+
+// The app's About → License page shows the repository's own LICENSE, copied in at build time.
+val legalDir = layout.buildDirectory.dir("generated/legal")
+val copyLegal by tasks.registering(Copy::class) {
+    from(rootProject.file("../LICENSE")) { rename { "license.txt" } }
+    into(legalDir.map { it.dir("raw") })
+}
+android.sourceSets["main"].res.srcDir(legalDir)
+tasks.named("preBuild") { dependsOn(copyLegal) }

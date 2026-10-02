@@ -8,6 +8,9 @@ import "server-only";
 
 const read = (name: string, fallback = ""): string => (process.env[name] ?? fallback).trim();
 
+/** A domain as people read it: "arkhins.com", whatever scheme or slashes it was written with. */
+const domain = (v: string): string => v.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+
 export const env = {
   /** Postgres (Neon). The pooled URL is for many short connections, as on serverless. */
   databaseUrl: read("DATABASE_URL"),
@@ -50,6 +53,16 @@ export const env = {
   ).replace(/^\/+|\/+$/g, ""),
   /** Optional token so release checks are not limited to 60 an hour. */
   githubToken: read("GITHUB_TOKEN"),
+
+  /**
+   * Names shown in mails (and, at build time, in the app): who made it ("Powered by Arkhins", linking to its domain),
+   * and the organisation's main domain (on the right of every mail's header). Blank ones are left out.
+   */
+  brand: {
+    poweredByName: read("POWERED_BY_NAME"),
+    poweredByDomain: domain(read("POWERED_BY_DOMAIN")),
+    mainDomain: domain(read("MAIN_DOMAIN")),
+  },
 };
 
 export const isDatabaseConfigured = (): boolean => Boolean(env.databaseUrlPooled || env.databaseUrl);

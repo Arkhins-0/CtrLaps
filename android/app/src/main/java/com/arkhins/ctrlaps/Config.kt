@@ -21,6 +21,8 @@ object Config {
      */
     val GITHUB_REPO: String = BuildConfig.GITHUB_REPO.trim().trim('/')
 
-    const val POWERED_BY_NAME = "arkhins.com"
-    const val POWERED_BY_URL = "https://arkhins.com"
+    /** Who made it, its domain, and the organisation's main domain: from the build's settings (see build.gradle.kts). */
+    val POWERED_BY_NAME: String = BuildConfig.POWERED_BY_NAME
+    val POWERED_BY_DOMAIN: String = BuildConfig.POWERED_BY_DOMAIN
+    val MAIN_DOMAIN: String = BuildConfig.MAIN_DOMAIN
 }
