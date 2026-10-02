@@ -237,6 +237,9 @@ private fun MainNav(vm: AppViewModel) {
     var gallerySelection by remember { mutableStateOf<SelectionBar?>(null) }
 
     val back: () -> Unit = { nav.popBackStack() }
+    // The header's arrow goes back the way the system Back does, so a screen that asks first ("Discard changes?") can.
+    val backDispatcher = androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+    val headerBack: () -> Unit = { backDispatcher?.onBackPressed() ?: back() }
     /** A chat opens on top of what is showing; from inside a chat (a forward), it takes that chat's place. */
     val openChat: (String) -> Unit = { id ->
         val top = nav.currentBackStackEntry
@@ -320,7 +323,7 @@ private fun MainNav(vm: AppViewModel) {
     /** A screen opened on top: its own header with a back arrow, no footer. */
     @Composable
     fun Pushed(title: String, showCountdown: Boolean = true, header: (@Composable () -> Unit)? = null, action: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) =
-        Screen(title, onBack = back, onOpenWeekend = openWeekend, showCountdown = showCountdown, header = header, action = action, content = {
+        Screen(title, onBack = headerBack, onOpenWeekend = openWeekend, showCountdown = showCountdown, header = header, action = action, content = {
             CompositionLocalProvider(LocalOpen provides openRoute) { content() }
         })
 
