@@ -9,7 +9,8 @@ import { APP_NAME, SITE_URL } from "./config";
  * request, not hundreds — and nobody sees anyone else's address.
  */
 
-export type Recipient = { email: string; name?: string | null };
+/** `mailToken`: the account's key for its "Stop these emails" link (mails of a kind people can switch off). */
+export type Recipient = { email: string; name?: string | null; mailToken?: string | null };
 
 /** A file carried by the mail itself: its name (with an extension Brevo accepts) and its bytes in base64. */
 export type Attachment = { name: string; content: string };
@@ -35,7 +36,8 @@ export async function sendEmail(to: Recipient[], subject: string, html: string, 
       textContent: text ?? stripHtml(html),
       // Brevo needs a top-level `to` even when versions carry their own.
       to: [{ email: chunk[0].email, name: chunk[0].name || undefined }],
-      messageVersions: chunk.map((r) => ({ to: [{ email: r.email, name: r.name || undefined }] })),
+      // Each person's own values for the mail's {{params.…}} (their "Stop these emails" key).
+      messageVersions: chunk.map((r) => ({ to: [{ email: r.email, name: r.name || undefined }], ...(r.mailToken ? { params: { mailToken: r.mailToken } } : {}) })),
       ...(attachments.length ? { attachment: attachments } : {}),
     };
     const response = await fetch(BREVO_URL, {
@@ -77,6 +79,11 @@ export type MailExtras = {
   preheader?: string;
   /** Names of the files attached to the mail. */
   files?: string[];
+  /**
+   * A kind people can switch off (emailPrefs.ts): the footer gets "Stop these emails" (one click, with each
+   * person's key filled in by Brevo from {{params.mailToken}}) and "Manage email". Only when every recipient has a key.
+   */
+  unsubscribe?: { kind: string; label: string };
 };
 
 const GOLD = "#FFD100";
@@ -167,7 +174,11 @@ ${action}
 </td></tr>
 <tr><td style="padding:24px 32px 28px">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid ${LINE}"><tr><td style="padding-top:16px;font-size:12px;line-height:1.6;color:${MUTED}">
-    You are getting this because you have a ${APP_NAME} account.<br>
+    You are getting this because you have a ${APP_NAME} account.${
+      extras.unsubscribe
+        ? ` <a href="${SITE_URL}/email/unsubscribe?u={{params.mailToken}}&amp;k=${encodeURIComponent(extras.unsubscribe.kind)}" style="color:${MUTED}">Stop ${escapeHtml(extras.unsubscribe.label.toLowerCase())} emails</a> &nbsp;·&nbsp; <a href="${SITE_URL}/account#email" style="color:${MUTED}">Manage email</a>`
+        : ""
+    }<br>
     <a href="${SITE_URL}" style="color:${INK};font-weight:600;text-decoration:none">${escapeHtml(host)}</a>
     ${poweredBy}
   </td></tr></table>
@@ -271,6 +282,8 @@ export async function sendNotice(
   attachments: Attachment[] = [],
   extras: MailExtras = {},
 ) {
+  // "Stop these emails" needs each person's key; without one for everyone, the footer leaves it out.
+  const unsubscribe = extras.unsubscribe && to.length > 0 && to.every((r) => r.mailToken) ? extras.unsubscribe : undefined;
   await sendEmail(
     to,
     subject,
@@ -278,8 +291,72 @@ export async function sendNotice(
       preheader: body.replace(/\s+/g, " ").slice(0, 120),
       files: attachments.map((a) => a.name),
       ...extras,
+      unsubscribe,
     }),
     undefined,
     attachments,
   );
 }
+
+/* ───────────────────────────── Results ───────────────────────────── */
+
+export type ResultsMail = {
+  /** "LGB F4 · Race 1 results" */
+  title: string;
+  /** "Round 2 · Kari Motor Speedway · Sun 12 Oct, 3:30 pm" */
+  where: string;
+  rows: { position: number | null; status: string; carNumber: string; driverName: string; teamName: string | null; points: number; pole: boolean; fastestLap: boolean }[];
+  /** The category's leaders after it: "F4 championship after Round 2". */
+  championship: { heading: string; leaders: { name: string; points: number }[] } | null;
+  /** Points are shown only for a session that scores. */
+  showPoints: boolean;
+  link: string;
+};
+
+/**
+ * A session's results to the people who follow them: the classification (place, "Name (#car)", team, pole and
+ * fastest-lap tags, points), the championship's top three, and a button to the full results.
+ */
+export async function sendResults(to: Recipient[], r: ResultsMail) {
+  const status: Record<string, string> = { dnf: "DNF", dns: "DNS", dsq: "DSQ" };
+  const cell = (i: number) => (i ? `border-top:1px solid ${LINE};` : "");
+  const badge = (row: ResultsMail["rows"][number]) => {
+    const out = row.status !== "finished";
+    const podium = !out && row.position !== null && row.position <= 3;
+    return `<span style="display:inline-block;min-width:26px;padding:3px 6px;border-radius:7px;background:${out ? "#FDECEC" : podium ? GOLD : "#F0F0F2"};color:${out ? RED : INK};font-weight:700;font-size:12px;text-align:center">${out ? status[row.status] ?? "–" : row.position ?? "–"}</span>`;
+  };
+  const tag = (t: string, c: string) =>
+    `<span style="display:inline-block;margin-left:6px;padding:1px 7px;border:1px solid ${c};border-radius:999px;font-size:10px;font-weight:700;color:${c};vertical-align:middle">${t}</span>`;
+  const rows = r.rows
+    .map(
+      (row, i) =>
+        `<tr><td width="44" style="width:44px;padding:9px 0 9px 8px;${cell(i)}">${badge(row)}</td>` +
+        `<td style="padding:9px 8px;${cell(i)}"><div style="font-size:14px;font-weight:600;color:${INK}">${escapeHtml(row.driverName)}${row.carNumber ? ` <span style="font-weight:400;color:${MUTED}">(#${escapeHtml(row.carNumber)})</span>` : ""}${row.pole ? tag("POLE", MUTED) : ""}${row.fastestLap ? tag("FASTEST LAP", "#7A5E00") : ""}</div>` +
+        `${row.teamName ? `<div style="font-size:12px;color:${MUTED}">${escapeHtml(row.teamName)}</div>` : ""}</td>` +
+        (r.showPoints ? `<td align="right" style="padding:9px 8px;font-size:15px;font-weight:700;color:${INK};${cell(i)}">${row.points || ""}</td>` : "") +
+        `</tr>`,
+    )
+    .join("");
+  const table =
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${LINE};border-radius:12px;border-collapse:separate;white-space:normal">` +
+    `<tr><td colspan="2" style="padding:10px 8px;font-size:11px;font-weight:700;letter-spacing:1px;color:${MUTED}">RESULT</td>${r.showPoints ? `<td align="right" style="padding:10px 8px;font-size:11px;font-weight:700;letter-spacing:1px;color:${MUTED}">PTS</td>` : ""}</tr>` +
+    rows +
+    `</table>`;
+  const champ = r.championship?.leaders.length
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;background:#F7F7F8;border-radius:12px;white-space:normal"><tr><td style="padding:12px 14px">` +
+      `<div style="font-size:11px;font-weight:700;letter-spacing:1px;color:${MUTED};margin-bottom:6px">${escapeHtml(r.championship.heading.toUpperCase())}</div>` +
+      r.championship.leaders
+        .map((l, i) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="font-size:14px;color:${INK};padding:3px 0"><b>${i + 1}.</b> ${escapeHtml(l.name)}</td><td align="right" style="font-size:14px;font-weight:700;color:${INK}">${l.points}</td></tr></table>`)
+        .join("") +
+      `</td></tr></table>`
+    : "";
+  const intro = `<div style="white-space:normal;margin-bottom:14px;color:#26262B">${escapeHtml(r.where)}</div>`;
+  const podium = r.rows.filter((x) => x.status === "finished" && x.position !== null).slice(0, 3).map((x) => `${x.position}. ${x.driverName}`).join(" · ");
+  const unsubscribe = to.length > 0 && to.every((x) => x.mailToken) ? { kind: "results", label: "Results" } : undefined;
+  await sendEmail(
+    to,
+    r.title,
+    layout(r.title, intro + table + champ, { label: "See the full results", url: r.link }, { eyebrow: "Results", preheader: podium, unsubscribe }),
+  );
+}
+

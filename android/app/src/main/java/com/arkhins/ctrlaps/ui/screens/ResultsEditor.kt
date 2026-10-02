@@ -135,6 +135,9 @@ fun ResultsEditor(sessionId: String, data: SessionResultsResponse, onSaved: (Ses
     var error by remember { mutableStateOf<String?>(null) }
     var open by remember { mutableStateOf<String?>(null) }
     var discarding by remember { mutableStateOf(false) }
+    // Tell the category's followers (push, and email to those who keep it on): on the first time, off for a correction.
+    val sentBefore = data.session.notifiedAt != null
+    var notify by remember { mutableStateOf(!sentBefore) }
 
     // Points from the table for every row not typed by hand, with positions as the list now stands.
     fun scored(all: List<Row>, on: Boolean = scores): List<Row> = all.map { r ->
@@ -212,6 +215,7 @@ fun ResultsEditor(sessionId: String, data: SessionResultsResponse, onSaved: (Ses
                         }
                     }
                     put("scores", scores)
+                    put("notify", notify)
                 }
                 onSaved(app.api.get("/api/sessions/$sessionId/results", SessionResultsResponse.serializer()))
             } catch (e: Exception) {
@@ -300,13 +304,23 @@ fun ResultsEditor(sessionId: String, data: SessionResultsResponse, onSaved: (Ses
                 }
             }
         }
-        // Save and Cancel stay at the bottom.
+        // Notify, Save and Cancel stay at the bottom.
+        Row(
+            Modifier.fillMaxWidth().background(NightPanel).padding(start = 16.dp, end = 8.dp, top = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(if (sentBefore) "Notify again" else "Notify followers", style = MaterialTheme.typography.titleSmall, color = Snow)
+                Text("A push, and an email to those who keep results email on", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+            }
+            Switch(checked = notify, onCheckedChange = { notify = it }, colors = SwitchDefaults.colors(checkedThumbColor = OnGold, checkedTrackColor = Gold))
+        }
         Row(
             Modifier.fillMaxWidth().background(NightPanel).padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             GhostButton("Cancel", Modifier.weight(1f), enabled = !busy) { leave() }
-            GoldButton(if (busy) "Saving…" else "Save results", Modifier.weight(1f), enabled = !busy && changed) { save() }
+            GoldButton(if (busy) "Saving…" else "Save results", Modifier.weight(1f), enabled = !busy && (changed || notify)) { save() }
         }
     }
 

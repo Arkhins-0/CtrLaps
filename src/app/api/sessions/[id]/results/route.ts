@@ -2,7 +2,8 @@ import { body, handle, isUuid, type Params } from "@/lib/api";
 import { AuthError, requireUser } from "@/lib/auth";
 import { categoryInfo } from "@/lib/categoryChannels";
 import { fail, json } from "@/lib/http";
-import { canEnterResults, categoryScoring, entrants, resultInput, resultSession, saveResults, sessionResults, teamsForResults } from "@/lib/results";
+import { after } from "next/server";
+import { canEnterResults, categoryScoring, entrants, notifyResults, resultInput, resultSession, saveResults, sessionResults, teamsForResults } from "@/lib/results";
 import { audit } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,8 @@ export const PUT = handle<Params<"id">>(async (request, { params }) => {
   const raw = b.results;
   if (!Array.isArray(raw)) return fail("Send the results as a list.");
   await saveResults(session, raw.map(resultInput), typeof b.scores === "boolean" ? b.scores : undefined);
+  // "Notify": a push to everyone following the category, and the results email to those who keep it on.
+  if (b.notify === true) after(() => notifyResults(id));
   await audit(user.id, null, "session.results_saved", { sessionId: id, rows: raw.length });
   return json({ results: await sessionResults(id) });
 });

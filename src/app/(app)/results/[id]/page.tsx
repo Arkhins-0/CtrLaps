@@ -44,7 +44,7 @@ export default async function Results({ params }: { params: Promise<{ id: string
         )}
       </div>
       {!category && <p className="card text-sm text-snow-faint">This session has no category, so it has no results.</p>}
-      {category && <ResultsEditor sessionId={id} initial={results} canEdit={canEdit} entrants={teams} scoring={scoring} scores={session.scores} />}
+      {category && <ResultsEditor sessionId={id} initial={results} canEdit={canEdit} entrants={teams} scoring={scoring} scores={session.scores} notifiedAt={session.notifiedAt} />}
     </div>
   );
 }

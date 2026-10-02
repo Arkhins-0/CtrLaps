@@ -92,7 +92,7 @@ private data class Access(
  */
 /** Settings: a menu into its pages. */
 @Composable
-fun SettingsScreen(onPermissions: () -> Unit, onTheme: () -> Unit) {
+fun SettingsScreen(onPermissions: () -> Unit, onTheme: () -> Unit, onEmail: () -> Unit) {
     val context = LocalContext.current
     var items by remember { mutableStateOf(lastSeen) }
     LaunchedEffect(Unit) { items = withContext(Dispatchers.Default) { accessList(context) }.also { lastSeen = it } }
@@ -115,6 +115,8 @@ fun SettingsScreen(onPermissions: () -> Unit, onTheme: () -> Unit) {
                 HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
                 val mode by ThemeSetting.mode.collectAsState()
                 MenuRow("Theme", mode.label, onClick = onTheme)
+                HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
+                MenuRow("Email", "Which emails you get", onClick = onEmail)
             }
         }
     }

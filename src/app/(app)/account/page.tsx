@@ -1,6 +1,7 @@
 import QRCode from "qrcode";
 import { AccountActions } from "@/components/AccountActions";
 import { CopyButton } from "@/components/CopyButton";
+import { EmailSettings } from "@/components/EmailSettings";
 import { FollowCategories } from "@/components/FollowCategories";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { Avatar } from "@/components/Avatar";
@@ -86,6 +87,7 @@ export default async function Account() {
         <ProfileEditor profile={{ name: p.name ?? "", dob: p.dob ?? "", phone: p.phone ?? "", email: p.email, photoUrl: p.photoUrl, admin: user.role === "admin" }} />
       )}
       {user.role === "user" && <FollowCategories categories={categories} initial={following} />}
+      <EmailSettings />
       </div>
       <AccountActions appVersion={release?.version ?? null} />
     </div>

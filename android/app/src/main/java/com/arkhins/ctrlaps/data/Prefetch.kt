@@ -101,6 +101,7 @@ class Prefetch(private val app: CtrlapsApplication) {
         // Support: the FAQs, your tickets (each tab), and each ticket's chat (asked with read=0, kept where the ticket
         // page looks for it).
         keep("/api/support/faqs", FaqsResponse.serializer())
+        keep("/api/me/email-settings", EmailSettings.serializer())
         val tickets = listOf("open", "closed", "all").map { s -> async { keep("/api/support/tickets?status=$s", TicketsResponse.serializer()) } }.awaitAll()
         tickets.lastOrNull()?.tickets?.map { t ->
             async { keep("/api/support/tickets/${t.id}?read=0", TicketViewResponse.serializer(), key = "/api/support/tickets/${t.id}") }

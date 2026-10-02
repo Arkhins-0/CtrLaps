@@ -3,10 +3,15 @@ import "server-only";
 import { AuthError, type SessionUser } from "./auth";
 import { categoryMemberSql, isCategoryMember } from "./categoryChannels";
 import { categoriesOf } from "./categories";
-import { one, q, tx } from "./db";
+import { one, q, run, tx } from "./db";
 import { currentSeason, listSeasons } from "./seasons";
 import { myCategories } from "./teams";
 import { rowPoints, scoresByName, type Scoring } from "./scoring";
+import { resultsAudience } from "./emailPrefs";
+import { sendResults } from "./email";
+import { pushTo } from "./push";
+import { formatIn } from "./time";
+import { SITE_URL } from "./config";
 
 /*
  * Results and standings per race category. Results belong to a session that has a category; admins, coordinators and
@@ -44,11 +49,13 @@ export type ResultSession = {
   categoryId: string | null;
   /** Whether it scores from the points table (asked, else by its name: qualifying and practice don't). */
   scores: boolean;
+  /** When its results were first sent to the people who follow them (null: never). */
+  notifiedAt: string | null;
 };
 
 export async function resultSession(sessionId: string): Promise<ResultSession | null> {
-  const row = await one<{ id: string; name: string; starts_at: string; weekend_id: string; weekend_name: string; category_id: string | null; scores: boolean | null }>(
-    `SELECT s.id, s.name, s.starts_at, s.weekend_id, w.name AS weekend_name, s.category_id, s.scores
+  const row = await one<{ id: string; name: string; starts_at: string; weekend_id: string; weekend_name: string; category_id: string | null; scores: boolean | null; results_notified_at: string | null }>(
+    `SELECT s.id, s.name, s.starts_at, s.weekend_id, w.name AS weekend_name, s.category_id, s.scores, s.results_notified_at
      FROM race_sessions s JOIN race_weekends w ON w.id = s.weekend_id WHERE s.id = $1`,
     [sessionId],
   );
@@ -61,8 +68,46 @@ export async function resultSession(sessionId: string): Promise<ResultSession | 
         weekendName: row.weekend_name,
         categoryId: row.category_id,
         scores: row.scores ?? scoresByName(row.name),
+        notifiedAt: row.results_notified_at ? new Date(row.results_notified_at).toISOString() : null,
       }
     : null;
+}
+
+/**
+ * A session's results to the people who follow its category (their own categories, or ones they chose): a push to
+ * them all, and the results email to those who kept it on. Recorded, so the editor knows they went.
+ */
+export async function notifyResults(sessionId: string): Promise<void> {
+  const info = await one<{ name: string; starts_at: string; weekend_name: string; venue: string; timezone: string; category_id: string | null; code: string; category_name: string }>(
+    `SELECT s.name, s.starts_at, w.name AS weekend_name, w.venue, w.timezone, s.category_id, c.code, c.name AS category_name
+     FROM race_sessions s JOIN race_weekends w ON w.id = s.weekend_id JOIN categories c ON c.id = s.category_id WHERE s.id = $1`,
+    [sessionId],
+  );
+  if (!info?.category_id) return;
+  const rows = await sessionResults(sessionId);
+  if (rows.length === 0) return;
+  await run("UPDATE race_sessions SET results_notified_at = now() WHERE id = $1", [sessionId]);
+  const podium = rows.filter((r) => r.status === "finished" && r.position !== null).slice(0, 3).map((r) => `${r.position}. ${r.driverName}`).join(" · ");
+  const audience = await resultsAudience(info.category_id);
+  const link = `/results/${sessionId}`;
+  await pushTo(audience.push, { title: `${info.code} · ${info.name} results`, body: podium || "The results are in.", link, tag: `r-${sessionId}` }).catch(
+    (error) => console.error("[results] push", error),
+  );
+  if (audience.email.length === 0) return;
+  const people = await q<{ email: string; name: string | null; mail_token: string }>("SELECT email, name, mail_token FROM users WHERE id = ANY($1::uuid[])", [audience.email]);
+  const table = await standings(info.category_id);
+  const leaders = table.drivers.filter((d) => d.points > 0).slice(0, 3).map((d) => ({ name: d.name, points: d.points }));
+  await sendResults(
+    people.map((p) => ({ email: p.email, name: p.name, mailToken: p.mail_token })),
+    {
+      title: `${info.category_name} · ${info.name} results`,
+      where: [info.weekend_name, info.venue, formatIn(info.starts_at, info.timezone)].filter((x) => x && x !== "TBA").join(" · "),
+      rows: rows.map((r) => ({ position: r.position, status: r.status, carNumber: r.carNumber, driverName: r.driverName, teamName: r.teamName, points: r.points, pole: r.pole, fastestLap: r.fastestLap })),
+      championship: leaders.length ? { heading: `${info.code} championship after ${info.weekend_name}`, leaders } : null,
+      showPoints: rows.some((r) => r.points > 0),
+      link: `${SITE_URL}${link}`,
+    },
+  ).catch((error) => console.error("[results] email", error));
 }
 
 /** A category's points table, if it has one. */

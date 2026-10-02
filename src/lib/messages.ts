@@ -495,6 +495,8 @@ export async function sendBroadcast(
           body: mailBody(draft, files),
           force: Boolean(draft.forceEmail),
           files,
+          // The organisers' Email page always goes; other announcements follow each person's choice.
+          kind: draft.forceEmail ? undefined : "announcements",
         }
       : undefined,
   });
@@ -558,6 +560,7 @@ export async function postToChannel(sender: SessionUser, weekendId: string, draf
             title: `${channel.name}`,
             body: mailBody(draft, files),
             files,
+            kind: "weekend_channels",
           }
         : undefined,
   });
@@ -594,6 +597,7 @@ export async function postToCategory(sender: SessionUser, categoryId: string, dr
             title: `${category.name} (${category.code})`,
             body: mailBody(draft, files),
             files,
+            kind: "category_channels",
           }
         : undefined,
   });
@@ -765,6 +769,7 @@ export async function postGroup(sender: SessionUser, conversationId: string, dra
           title: `${name}: message from ${sender.name || sender.email}`,
           body: mailBody(draft, files),
           files,
+          kind: "chats",
         }
       : undefined,
   });
@@ -832,6 +837,7 @@ export async function postDirect(sender: SessionUser, conversationId: string, dr
             title: `Message from ${sender.name || sender.email}`,
             body: mailBody(draft, files),
             files,
+            kind: "chats",
           }
         : undefined,
   });
