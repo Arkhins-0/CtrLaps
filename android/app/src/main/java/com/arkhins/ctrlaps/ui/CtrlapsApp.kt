@@ -82,6 +82,7 @@ import com.arkhins.ctrlaps.ui.screens.SettingsScreen
 import com.arkhins.ctrlaps.ui.screens.PermissionsScreen
 import com.arkhins.ctrlaps.ui.screens.ThemeScreen
 import com.arkhins.ctrlaps.ui.screens.AboutScreen
+import com.arkhins.ctrlaps.ui.screens.EmailSettingsScreen
 import com.arkhins.ctrlaps.ui.screens.FaqScreen
 import com.arkhins.ctrlaps.ui.screens.LicenseScreen
 import com.arkhins.ctrlaps.ui.screens.SupportScreen
@@ -422,7 +423,8 @@ private fun MainNav(vm: AppViewModel) {
 
             composable("details") { Pushed("Account") { AccountDetailsScreen(vm) } }
             composable("storage") { Pushed("Storage") { StorageScreen() } }
-            composable("settings") { Pushed("Settings") { SettingsScreen(onPermissions = { nav.open("permissions") }, onTheme = { nav.open("theme") }) } }
+            composable("settings") { Pushed("Settings") { SettingsScreen(onPermissions = { nav.open("permissions") }, onTheme = { nav.open("theme") }, onEmail = { nav.open("email-settings") }) } }
+            composable("email-settings") { Pushed("Email") { EmailSettingsScreen() } }
             composable("theme") { Pushed("Theme") { ThemeScreen() } }
             composable("permissions") { Pushed("Permissions") { PermissionsScreen() } }
             composable("about") { Pushed("About") { AboutScreen(vm, onChangelog = { nav.open("changelog") }, onLegal = { nav.open("legal/$it") }, onSupport = { nav.open("support") }, onLicense = { nav.open("license") }) } }

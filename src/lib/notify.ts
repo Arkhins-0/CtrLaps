@@ -6,6 +6,7 @@ import { sendNotice, type Attachment } from "./email";
 import type { FileRow } from "./files";
 import { storage } from "./storage";
 import { pushSync, pushTo, type Push, type SyncSignal } from "./push";
+import { EMAIL_KIND_LABEL, wantsEmail, type EmailKind } from "./emailPrefs";
 import { NO_AUTO_EMAIL, type Role } from "./roles";
 import { SITE_URL } from "./config";
 
@@ -31,6 +32,11 @@ export type Delivery = {
     force?: boolean;
     /** The message's photos, documents and audio: attached to the mail itself. */
     files?: FileRow[];
+    /**
+     * The kind of mail (emailPrefs.ts): only people who kept it on get it, and its footer can stop it. Left out for
+     * mails that always go (the organisers' Email page).
+     */
+    kind?: EmailKind;
   };
 };
 
@@ -50,12 +56,18 @@ export async function deliver(d: Delivery): Promise<void> {
     await pushTo(ids, d.push).catch((error) => console.error("[notify] push", error));
     if (!d.email) return;
     const roles = d.email.force ? null : NO_AUTO_EMAIL;
-    const people = await q<{ email: string; name: string | null; role: Role }>(
-      `SELECT email, name, role FROM users
-       WHERE id = ANY($1::uuid[]) AND status = 'active'
-         AND ($2::text[] IS NULL OR NOT (role = ANY($2::text[])))`,
-      [ids, roles],
-    );
+    const kind = d.email.kind;
+    // A kind people can switch off goes only to those who kept it on.
+    const mailIds = kind ? await wantsEmail(ids, kind) : ids;
+    const people = (
+      await q<{ email: string; name: string | null; role: Role; mail_token: string }>(
+        `SELECT email, name, role, mail_token FROM users
+         WHERE id = ANY($1::uuid[]) AND status = 'active'
+           AND ($2::text[] IS NULL OR NOT (role = ANY($2::text[])))`,
+        [mailIds, roles],
+      )
+    ).map((u) => ({ email: u.email, name: u.name, mailToken: kind ? u.mail_token : null }));
+    if (people.length === 0) return;
     const { attached, skipped } = await attachmentsFor(d.email.files ?? []);
     const body = skipped.length
       ? `${d.email.body}\n\nToo large to attach here — open it in the app: ${skipped.join(", ")}`
@@ -67,6 +79,7 @@ export async function deliver(d: Delivery): Promise<void> {
       eyebrow: kinds[pop?.kind ?? ""],
       urgent: /^urgent/i.test(d.email.subject),
       sender: pop?.senderName ? { name: pop.senderName, role: pop.senderRole, place: pop.place || undefined } : undefined,
+      unsubscribe: kind ? { kind, label: EMAIL_KIND_LABEL[kind].label } : undefined,
     };
     await sendNotice(people, d.email.subject, d.email.title, body, `${SITE_URL}${d.push.link}`, attached, extras).catch(
       (error) => console.error("[notify] email", error),

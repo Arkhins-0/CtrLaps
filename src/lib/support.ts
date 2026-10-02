@@ -8,6 +8,7 @@ import { SITE_URL } from "./config";
 import { deliver, preview } from "./notify";
 import { pushTo } from "./push";
 import { insertMessage, prepareDraft, supportThread, SUPPORT_SENDER, markConversationRead, type Draft, type MessageOut } from "./messages";
+import { EMAIL_KIND_LABEL, wantsEmail } from "./emailPrefs";
 import { isDeveloper } from "./roles";
 import { REOPEN_WINDOW_MS, ticketNumber } from "./supportCategories";
 
@@ -223,15 +224,18 @@ export async function raiseTicket(user: SessionUser | null, d: TicketDraft): Pro
   }
   after(async () => {
     const link = `${SITE_URL}/support/tickets/${ticket.id}`;
-    const people = await q<{ email: string; name: string | null }>("SELECT email, name FROM users WHERE id = ANY($1::uuid[])", [devs]);
-    await sendNotice(
-      people,
+    const people = await q<{ email: string; name: string | null; mail_token: string }>(
+      "SELECT email, name, mail_token FROM users WHERE id = ANY($1::uuid[])",
+      [await wantsEmail(devs, "support")],
+    );
+    if (people.length) await sendNotice(
+      people.map((p) => ({ email: p.email, name: p.name, mailToken: p.mail_token })),
       `New ticket ${label}: ${d.subject}`,
       `${label} · ${d.subject}`,
       `${d.name} <${d.email}>${d.phone ? ` · ${d.phone}` : ""}\n${d.category}\n\n${d.details}`,
       link,
       [],
-      { eyebrow: "Support" },
+      { eyebrow: "Support", unsubscribe: SUPPORT_MAIL },
     ).catch((error) => console.error("[support] new ticket", error));
     await sendNotice(
       [{ email: d.email, name: d.name }],
@@ -272,20 +276,33 @@ export async function replyToTicket(user: SessionUser, id: string, draft: Draft)
     }
     await deliver({ messageId, recipientIds: devs.filter((x) => x !== t.user_id), push: { title: `${label} · ${user.name || user.email}`, body: text, link, tag: `t-${t.id}` } });
     after(() =>
-      sendNotice(
-        [{ email: t.email, name: t.name }],
+      raiserMail(t).then((to) => to && sendNotice(
+        [to],
         `Support replied to ${label}`,
         `${label} · ${t.subject}`,
         ready.body.trim() || text,
         `${SITE_URL}${link}`,
         [],
-        { eyebrow: "Support", sender: { name: SUPPORT_SENDER.name } },
-      ).catch((error) => console.error("[support] reply mail", error)),
+        { eyebrow: "Support", sender: { name: SUPPORT_SENDER.name }, unsubscribe: SUPPORT_MAIL },
+      )).catch((error) => console.error("[support] reply mail", error)),
     );
   } else {
     await deliver({ messageId, recipientIds: devs, push: { title: `${label} · ${t.name}`, body: text, link, tag: `t-${t.id}` } });
   }
   return messageId;
+}
+
+const SUPPORT_MAIL = { kind: "support", label: EMAIL_KIND_LABEL.support.label };
+
+/**
+ * Where a ticket's mails go: its email; for someone with an account, only while they keep Support mail on (with their
+ * key for "Stop these emails"). Someone without an account always gets them: it is the only way replies reach them.
+ */
+async function raiserMail(t: TicketRow): Promise<{ email: string; name: string; mailToken?: string } | null> {
+  if (!t.user_id) return { email: t.email, name: t.name };
+  if ((await wantsEmail([t.user_id], "support")).length === 0) return null;
+  const token = (await one<{ mail_token: string }>("SELECT mail_token FROM users WHERE id = $1", [t.user_id]))?.mail_token;
+  return { email: t.email, name: t.name, mailToken: token };
 }
 
 /** A line in the chat about the ticket itself ("Ticket closed"), not something someone said. */
@@ -313,15 +330,15 @@ export async function setTicketStatus(user: SessionUser, id: string, status: "op
     await ticketEvent(t, user, `${who} closed the ticket`);
     if (dev) {
       after(() =>
-        sendNotice(
-          [{ email: t.email, name: t.name }],
+        raiserMail(t).then((to) => to && sendNotice(
+          [to],
           `${ticketNumber(t.number)} is closed`,
           `${ticketNumber(t.number)} · ${t.subject}`,
           "Support closed this ticket. If it isn't sorted, you can reopen it within 2 days from the ticket's page.",
           `${SITE_URL}/support/tickets/${t.id}`,
           [],
-          { eyebrow: "Support" },
-        ).catch((error) => console.error("[support] closed mail", error)),
+          { eyebrow: "Support", unsubscribe: SUPPORT_MAIL },
+        )).catch((error) => console.error("[support] closed mail", error)),
       );
     }
   } else {

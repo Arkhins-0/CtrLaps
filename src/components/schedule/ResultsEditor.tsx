@@ -62,6 +62,7 @@ export function ResultsEditor({
   entrants,
   scoring = null,
   scores: initialScores = true,
+  notifiedAt = null,
 }: {
   sessionId: string;
   initial: ResultRow[];
@@ -69,11 +70,16 @@ export function ResultsEditor({
   entrants: EntrantTeam[];
   scoring?: Scoring | null;
   scores?: boolean;
+  /** When its results were last sent to the category's followers; null when never. */
+  notifiedAt?: string | null;
 }) {
   const router = useRouter();
   const [results, setResults] = useState(initial);
   const [rows, setRows] = useState<Draft[] | null>(null);
   const [scores, setScores] = useState(initialScores);
+  // Tell the category's followers (push, and email to those who keep it on): on the first time, off for a correction.
+  const [sentBefore, setSentBefore] = useState(Boolean(notifiedAt));
+  const [notify, setNotify] = useState(!notifiedAt);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dragging = useRef<string | null>(null);
@@ -161,8 +167,11 @@ export function ResultsEditor({
             manualPoints: d.manual || !scoring,
           })),
           scores,
+          notify,
         },
       });
+      if (notify) setSentBefore(true);
+      setNotify(false);
       setResults(r.results);
       setRows(null);
       router.refresh();
@@ -347,7 +356,11 @@ export function ResultsEditor({
           <button type="button" className="btn-ghost px-3 py-1.5 text-xs" onClick={() => commit([...rows.filter((r) => r.status === "finished"), blank(), ...rows.filter((r) => r.status !== "finished")])} disabled={busy}>
             + Add driver
           </button>
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-xs text-snow-soft" title="A push to everyone following this category, and an email to those who keep results email on">
+              <input type="checkbox" className="h-4 w-4 accent-gold" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+              {sentBefore ? "Notify again" : "Notify followers"}
+            </label>
             <button type="button" className="btn-ghost px-4 py-1.5 text-xs" onClick={() => { setRows(null); setError(null); }} disabled={busy}>
               Cancel
             </button>

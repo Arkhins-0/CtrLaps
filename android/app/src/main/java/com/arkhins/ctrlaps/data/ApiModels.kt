@@ -670,7 +670,31 @@ data class TeamRecord(val id: String, val name: String, val categoryIds: List<St
 data class CategoriesResponse(val categories: List<Category> = emptyList())
 
 @Serializable
-data class ResultSessionInfo(val id: String, val name: String, val startsAt: String, val weekendId: String = "", val weekendName: String = "", val categoryId: String? = null)
+data class ResultSessionInfo(
+    val id: String,
+    val name: String,
+    val startsAt: String,
+    val weekendId: String = "",
+    val weekendName: String = "",
+    val categoryId: String? = null,
+    /** When its results were last sent to the category's followers; null when never. */
+    val notifiedAt: String? = null,
+)
+
+/** Settings → Email: each kind of email on or off, and which categories' results come. */
+@Serializable
+data class EmailSettings(
+    /** False for volunteers and security: no automatic email, so nothing to choose. */
+    val automatic: Boolean = true,
+    val kinds: List<EmailKindSetting> = emptyList(),
+    val results: List<ResultsCategorySetting> = emptyList(),
+)
+
+@Serializable
+data class EmailKindSetting(val key: String, val label: String, val hint: String = "", val on: Boolean = true)
+
+@Serializable
+data class ResultsCategorySetting(val id: String, val code: String, val name: String = "", val color: String = "#FFD100", val on: Boolean = false, val mine: Boolean = false)
 
 @Serializable
 data class SessionResult(
