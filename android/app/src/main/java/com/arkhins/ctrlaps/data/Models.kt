@@ -16,6 +16,8 @@ data class AppVersionInfo(
     val releaseUrl: String,
     val apkUrl: String? = null,
     val notes: String = "",
+    /** The notes by heading, each line with the roles it is for (see ReleaseNotes.kt). */
+    val sections: List<NoteSection> = emptyList(),
 )
 
 /** The parts of GitHub's "latest release" response the fallback needs. */
@@ -35,6 +37,7 @@ internal data class GitHubRelease(
             releaseUrl = htmlUrl,
             apkUrl = apk?.browserDownloadUrl,
             notes = body.orEmpty(),
+            sections = noteSections(body.orEmpty()),
         )
     }
 }

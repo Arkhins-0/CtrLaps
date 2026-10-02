@@ -2,6 +2,7 @@ package com.arkhins.ctrlaps.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import kotlinx.serialization.builtins.ListSerializer
 import com.arkhins.ctrlaps.BuildConfig
 
 /**
@@ -21,6 +22,7 @@ class WhatsNewStore(context: Context) {
         prefs.edit()
             .putString(PENDING_VERSION, info.version)
             .putString(PENDING_NOTES, info.notes)
+            .putString(PENDING_SECTIONS, json.encodeToString(ListSerializer(NoteSection.serializer()), info.sections))
             .putString(PENDING_URL, info.releaseUrl)
             .apply()
     }
@@ -32,6 +34,7 @@ class WhatsNewStore(context: Context) {
             version = version,
             releaseUrl = prefs.getString(PENDING_URL, null).orEmpty(),
             notes = prefs.getString(PENDING_NOTES, null).orEmpty(),
+            sections = prefs.getString(PENDING_SECTIONS, null)?.let { runCatching { json.decodeFromString(ListSerializer(NoteSection.serializer()), it) }.getOrNull() }.orEmpty(),
         )
     }
 
@@ -45,7 +48,7 @@ class WhatsNewStore(context: Context) {
         prefs.edit().putString(LAST_SEEN, BuildConfig.VERSION_NAME).dropPending().apply()
     }
 
-    private fun SharedPreferences.Editor.dropPending(): SharedPreferences.Editor = remove(PENDING_VERSION).remove(PENDING_NOTES).remove(PENDING_URL)
+    private fun SharedPreferences.Editor.dropPending(): SharedPreferences.Editor = remove(PENDING_VERSION).remove(PENDING_NOTES).remove(PENDING_SECTIONS).remove(PENDING_URL)
 
     /**
      * What to show on this start: the notes of the version that was just
@@ -67,7 +70,7 @@ class WhatsNewStore(context: Context) {
         val saved = pending()
         val info = saved?.takeIf { sameVersion(it.version, current) }
             ?: runCatching { (updates.latest() as? Latest.Release)?.info }.getOrNull()?.takeIf { sameVersion(it.version, current) }
-        if (info == null || info.notes.isBlank()) {
+        if (info == null || (info.notes.isBlank() && info.sections.isEmpty())) {
             markSeen()
             return null
         }
@@ -82,5 +85,7 @@ class WhatsNewStore(context: Context) {
         const val PENDING_VERSION = "pendingVersion"
         const val PENDING_NOTES = "pendingNotes"
         const val PENDING_URL = "pendingReleaseUrl"
+        const val PENDING_SECTIONS = "pendingSections"
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
     }
 }
