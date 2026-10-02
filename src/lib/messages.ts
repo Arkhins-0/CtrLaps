@@ -470,13 +470,16 @@ export async function insertMessage(conversationId: string | null, sender: Sessi
 /** One message to chosen people below the sender. Email goes out when it is urgent or carries a document. */
 export async function sendBroadcast(
   sender: SessionUser,
-  draft: Draft & { recipientIds: string[]; forceEmail?: boolean },
+  /** `subject`: the mail's subject line and heading, as typed (the email pages); in the app it leads the message in bold. */
+  draft: Draft & { recipientIds: string[]; forceEmail?: boolean; subject?: string },
 ): Promise<{ id: string; delivered: number }> {
   const recipients = await filterBelow(sender, draft.recipientIds);
   if (recipients.length === 0) throw new AuthError(400, "Pick at least one person below you.");
   if (!hasContent(draft)) throw new AuthError(400, "Write something or attach a document.");
   const files = await checkFiles(sender, draft);
-  const id = await insertMessage(null, sender, draft, files);
+  const subject = draft.subject?.trim().replace(/\s+/g, " ") ?? "";
+  const kept = subject ? { ...draft, body: [`*${subject.replace(/\*/g, "")}*`, draft.body.trim()].filter(Boolean).join("\n") } : draft;
+  const id = await insertMessage(null, sender, kept, files);
   const text = preview(draft.body, files);
   const mail = draft.urgent || files.length > 0 || draft.forceEmail;
   await deliver({
@@ -486,8 +489,9 @@ export async function sendBroadcast(
     sync: { scope: "home" },
     email: mail
       ? {
-          subject: `${draft.urgent ? "Urgent: " : ""}${text.slice(0, 80)}`,
-          title: `Message from ${sender.name || sender.email}`,
+          // A subject typed on the email pages is the mail's subject and heading, exactly as written.
+          subject: subject || `${draft.urgent ? "Urgent: " : ""}${text.slice(0, 80)}`,
+          title: subject || `Message from ${sender.name || sender.email}`,
           body: mailBody(draft, files),
           force: Boolean(draft.forceEmail),
           files,

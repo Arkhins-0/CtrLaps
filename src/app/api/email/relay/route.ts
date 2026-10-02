@@ -39,6 +39,7 @@ export const POST = handle(async (request) => {
 
   const result = await sendBroadcast(me, {
     recipientIds: rows.map((r) => r.id),
+    subject: str(b.subject, 150),
     body: str(b.body, 5000),
     fileId: str(b.fileId, 64) || null,
     fileIds: uuids(b.fileIds),

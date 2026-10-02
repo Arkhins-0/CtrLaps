@@ -11,6 +11,8 @@ export function EmailForm({ mode, group }: { mode: "relay"; group: "volunteers" 
   const router = useRouter();
   const [roles, setRoles] = useState<Set<Role>>(new Set(ROLES));
   const [sent, setSent] = useState<number | null>(null);
+  // The mail's subject line; left empty, the first words of the message are used.
+  const [subject, setSubject] = useState("");
 
   if (sent !== null)
     return (
@@ -46,6 +48,10 @@ export function EmailForm({ mode, group }: { mode: "relay"; group: "volunteers" 
           ))}
         </div>
       )}
+      <label className="block">
+        <span className="label">Subject</span>
+        <input className="input" maxLength={150} placeholder="What the email is about" value={subject} onChange={(e) => setSubject(e.target.value)} />
+      </label>
       <MessageComposer
         urgentOption={false}
         linkPreviews={false}
@@ -54,8 +60,8 @@ export function EmailForm({ mode, group }: { mode: "relay"; group: "volunteers" 
         send={async (draft) => {
           const r =
             mode === "relay"
-              ? await api<{ delivered: number }>("/api/email/relay", { method: "POST", json: { group, body: draft.body, fileId: draft.fileId } })
-              : await api<{ delivered: number }>("/api/email/bulk", { method: "POST", json: { roles: Array.from(roles), body: draft.body, fileId: draft.fileId } });
+              ? await api<{ delivered: number }>("/api/email/relay", { method: "POST", json: { group, subject, body: draft.body, fileId: draft.fileId } })
+              : await api<{ delivered: number }>("/api/email/bulk", { method: "POST", json: { roles: Array.from(roles), subject, body: draft.body, fileId: draft.fileId } });
           setSent(r.delivered);
         }}
       />

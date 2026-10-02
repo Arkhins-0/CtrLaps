@@ -40,6 +40,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -718,8 +719,13 @@ fun EmailScreen(group: String?, onSent: () -> Unit) {
     val app = LocalApp.current
     var roles by remember { mutableStateOf(ROLE_ORDER.toSet()) }
     var sent by remember { mutableStateOf<Int?>(null) }
+    // The mail's subject line; left empty, the first words of the message are used.
+    var subject by remember { mutableStateOf("") }
 
-    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(
+        Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).imePadding().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         val s = sent
         if (s != null) {
             Panel {
@@ -748,17 +754,20 @@ fun EmailScreen(group: String?, onSent: () -> Unit) {
                 }
             }
         }
+        Field(subject, { subject = it.take(150) }, "Subject", placeholder = "What the email is about")
         // One email, all the files attached to it.
         Composer(placeholder = "What everyone needs to know", urgentOption = false, sendLabel = "Send email", voiceNoteSends = false, oneMessagePerFile = false, linkPreviews = false) { d ->
             val r = if (group != null) {
                 app.api.post("/api/email/relay", SentResponse.serializer()) {
                     put("group", group)
+                    put("subject", subject.trim())
                     put("body", d.body)
                     putJsonArray("fileIds") { d.fileIds.forEach { add(it) } }
                 }
             } else {
                 app.api.post("/api/email/bulk", SentResponse.serializer()) {
                     putJsonArray("roles") { roles.forEach { add(it) } }
+                    put("subject", subject.trim())
                     put("body", d.body)
                     putJsonArray("fileIds") { d.fileIds.forEach { add(it) } }
                 }
