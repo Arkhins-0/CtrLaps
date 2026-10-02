@@ -1,6 +1,15 @@
 package com.arkhins.ctrlaps.ui.screens
 
 import androidx.compose.animation.animateContentSize
+import com.arkhins.ctrlaps.data.Category
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.key
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -77,25 +86,90 @@ private fun Place(position: Int?, status: String = "finished", size: Int = 32) {
 }
 
 /**
- * A season's standings (the current one, or [startSeason]; archived seasons keep theirs), one race category at a
- * time. Drivers ranked by points with wins and podiums; tap one for their points session by session (R1, R2…, as the
- * website's grid). Then the teams, and the sessions with results.
+ * A season's standings (the current one, or [startSeason]; archived seasons keep theirs), one race category per page:
+ * swipe left and right to move between categories, or tap one's chip (the chips follow the swipe). Each page: drivers
+ * ranked by points with wins and podiums (tap one for their points session by session, R1, R2…, as the website's
+ * grid), the teams, and the sessions with results.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun StandingsScreen(vm: AppViewModel, onOpenResults: (String) -> Unit, startSeason: String? = null) {
     val app = LocalApp.current
-    var chosen by rememberSaveable { mutableStateOf<String?>(null) }
     var season by rememberSaveable { mutableStateOf(startSeason) }
-    var open by rememberSaveable { mutableStateOf<String?>(null) }
-    var data by remember { mutableStateOf<StandingsResponse?>(null) }
+    var head by remember { mutableStateOf<StandingsResponse?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(chosen, season, vm.refreshTick) {
-        val query = listOfNotNull(season?.let { "season=$it" }, chosen?.let { "category=$it" }).joinToString("&")
-        val path = "/api/standings" + if (query.isEmpty()) "" else "?$query"
+    // The season as it first opens: its categories, and which one to start on (your own first).
+    LaunchedEffect(season, vm.refreshTick) {
+        val path = "/api/standings" + (season?.let { "?season=$it" } ?: "")
         try {
-            data = app.store.get(path, StandingsResponse.serializer()) { if (data?.categoryId != it.categoryId || data?.seasonId != it.seasonId || data == null) data = it }
+            head = app.store.get(path, StandingsResponse.serializer()) { if (head == null || head?.seasonId != it.seasonId) head = it }
+            error = null
+        } catch (e: Exception) {
+            if (head == null) error = e.message
+        }
+    }
+
+    val h = head
+    when {
+        error != null && h == null -> Box(Modifier.fillMaxSize().padding(16.dp)) { ErrorText(error) }
+        h == null -> Box(Modifier.fillMaxSize().padding(16.dp)) { Loading() }
+        else -> Column(Modifier.fillMaxSize()) {
+            // Past seasons keep their standings.
+            if (h.seasons.size > 1) {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    h.seasons.forEach { s -> Chip(s.name, SnowSoft, filled = s.id == h.seasonId) { if (s.id != h.seasonId) season = s.id } }
+                }
+            }
+            if (h.categories.isEmpty()) {
+                Box(Modifier.padding(16.dp)) { Empty("This season has no race categories yet.") }
+                return@Column
+            }
+            // A pager per season: a new season starts again on its own first category.
+            key(h.seasonId) {
+                val scope = rememberCoroutineScope()
+                val start = h.categories.indexOfFirst { it.id == h.categoryId }.coerceAtLeast(0)
+                val pager = rememberPagerState(initialPage = start) { h.categories.size }
+                val chips = rememberLazyListState()
+                // The chips follow the swipe: the current one is kept in view.
+                LaunchedEffect(pager.currentPage) { chips.animateScrollToItem((pager.currentPage - 1).coerceAtLeast(0)) }
+                LazyRow(
+                    state = chips,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    itemsIndexed(h.categories, key = { _, c -> c.id }) { i, c ->
+                        Chip(c.code, categoryColor(c), filled = i == pager.currentPage) { scope.launch { pager.animateScrollToPage(i) } }
+                    }
+                }
+                // A past season is asked for by id; the current one without, as the background download keeps it.
+                val pastSeason = h.seasonId?.takeIf { id -> h.seasons.firstOrNull { it.id == id }?.current == false }
+                HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = 1, key = { h.categories[it].id }) { page ->
+                    val c = h.categories[page]
+                    CategoryStandings(vm, pastSeason, c, if (c.id == h.categoryId) h else null, onOpenResults)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One category's page: drivers, teams and the sessions with results. [pastSeason] is set for an archived season;
+ * [first] is data already loaded for it, if any.
+ */
+@Composable
+private fun CategoryStandings(vm: AppViewModel, pastSeason: String?, category: Category, first: StandingsResponse?, onOpenResults: (String) -> Unit) {
+    val app = LocalApp.current
+    var data by remember(category.id) { mutableStateOf(first) }
+    var error by remember(category.id) { mutableStateOf<String?>(null) }
+    var open by rememberSaveable(category.id) { mutableStateOf<String?>(null) }
+    // Asked the way the background download keeps it (see Prefetch), so it opens offline.
+    LaunchedEffect(category.id, pastSeason, vm.refreshTick) {
+        try {
+            val path = "/api/standings?" + listOfNotNull(pastSeason?.let { "season=$it" }, "category=${category.id}").joinToString("&")
+            data = app.store.get(path, StandingsResponse.serializer()) { if (data == null) data = it }
             error = null
         } catch (e: Exception) {
             if (data == null) error = e.message
@@ -103,27 +177,14 @@ fun StandingsScreen(vm: AppViewModel, onOpenResults: (String) -> Unit, startSeas
     }
 
     val d = data
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when {
             error != null && d == null -> item { ErrorText(error) }
             d == null -> item { Loading() }
             else -> {
-                // Past seasons keep their standings.
-                if (d.seasons.size > 1) item {
-                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        d.seasons.forEach { s -> Chip(s.name, SnowSoft, filled = s.id == d.seasonId) { if (s.id != d.seasonId) { season = s.id; chosen = null } } }
-                    }
-                }
-                if (d.categories.isEmpty()) item { Empty("This season has no race categories yet.") }
-                else item {
-                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        d.categories.forEach { c -> Chip(c.code, categoryColor(c), filled = c.id == d.categoryId) { chosen = c.id } }
-                    }
-                }
-                val category = d.categories.firstOrNull { it.id == d.categoryId }
                 // Sessions oldest first, as R1, R2…
                 val rounds = d.sessions
-                if (category != null) item {
+                item {
                     Panel(padding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)) {
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -139,7 +200,7 @@ fun StandingsScreen(vm: AppViewModel, onOpenResults: (String) -> Unit, startSeas
                         }
                     }
                 }
-                if (category != null && d.teams.isNotEmpty()) item {
+                if (d.teams.isNotEmpty()) item {
                     Panel(padding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)) {
                         Column {
                             SectionTitle("${category.name} · TEAMS".uppercase())
@@ -156,7 +217,7 @@ fun StandingsScreen(vm: AppViewModel, onOpenResults: (String) -> Unit, startSeas
                         }
                     }
                 }
-                if (category != null && rounds.isNotEmpty()) item {
+                if (rounds.isNotEmpty()) item {
                     Panel(padding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)) {
                         Column {
                             SectionTitle("SESSIONS")
