@@ -16,8 +16,8 @@ import { audit } from "./users";
  * - erased: name, email, phone, date of birth, photo, team, password, sessions and phone links, email choices and
  *   follows, votes and event replies, receipts, group memberships, and support tickets with their chat;
  * - kept, from "Deleted user": what they sent in private chats and groups (the other people's conversation stays
- *   whole), and announcements and channel posts they made as an organiser; race results keep the published name and
- *   count on their own (they point at the empty account, which holds nothing personal);
+ *   whole), and announcements and channel posts they made as an organiser; race results keep the published name as a
+ *   typed name, unlinked from the account (and never linked to a namesake);
  * - the account row stays as an empty "Deleted user" (status `deleted`), so other people's conversations keep their
  *   shape; its codes are replaced, so its old QR and account code no longer work. The audit log keeps only "an
  *   account was deleted".
@@ -97,8 +97,8 @@ export async function eraseAccount(userId: string): Promise<void> {
     }
     await c.query("DELETE FROM login_attempts WHERE lower(email) = $1", [email]);
     await c.query("DELETE FROM signups WHERE lower(email) = $1", [email]);
-    // Results stay as published, still pointing at this (now empty) account so its points stay together and never join
-    // a namesake's; they show the published name (results.ts).
+    // Results stay as published: unlinked, a typed name, and marked so they never link to a namesake (results.ts).
+    await c.query("UPDATE session_results SET user_id = NULL, unlinked = true WHERE user_id = $1", [userId]);
     // Files they uploaded that nothing uses any more.
     const unused = (
       await c.query<{ id: string; key: string }>(

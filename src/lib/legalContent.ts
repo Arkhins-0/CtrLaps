@@ -115,7 +115,7 @@ const privacy: LegalDoc = {
           ul: [
             "erased: your name, email, contact number, date of birth, photo, team, password, signed-in devices and notification registrations, email choices, followed categories, poll votes and event replies, group memberships, and your support tickets with their messages;",
             "kept, shown as from “Deleted user”: the messages, photos and documents you sent in private chats and groups, so the people you wrote to keep their conversations whole (they can no longer see who you were), and announcements or channel posts you made as an organiser;",
-            "race results that were published keep the name as it was published, as part of the championship record, but are no longer linked to your profile or any of your details. Write to us if you want the name withheld;",
+            "race results that were published keep the name as it was published, as part of the championship record, but are unlinked from your account: the name stays only as typed text. Write to us if you want the name withheld;",
             "our records keep only that an account was deleted, and when;",
             "copies in our service providers’ backups are removed as those backups expire, within 30 days;",
             "copies we cannot reach stay where they are: messages, notifications and emails already on other people’s phones or in their inboxes, and anything they saved or forwarded.",
