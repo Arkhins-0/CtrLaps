@@ -14,4 +14,3 @@ export const SITE_URL = (
 /** SITE_URL without the scheme, for showing to people. */
 export const SITE_HOST = SITE_URL.replace(/^https?:\/\//, "");
 
-export const POWERED_BY = { name: "arkhins.com", url: "https://arkhins.com" };

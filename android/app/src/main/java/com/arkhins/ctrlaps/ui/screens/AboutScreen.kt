@@ -45,7 +45,7 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
                 HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
                 MenuRow("Privacy Policy", "What CTR[L]APS keeps and why") { onLegal("privacy") }
                 HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                MenuRow("License", "Apache License 2.0 · © 2026 Arkhins", onClick = onLicense)
+                MenuRow("License", listOfNotNull("Apache License 2.0", Config.POWERED_BY_NAME.takeIf { it.isNotBlank() }?.let { "© 2026 $it" }).joinToString(" · "), onClick = onLicense)
             }
         }
         // Support: FAQs, the support form and tickets.
@@ -91,13 +91,43 @@ private fun UpdatePanel(vm: AppViewModel) {
     }
 }
 
-/** The app's license: who holds the copyright, and the Apache License 2.0 as shipped with it (res/raw/license.txt). */
+/** The app's license text, from the repository's LICENSE (copied into the build: res/raw). */
+@Composable
+private fun legalText(raw: Int): String {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    return androidx.compose.runtime.remember(raw) {
+        runCatching { context.resources.openRawResource(raw).bufferedReader().use { it.readText() } }.getOrDefault("")
+    }
+}
+
+/** Who made it and the domain, from the build's settings; blank ones are left out. */
+@Composable
+private fun OwnerPanel(summary: String) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    Panel {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("CTR[L]APS", style = MaterialTheme.typography.titleMedium, color = Snow)
+            if (Config.POWERED_BY_NAME.isNotBlank()) Text("Copyright 2026 ${Config.POWERED_BY_NAME}", style = MaterialTheme.typography.bodyMedium, color = Snow)
+            if (Config.POWERED_BY_DOMAIN.isNotBlank()) {
+                Text(
+                    Config.POWERED_BY_DOMAIN,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Gold,
+                    modifier = Modifier.clickable {
+                        runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://${Config.POWERED_BY_DOMAIN}"))) }
+                    },
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(summary, style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+        }
+    }
+}
+
+/** The app's license: who holds the copyright, and the Apache License 2.0 (the repository's LICENSE). */
 @Composable
 fun LicenseScreen() {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val text = androidx.compose.runtime.remember {
-        runCatching { context.resources.openRawResource(com.arkhins.ctrlaps.R.raw.license).bufferedReader().use { it.readText() } }.getOrDefault("")
-    }
+    val text = legalText(com.arkhins.ctrlaps.R.raw.license)
     Column(
         Modifier
             .fillMaxSize()
@@ -105,26 +135,7 @@ fun LicenseScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Panel {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("CTR[L]APS", style = MaterialTheme.typography.titleMedium, color = Snow)
-                Text("Copyright 2026 Arkhins", style = MaterialTheme.typography.bodyMedium, color = Snow)
-                Text(
-                    Config.POWERED_BY_NAME,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Gold,
-                    modifier = Modifier.clickable {
-                        runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(Config.POWERED_BY_URL))) }
-                    },
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "Licensed under the Apache License, Version 2.0. You may use, copy, change and share it under the terms below; it comes with no warranty. The libraries it uses keep their own licenses.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SnowFaint,
-                )
-            }
-        }
+        OwnerPanel("Licensed under the Apache License, Version 2.0. You may use, copy, change and share it under the terms below; it comes with no warranty. The libraries it uses keep their own licenses.")
         // The file is wrapped for a wide screen: each paragraph is joined into one line so it flows to the phone's width.
         val paragraphs = androidx.compose.runtime.remember(text) {
             text.trim().split(Regex("\\n\\s*\\n")).map { p -> p.lines().joinToString(" ") { it.trim() } }.filter { it.isNotBlank() }

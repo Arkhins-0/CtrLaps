@@ -1,7 +1,7 @@
 import "server-only";
 
 import { env, isEmailConfigured } from "./env";
-import { APP_NAME, POWERED_BY, SITE_URL } from "./config";
+import { APP_NAME, SITE_URL } from "./config";
 
 /*
  * Transactional email through Brevo's HTTP API. One call can carry many
@@ -111,6 +111,12 @@ export function layout(title: string, bodyHtml: string, button?: { label: string
   const accent = extras.urgent ? RED : GOLD;
   const eyebrow = extras.urgent ? `Urgent${extras.eyebrow ? ` · ${extras.eyebrow}` : ""}` : extras.eyebrow;
   const host = SITE_URL.replace(/^https?:\/\//, "");
+  // From the settings (POWERED_BY_NAME, POWERED_BY_DOMAIN, MAIN_DOMAIN); a blank one is left out.
+  const { mainDomain, poweredByName, poweredByDomain } = env.brand;
+  const byName = poweredByName || poweredByDomain;
+  const poweredBy = byName
+    ? `&nbsp;·&nbsp; Powered by ${poweredByDomain ? `<a href="https://${escapeHtml(poweredByDomain)}" style="color:${MUTED}">${escapeHtml(byName)}</a>` : escapeHtml(byName)}`
+    : "";
   const label = eyebrow
     ? `<p style="margin:0 0 12px"><span style="display:inline-block;background:${extras.urgent ? "#FDECEC" : "#FFF6CC"};color:${extras.urgent ? RED : "#7A5E00"};font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;padding:5px 10px;border-radius:999px">${escapeHtml(eyebrow)}</span></p>`
     : "";
@@ -144,9 +150,10 @@ ${extras.preheader ? `<div style="display:none;max-height:0;overflow:hidden;opac
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#FFFFFF;border-radius:18px;overflow:hidden">
 <tr><td style="background:${INK};padding:20px 28px">
-  <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-    <td style="padding-right:12px;vertical-align:middle"><img src="${SITE_URL}/logo.png" width="40" height="40" alt="" style="display:block;border:0;border-radius:10px"></td>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+    <td style="padding-right:12px;vertical-align:middle;width:40px"><img src="${SITE_URL}/logo.png" width="40" height="40" alt="" style="display:block;border:0;border-radius:10px"></td>
     <td style="vertical-align:middle;color:${GOLD};font-weight:800;font-size:20px;letter-spacing:1px">${APP_NAME}</td>
+    ${mainDomain ? `<td align="right" style="vertical-align:middle;text-align:right;font-size:13px;font-weight:600;letter-spacing:0.5px"><a href="https://${escapeHtml(mainDomain)}" style="color:#FFFFFF;text-decoration:none">${escapeHtml(mainDomain)}</a></td>` : ""}
   </tr></table>
 </td></tr>
 <tr><td style="font-size:0;line-height:0">${chequer()}</td></tr>
@@ -162,7 +169,7 @@ ${action}
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid ${LINE}"><tr><td style="padding-top:16px;font-size:12px;line-height:1.6;color:${MUTED}">
     You are getting this because you have a ${APP_NAME} account.<br>
     <a href="${SITE_URL}" style="color:${INK};font-weight:600;text-decoration:none">${escapeHtml(host)}</a>
-    &nbsp;·&nbsp; Powered by <a href="${POWERED_BY.url}" style="color:${MUTED}">${escapeHtml(POWERED_BY.name)}</a>
+    ${poweredBy}
   </td></tr></table>
 </td></tr>
 </table>

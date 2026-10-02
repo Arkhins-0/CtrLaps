@@ -57,6 +57,9 @@ jobs:
           CTRLAPS_BASE_URL: ${{ vars.CTRLAPS_BASE_URL }}
           CTRLAPS_UPDATE_URL: ${{ vars.CTRLAPS_UPDATE_URL || '' }}
           CTRLAPS_GITHUB_REPO: ${{ vars.CTRLAPS_GITHUB_REPO || github.repository }}
+          POWERED_BY_NAME: ${{ vars.POWERED_BY_NAME || '' }}
+          POWERED_BY_DOMAIN: ${{ vars.POWERED_BY_DOMAIN || '' }}
+          MAIN_DOMAIN: ${{ vars.MAIN_DOMAIN || '' }}
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease assembleDebug --no-daemon --stacktrace \
