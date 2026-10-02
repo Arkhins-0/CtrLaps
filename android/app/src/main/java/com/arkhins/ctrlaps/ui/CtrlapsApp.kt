@@ -164,11 +164,12 @@ fun CtrlapsApp() {
         // The first open after an update shows what changed; a newer release, if any, waits until that is closed.
         val whatsNew = vm.whatsNew
         if (whatsNew != null) {
-            WhatsNewDialog(info = whatsNew, onDismiss = vm::dismissWhatsNew)
+            WhatsNewDialog(info = whatsNew, onDismiss = vm::dismissWhatsNew, role = vm.me?.user?.role)
         }
         val update = vm.updateInfo
         if (whatsNew == null && update != null && !vm.updateDismissed) {
             UpdateAvailableDialog(
+                role = vm.me?.user?.role,
                 info = update,
                 stage = vm.updateStage,
                 onUpdate = vm::downloadAndInstall,
@@ -434,7 +435,7 @@ private fun MainNav(vm: AppViewModel) {
                 var t by remember { mutableStateOf("Ticket") }
                 Pushed(t) { TicketScreen(vm, e.arguments?.getString("id") ?: "", view) { t = it } }
             }
-            composable("changelog") { Pushed("What's new") { ChangelogScreen() } }
+            composable("changelog") { Pushed("What's new") { ChangelogScreen(vm.me?.user?.role) } }
             composable("legal/{doc}") { e ->
                 var t by remember { mutableStateOf("") }
                 Pushed(t) { LegalScreen(e.arguments?.getString("doc") ?: "privacy", onOpen = { nav.open("legal/$it") }, onTitle = { t = it }) }

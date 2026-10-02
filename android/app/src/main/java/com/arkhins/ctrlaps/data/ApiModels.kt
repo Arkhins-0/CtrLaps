@@ -311,7 +311,7 @@ data class LegalSection(val title: String, val blocks: List<LegalBlock> = emptyL
 data class LegalBlock(val p: String? = null, val ul: List<String>? = null)
 
 @Serializable
-data class ChangelogEntry(val version: String, val date: String = "", val changes: List<String> = emptyList())
+data class ChangelogEntry(val version: String, val date: String = "", val changes: List<String> = emptyList(), val sections: List<NoteSection> = emptyList())
 
 @Serializable
 data class ChangelogResponse(val releases: List<ChangelogEntry> = emptyList())

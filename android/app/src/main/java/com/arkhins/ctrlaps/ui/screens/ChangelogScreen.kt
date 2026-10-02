@@ -44,7 +44,7 @@ private val releaseDate: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM 
 
 /** Every version of the app, newest first, with what changed in each. The installed one is marked. */
 @Composable
-fun ChangelogScreen() {
+fun ChangelogScreen(role: String? = null) {
     val app = LocalApp.current
     var releases by remember { mutableStateOf<List<ChangelogEntry>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -63,13 +63,13 @@ fun ChangelogScreen() {
             error != null && list == null -> item { ErrorText(error) }
             list == null -> item { Loading() }
             list.isEmpty() -> item { Empty("No releases yet.") }
-            else -> items(list, key = { it.version }) { r -> Release(r) }
+            else -> items(list, key = { it.version }) { r -> Release(r, role) }
         }
     }
 }
 
 @Composable
-private fun Release(r: ChangelogEntry) {
+private fun Release(r: ChangelogEntry, role: String?) {
     Panel {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -83,16 +83,8 @@ private fun Release(r: ChangelogEntry) {
                 if (date != null) Text(date, style = MaterialTheme.typography.labelSmall, color = SnowFaint)
             }
             Spacer(Modifier.height(8.dp))
-            if (r.changes.isEmpty()) {
-                Text("Small fixes and improvements.", style = MaterialTheme.typography.bodySmall, color = SnowSoft)
-            }
-            r.changes.forEach { change ->
-                Row(Modifier.padding(vertical = 2.dp)) {
-                    Text("•", style = MaterialTheme.typography.bodySmall, color = Gold)
-                    Spacer(Modifier.width(8.dp))
-                    Text(change, style = MaterialTheme.typography.bodySmall, color = SnowSoft)
-                }
-            }
+            // By heading, only the lines for this person's role (an older server sends plain lines).
+            com.arkhins.ctrlaps.ui.components.ReleaseNotes(r.sections, r.changes, role)
         }
     }
 }

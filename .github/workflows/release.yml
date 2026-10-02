@@ -96,17 +96,17 @@ jobs:
         with:
           name: apks
           path: apks
-      - name: Write the changelog
-        # Every commit since the last tag becomes the release body. The app
-        # shows this in its update popup, so it has to read as a changelog.
+      - name: Release notes
+        # The notes written for the people who use the app (release-notes/<version>.md, see its README), not the
+        # commit messages. The app's What's new and update popup show them. No file, no release.
         run: |
-          previous=$(git describe --tags --abbrev=0 "${{ github.ref_name }}^" 2>/dev/null || true)
-          range="${previous:+$previous..}${{ github.ref_name }}"
-          {
-            echo "## What changed"
-            echo
-            git log --no-merges --pretty='- %s' "$range" | grep -v '^- Version [0-9]' || echo "- Small fixes and improvements."
-          } > NOTES.md
+          version="${{ github.ref_name }}"
+          file="release-notes/${version#v}.md"
+          if [ ! -s "$file" ]; then
+            echo "::error::$file is missing: write the release notes for ${version} before tagging."
+            exit 1
+          fi
+          cp "$file" NOTES.md
           cat NOTES.md
       - name: Rename and checksum
         run: |

@@ -20,11 +20,19 @@ const CHECK_INTERVAL_MS = 30 * 60 * 1000;
 // taps must still collapse into one call.
 const FORCED_INTERVAL_MS = 60 * 1000;
 
+/** One line of release notes, and the roles it is for (empty: everyone). */
+export type NoteItem = { text: string; roles: string[] };
+/** A heading of release notes (New, Improved, Fixed; "" before any heading) and its lines. */
+export type NoteSection = { title: string; items: NoteItem[] };
+
 export type ReleaseInfo = {
   version: string;
   releaseUrl: string;
   apkUrl: string | null;
+  /** The changes as plain lines ("- …"), for older apps: no headings, no role tags. */
   notes: string;
+  /** The same changes by heading, each line with the roles it is for (the app shows a person only theirs). */
+  sections: NoteSection[];
 };
 
 let cache: { at: number; info: ReleaseInfo | null } | null = null;
@@ -37,17 +45,35 @@ const headers = (accept = "application/vnd.github+json"): Record<string, string>
   ...(env.githubToken ? { Authorization: `Bearer ${env.githubToken}` } : {}),
 });
 
-/** A release body's lines of changes: no headings, no link footer, and not the "; v0.1.2.3" a release commit ends with. */
-function noteLines(body: string): string[] {
-  return body
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#") && !line.includes("Full Changelog"))
-    .map((line) => line.replace(/;\s*v\d+(\.\d+)+\s*$/i, ""));
+/**
+ * Release notes (release-notes/<version>.md, also each GitHub release's body) by heading: "## New" starts a section,
+ * "- [admin, coordinator] …" is a line for those roles only, "- …" one for everyone.
+ */
+export function noteSections(body: string): NoteSection[] {
+  const sections: NoteSection[] = [];
+  for (const raw of body.split("\n")) {
+    const line = raw.trim();
+    if (!line || line.includes("Full Changelog")) continue;
+    const heading = line.match(/^#{1,6}\s+(.*)$/);
+    if (heading) {
+      sections.push({ title: heading[1].trim(), items: [] });
+      continue;
+    }
+    // Older releases' lines ended "; v0.1.2.3" (their release commit); that goes.
+    const m = line.replace(/^[-*]\s*/, "").replace(/;\s*v\d+(\.\d+)+\s*$/i, "").match(/^(?:\[([a-z_,\s]+)\]\s*)?(.+)$/i);
+    if (!m) continue;
+    const roles = m[1] ? m[1].split(",").map((r) => r.trim().toLowerCase()).filter(Boolean) : [];
+    if (sections.length === 0) sections.push({ title: "", items: [] });
+    sections[sections.length - 1].items.push({ text: m[2].trim(), roles });
+  }
+  return sections.filter((x) => x.items.length > 0);
 }
 
-/** The release body reduced to the list of changes, for the app's update card. */
-const changesOnly = (body: string): string => noteLines(body).join("\n").slice(0, 600);
+/** Plain lines for older apps: every line, its role tag left out (they can't tell roles apart). */
+const plainItems = (sections: NoteSection[]): string[] => sections.flatMap((x) => x.items.map((i) => i.text));
+
+/** The release body reduced to the list of changes, for older apps' update card. */
+const changesOnly = (body: string): string => plainItems(noteSections(body)).map((t) => `- ${t}`).join("\n").slice(0, 600);
 
 async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
   if (!env.githubRepo) return null;
@@ -73,6 +99,7 @@ async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
       releaseUrl: data.html_url,
       apkUrl: apk ? `${SITE_URL}/api/app-version/apk?v=${encodeURIComponent(version)}` : null,
       notes: changesOnly(data.body ?? ""),
+      sections: noteSections(data.body ?? ""),
     };
   } catch {
     return null;
@@ -93,15 +120,10 @@ export async function latestRelease(force = false): Promise<ReleaseInfo | null> 
   return resolved;
 }
 
-export type ChangelogEntry = { version: string; date: string; changes: string[] };
+/** `changes`: plain lines for older apps; `sections`: by heading, with each line's roles. */
+export type ChangelogEntry = { version: string; date: string; changes: string[]; sections: NoteSection[] };
 
 let listCache: { at: number; list: ChangelogEntry[] } | null = null;
-
-/** The changes as plain lines, their bullets stripped, for the "What's new" page. */
-const changeLines = (body: string): string[] =>
-  noteLines(body)
-    .map((line) => line.replace(/^[-*]\s*/, "").trim())
-    .filter(Boolean);
 
 /**
  * Every published release, newest first, for the app's "What's new" page.
@@ -116,7 +138,10 @@ export async function allReleases(): Promise<ChangelogEntry[]> {
     const data = (await response.json()) as { tag_name?: string; published_at?: string; body?: string; draft?: boolean; prerelease?: boolean }[];
     const list = data
       .filter((r) => r.tag_name && !r.draft && !r.prerelease)
-      .map((r) => ({ version: r.tag_name!.replace(/^v/i, ""), date: r.published_at ?? "", changes: changeLines(r.body ?? "") }));
+      .map((r) => {
+        const sections = noteSections(r.body ?? "");
+        return { version: r.tag_name!.replace(/^v/i, ""), date: r.published_at ?? "", changes: plainItems(sections), sections };
+      });
     listCache = { at: Date.now(), list };
     return list;
   } catch {

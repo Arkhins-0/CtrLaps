@@ -41,6 +41,8 @@ fun UpdateAvailableDialog(
     onOpenReleasePage: () -> Unit,
     onDismiss: () -> Unit,
     whatsNew: Boolean = false,
+    /** The person's role: lines of the notes meant for other roles are left out. */
+    role: String? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -53,7 +55,7 @@ fun UpdateAvailableDialog(
         },
         text = {
             Column {
-                if (whatsNew) Notes(info.notes) else when (stage) {
+                if (whatsNew) Notes(info, role) else when (stage) {
                     is UpdateStage.Downloading -> {
                         Text("Downloading ${Config.APP_NAME} v${info.version}…")
                         Spacer(Modifier.height(12.dp))
@@ -81,11 +83,11 @@ fun UpdateAvailableDialog(
                     is UpdateStage.Failed -> Text(stage.message)
                     UpdateStage.Idle -> {
                         Text("${Config.APP_NAME} v${info.version} is ready. It downloads here in the app.")
-                        if (info.notes.isNotBlank()) {
+                        if (info.notes.isNotBlank() || info.sections.isNotEmpty()) {
                             Spacer(Modifier.height(12.dp))
                             Text("What changed", style = MaterialTheme.typography.labelLarge)
                             Spacer(Modifier.height(4.dp))
-                            Notes(info.notes)
+                            Notes(info, role)
                         }
                     }
                 }
@@ -114,14 +116,12 @@ fun UpdateAvailableDialog(
 
 /** The release notes, scrolling past a certain height so a long release does not push the buttons off screen. */
 @Composable
-private fun Notes(notes: String) {
-    Text(
-        notes.trim(),
-        style = MaterialTheme.typography.bodySmall,
-        color = SnowFaint,
-        modifier = Modifier
-            .heightIn(max = 200.dp)
-            .verticalScroll(rememberScrollState()),
+private fun Notes(info: AppVersionInfo, role: String?) {
+    ReleaseNotes(
+        info.sections,
+        info.notes.lines().map { it.trim().removePrefix("-").removePrefix("*").trim() }.filter { it.isNotEmpty() && !it.startsWith("#") },
+        role,
+        Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState()),
     )
 }
 
@@ -131,7 +131,7 @@ private fun Notes(notes: String) {
  * download or install — only a button to close it.
  */
 @Composable
-fun WhatsNewDialog(info: AppVersionInfo, onDismiss: () -> Unit) {
+fun WhatsNewDialog(info: AppVersionInfo, onDismiss: () -> Unit, role: String? = null) {
     UpdateAvailableDialog(
         info = info,
         stage = UpdateStage.Idle,
