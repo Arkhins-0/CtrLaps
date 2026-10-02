@@ -713,7 +713,11 @@ fun NewPersonScreen(me: Me?, onCreated: (String) -> Unit) {
     }
 }
 
-/** The coordinator's relay to volunteers/security, or the admin's mail to ticked roles. */
+/**
+ * The coordinator's relay to volunteers/security, or the admin's mail to the chosen roles. The groups (chips) scroll on
+ * their own above; the subject and the message box stay at the bottom and rise with the keyboard, as in a chat.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun EmailScreen(group: String?, onSent: () -> Unit) {
     val app = LocalApp.current
@@ -722,12 +726,9 @@ fun EmailScreen(group: String?, onSent: () -> Unit) {
     // The mail's subject line; left empty, the first words of the message are used.
     var subject by remember { mutableStateOf("") }
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).imePadding().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        val s = sent
-        if (s != null) {
+    val s = sent
+    if (s != null) {
+        Column(Modifier.fillMaxSize().padding(16.dp)) {
             Panel {
                 Column {
                     Text("Sent to $s ${if (s == 1) "person" else "people"}.", color = Snow)
@@ -735,44 +736,60 @@ fun EmailScreen(group: String?, onSent: () -> Unit) {
                     GoldButton("Back to people", onClick = onSent)
                 }
             }
-            return@Column
         }
-        Text(
-            if (group != null) "Goes by email and as an urgent message to your $group." else "Tick the groups. Every active person in them gets the email and an urgent message.",
-            style = MaterialTheme.typography.bodySmall,
-            color = SnowSoft,
-        )
-        if (group == null) {
-            Panel {
-                Column {
-                    ROLE_ORDER.forEach { r ->
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { roles = if (r in roles) roles - r else roles + r }) {
-                            Checkbox(r in roles, { roles = if (it) roles + r else roles - r }, colors = CheckboxDefaults.colors(checkedColor = Gold))
-                            Text(ROLE_LABELS[r] ?: r, style = MaterialTheme.typography.bodyMedium, color = Snow)
+        return
+    }
+    Column(Modifier.fillMaxSize().imePadding()) {
+        // Who it goes to: scrolls on its own, so the message box below never leaves the screen.
+        Column(
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                if (group != null) "Goes by email and as an urgent message to your $group." else "Pick the groups. Every active person in them gets the email and an urgent message.",
+                style = MaterialTheme.typography.bodySmall,
+                color = SnowSoft,
+            )
+            if (group == null) {
+                Panel {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("To · ${roles.size} of ${ROLE_ORDER.size} groups", style = MaterialTheme.typography.titleSmall, color = Snow, modifier = Modifier.weight(1f))
+                            Chip("All", Gold, filled = roles.size == ROLE_ORDER.size) { roles = ROLE_ORDER.toSet() }
+                            Spacer(Modifier.width(6.dp))
+                            Chip("None", SnowSoft, filled = roles.isEmpty()) { roles = emptySet() }
+                        }
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            ROLE_ORDER.forEach { r ->
+                                Chip(ROLE_LABELS[r] ?: r, Gold, filled = r in roles) { roles = if (r in roles) roles - r else roles + r }
+                            }
                         }
                     }
                 }
             }
         }
-        Field(subject, { subject = it.take(150) }, "Subject", placeholder = "What the email is about")
-        // One email, all the files attached to it.
-        Composer(placeholder = "What everyone needs to know", urgentOption = false, sendLabel = "Send email", voiceNoteSends = false, oneMessagePerFile = false, linkPreviews = false) { d ->
-            val r = if (group != null) {
-                app.api.post("/api/email/relay", SentResponse.serializer()) {
-                    put("group", group)
-                    put("subject", subject.trim())
-                    put("body", d.body)
-                    putJsonArray("fileIds") { d.fileIds.forEach { add(it) } }
+        // The subject and the message, at the bottom, above the keyboard.
+        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Field(subject, { subject = it.take(150) }, "Subject", placeholder = "What the email is about")
+            // One email, all the files attached to it.
+            Composer(placeholder = "What everyone needs to know", urgentOption = false, sendLabel = "Send email", voiceNoteSends = false, oneMessagePerFile = false, linkPreviews = false) { d ->
+                val r = if (group != null) {
+                    app.api.post("/api/email/relay", SentResponse.serializer()) {
+                        put("group", group)
+                        put("subject", subject.trim())
+                        put("body", d.body)
+                        putJsonArray("fileIds") { d.fileIds.forEach { add(it) } }
+                    }
+                } else {
+                    app.api.post("/api/email/bulk", SentResponse.serializer()) {
+                        putJsonArray("roles") { roles.forEach { add(it) } }
+                        put("subject", subject.trim())
+                        put("body", d.body)
+                        putJsonArray("fileIds") { d.fileIds.forEach { add(it) } }
+                    }
                 }
-            } else {
-                app.api.post("/api/email/bulk", SentResponse.serializer()) {
-                    putJsonArray("roles") { roles.forEach { add(it) } }
-                    put("subject", subject.trim())
-                    put("body", d.body)
-                    putJsonArray("fileIds") { d.fileIds.forEach { add(it) } }
-                }
+                sent = r.delivered
             }
-            sent = r.delivered
         }
     }
 }
