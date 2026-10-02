@@ -110,14 +110,19 @@ fun CategoriesEditorScreen(onSaved: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
+    // The phone's copy first (it opens offline), then the server's; an edit in progress is left alone.
     LaunchedEffect(Unit) {
-        try {
-            val r = app.api.get("/api/teams", TeamsResponse.serializer())
+        fun show(r: TeamsResponse) {
+            if (rows != null && rows != original) return
             seasonId = r.seasonId
             rows = r.categories.map { CategoryDraft(it.id, it.name, it.code, it.color, it.scoring) }
             original = rows.orEmpty()
+        }
+        try {
+            show(app.store.get("/api/teams", TeamsResponse.serializer()) { show(it) })
+            error = null
         } catch (e: Exception) {
-            error = e.message
+            if (rows == null) error = e.message
         }
     }
 
@@ -315,11 +320,13 @@ fun TeamsScreen() {
     // Categories tapped on a card but not saved yet, by team.
     var drafts by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
 
+    // The phone's copy first (it opens offline), then the server's.
     LaunchedEffect(Unit) {
         try {
-            data = app.api.get("/api/teams", TeamsResponse.serializer())
+            data = app.store.get("/api/teams", TeamsResponse.serializer()) { if (data == null) data = it }
+            error = null
         } catch (e: Exception) {
-            error = e.message
+            if (data == null) error = e.message
         }
     }
     // Every change answers with the whole list; keep the categories we already have.

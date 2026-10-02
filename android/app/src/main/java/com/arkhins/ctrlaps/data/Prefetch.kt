@@ -24,8 +24,11 @@ import java.util.concurrent.TimeUnit
  * any page opens at once and works with no signal: the account, the next
  * race, seasons, race weekends and their channels, the announcements,
  * people and each person's page, every chat and group with all their
- * attachments and profile photos, the channels list, archived seasons,
- * What's new and the legal pages. It runs when the app starts, whenever
+ * attachments and profile photos, the channels list and each race
+ * category's channel, standings (every category, this season and archived
+ * ones) and each session's results, teams and categories, the FAQs and
+ * support tickets, archived seasons, What's new and the legal pages. It
+ * runs when the app starts, whenever
  * the network comes back, and every 15 minutes through WorkManager even
  * while the app is closed. Nothing fetched here is marked read.
  */
@@ -57,7 +60,13 @@ class Prefetch(private val app: CtrlapsApplication) {
             async { keep("/api/me", Me.serializer())?.let { photos += it.user.photoUrl } },
             async { keep("/api/next-race", NextRace.serializer()) },
             async { keep("/api/messages", MessagesResponse.serializer())?.messages?.forEach { photos += it.sender?.photoUrl } },
-            async { keep("/api/channels", ChannelsResponse.serializer()) },
+            // The channels list, and each race category's channel in it (read=0, kept where its page looks).
+            async {
+                keep("/api/channels", ChannelsResponse.serializer())?.categories?.forEach { c ->
+                    keep("/api/categories/${c.id}/channel?read=0", CategoryChannelResponse.serializer(), key = "/api/categories/${c.id}/channel")
+                        ?.messages?.forEach { photos += it.sender?.photoUrl }
+                }
+            },
             async { keep("/api/app-version/releases", ChangelogResponse.serializer()) },
             async { keep("/api/legal/privacy", LegalDoc.serializer()) },
             async { keep("/api/legal/terms", LegalDoc.serializer()) },
@@ -67,9 +76,34 @@ class Prefetch(private val app: CtrlapsApplication) {
             async { keep("/api/events/upcoming", UpcomingEventsResponse.serializer())?.let { EventReminders.sync(app, it.events) } },
         ).awaitAll()
 
-        // Seasons, and each archived one's read-only record.
-        keep("/api/seasons", SeasonsResponse.serializer())?.seasons?.filter { it.status == "archived" }?.map { s ->
+        // Seasons, and each archived one's read-only record and standings.
+        val seasons = keep("/api/seasons", SeasonsResponse.serializer())?.seasons.orEmpty()
+        seasons.filter { it.status == "archived" }.map { s ->
             async { keep("/api/seasons/${s.id}?archive=1", SeasonArchive.serializer()) }
+        }.awaitAll()
+
+        // Standings: the page as it first opens, every category of this season, and archived seasons' (the trophy on
+        // an archived season); and each session with results. Paths as StandingsScreen and ResultsScreen ask them.
+        val sessions = mutableSetOf<String>()
+        suspend fun standings(path: String) = keep(path, StandingsResponse.serializer())?.also { r -> r.sessions.forEach { sessions += it.id } }
+        val first = standings("/api/standings")
+        first?.categories?.map { c -> async { standings("/api/standings?category=${c.id}") } }?.awaitAll()
+        seasons.filter { it.status == "archived" }.map { s ->
+            async {
+                standings("/api/standings?season=${s.id}")?.categories?.forEach { c -> standings("/api/standings?season=${s.id}&category=${c.id}") }
+            }
+        }.awaitAll()
+        sessions.map { id -> async { keep("/api/sessions/$id/results", SessionResultsResponse.serializer()) } }.awaitAll()
+
+        // Teams and the season's categories (People → Teams / Categories; refused for those who can't see them).
+        keep("/api/teams", TeamsResponse.serializer())
+
+        // Support: the FAQs, your tickets (each tab), and each ticket's chat (asked with read=0, kept where the ticket
+        // page looks for it).
+        keep("/api/support/faqs", FaqsResponse.serializer())
+        val tickets = listOf("open", "closed", "all").map { s -> async { keep("/api/support/tickets?status=$s", TicketsResponse.serializer()) } }.awaitAll()
+        tickets.lastOrNull()?.tickets?.map { t ->
+            async { keep("/api/support/tickets/${t.id}?read=0", TicketViewResponse.serializer(), key = "/api/support/tickets/${t.id}") }
         }?.awaitAll()
 
         // Race weekends and their channels (asked with read=0, kept where the weekend page looks for them).
