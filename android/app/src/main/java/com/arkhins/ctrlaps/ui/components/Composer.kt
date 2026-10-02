@@ -217,12 +217,12 @@ fun Composer(
     }
 
     /**
-     * One kind at a time in a chat: picking [kind] empties the tray of any other, and says so. Where everything goes as
-     * one message (the email page), photos, documents and audio sit together.
+     * Photos, documents and audio sit in the tray together (each still goes as its own message in a chat, or all in
+     * one email). Only a location, which goes as the message's text, makes way for files, and files for it.
      */
     fun makeRoomFor(kind: String) {
-        if (!oneMessagePerFile) return
         val had = trayKind() ?: return
+        if (kind != "a location" && had != "a location") return
         if (had == kind) return
         // A recorded note lives only in cache; dropping it throws it away.
         audios.forEach { p -> if (p.uri.scheme == "file") p.uri.path?.let { runCatching { File(it).delete() } } }

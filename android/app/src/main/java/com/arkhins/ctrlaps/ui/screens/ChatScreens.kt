@@ -871,6 +871,10 @@ fun ChatScreen(
                     // them onto the phone, uploads them and posts them in the background, even with the chat closed.
                     val batch = UUID.randomUUID().toString()
                     val now = Instant.now().toString()
+                    // Photos picked together are one grid (one batch, each with its place); documents and audio sent
+                    // with them stay separate messages, posted in the order they were picked.
+                    val isPhoto = { p: com.arkhins.ctrlaps.ui.components.Picked -> p.mime.startsWith("image/") && !p.document }
+                    val photos = files.filter(isPhoto)
                     val items = files.mapIndexed { i, p ->
                         val file = FileInfo("local-" + UUID.randomUUID(), p.name, p.mime, p.size, document = p.document)
                         Queued(
@@ -887,8 +891,8 @@ fun ChatScreen(
                                 mine = true,
                                 replyTo = if (i == 0) replyingTo?.let(::refOf) else null,
                                 status = "pending",
-                                batchId = if (files.size > 1) batch else null,
-                                batchPos = if (files.size > 1) i else null,
+                                batchId = if (isPhoto(p) && photos.size > 1) batch else null,
+                                batchPos = if (isPhoto(p) && photos.size > 1) photos.indexOf(p) else null,
                             ),
                             replyToId = if (i == 0) replyingTo?.id else null,
                             file = OutgoingFile(app.chatMedia.pathFor(file).path, p.name, p.mime, p.size, hd = p.hd),
