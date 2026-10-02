@@ -83,6 +83,7 @@ import com.arkhins.ctrlaps.ui.screens.PermissionsScreen
 import com.arkhins.ctrlaps.ui.screens.ThemeScreen
 import com.arkhins.ctrlaps.ui.screens.AboutScreen
 import com.arkhins.ctrlaps.ui.screens.FaqScreen
+import com.arkhins.ctrlaps.ui.screens.LicenseScreen
 import com.arkhins.ctrlaps.ui.screens.SupportScreen
 import com.arkhins.ctrlaps.ui.screens.TicketFormScreen
 import com.arkhins.ctrlaps.ui.screens.TicketScreen
@@ -423,7 +424,8 @@ private fun MainNav(vm: AppViewModel) {
             composable("settings") { Pushed("Settings") { SettingsScreen(onPermissions = { nav.open("permissions") }, onTheme = { nav.open("theme") }) } }
             composable("theme") { Pushed("Theme") { ThemeScreen() } }
             composable("permissions") { Pushed("Permissions") { PermissionsScreen() } }
-            composable("about") { Pushed("About") { AboutScreen(vm, onChangelog = { nav.open("changelog") }, onLegal = { nav.open("legal/$it") }, onSupport = { nav.open("support") }) } }
+            composable("about") { Pushed("About") { AboutScreen(vm, onChangelog = { nav.open("changelog") }, onLegal = { nav.open("legal/$it") }, onSupport = { nav.open("support") }, onLicense = { nav.open("license") }) } }
+            composable("license") { Pushed("License") { LicenseScreen() } }
             composable("support") { Pushed("Support") { SupportScreen(vm, onFaqs = { nav.open("support/faqs") }, onForm = { nav.open("support/new") }, onTickets = { nav.open("support/tickets") }) } }
             composable("support/faqs") { Pushed("FAQs") { FaqScreen(vm) } }
             composable("support/new") { Pushed("Support form") { TicketFormScreen(vm) { id -> nav.navigate("support/ticket/$id") { popUpTo("support") } } } }
