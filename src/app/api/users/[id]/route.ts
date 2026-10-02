@@ -9,6 +9,7 @@ import { currentSeason } from "@/lib/seasons";
 import { assignedCategories, syncTeamIds, teamCategories } from "@/lib/teams";
 import { one } from "@/lib/db";
 import { audit, qrUrl, toPublic, userById } from "@/lib/users";
+import { deletionDue } from "@/lib/accountDeletion";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,9 @@ export const GET = handle<Params<"id">>(async (_request, { params }) => {
     canSetCategories: assignable && user.id !== me.id && (me.role === "admin" || me.role === "coordinator" || canEdit(me, user)),
     // A developer may make another active admin a developer, or take it back.
     canSetDev: isDeveloper(me) && user.id !== me.id && user.role === "admin" && user.status === "active",
+    // A developer may delete someone's account on their request (7 days' wait); when one is waiting, its date.
+    canDelete: isDeveloper(me) && user.id !== me.id && user.status !== "deleted",
+    deletionDueAt: isDeveloper(me) ? await deletionDue(user.id) : null,
   });
 });
 
@@ -72,7 +76,7 @@ export const PATCH = handle<Params<"id">>(async (request, { params }) => {
     changes.team_name = str(b.teamName, 80) || null;
   }
   if (b.status !== undefined) {
-    if (!isStatus(b.status) || b.status === "pending") return fail("Not a valid status.");
+    if (!isStatus(b.status) || b.status === "pending" || b.status === "deleted") return fail("Not a valid status.");
     if (user.status === "pending" && b.status !== "banned" && b.status !== "dismissed")
       return fail("The account is not set up yet; the person must accept their invite first.");
     changes.status = b.status;

@@ -17,7 +17,7 @@ const seesUnassigned = (user: Pick<SessionUser, "role">): boolean => user.role =
 /** Everyone below a person: their direct reports and theirs, all the way down, plus unassigned users for a coordinator. Admins see everyone. */
 export async function descendants(user: Pick<SessionUser, "id" | "role">): Promise<UserRow[]> {
   if (user.role === "admin") {
-    return q<UserRow>(`SELECT ${USER_COLUMNS} FROM users WHERE id <> $1 ORDER BY role, name NULLS LAST, email`, [
+    return q<UserRow>(`SELECT ${USER_COLUMNS} FROM users WHERE id <> $1 AND status <> 'deleted' ORDER BY role, name NULLS LAST, email`, [
       user.id,
     ]);
   }
@@ -27,7 +27,7 @@ export async function descendants(user: Pick<SessionUser, "id" | "role">): Promi
        UNION
        SELECT u.id FROM users u JOIN below b ON u.parent_id = b.id
      )
-     SELECT ${USER_COLUMNS} FROM users WHERE id IN (SELECT id FROM below) OR ($2 AND role = 'user')
+     SELECT ${USER_COLUMNS} FROM users WHERE status <> 'deleted' AND (id IN (SELECT id FROM below) OR ($2 AND role = 'user'))
      ORDER BY role, name NULLS LAST, email`,
     [user.id, seesUnassigned(user)],
   );

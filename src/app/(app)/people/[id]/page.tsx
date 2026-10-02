@@ -3,6 +3,8 @@ import QRCode from "qrcode";
 import { Avatar } from "@/components/Avatar";
 import { PersonPhoto } from "@/components/EditablePhoto";
 import { CopyButton } from "@/components/CopyButton";
+import { DeletePersonAccount } from "@/components/DeleteAccount";
+import { deletionDue } from "@/lib/accountDeletion";
 import { DeveloperToggle } from "@/components/DeveloperToggle";
 import { PersonActions } from "@/components/PersonActions";
 import { PromoteForm } from "@/components/PromoteForm";
@@ -90,6 +92,10 @@ export default async function Person({ params }: { params: Promise<{ id: string 
         canChat={canChat(me, user)}
         coordinators={coordinators.map((c) => ({ id: c.id, name: c.name || c.email }))}
       />
+
+      {isDeveloper(me) && user.id !== me.id && user.status !== "deleted" && (
+        <DeletePersonAccount personId={p.id} name={p.name ?? p.email} dueAt={await deletionDue(user.id)} />
+      )}
     </div>
   );
 }

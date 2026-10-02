@@ -9,6 +9,7 @@ import {
   tooManyAttempts,
   verifyPassword,
 } from "@/lib/auth";
+import { cancelDeletion } from "@/lib/accountDeletion";
 import { one } from "@/lib/db";
 import { clientAddress, fail, json } from "@/lib/http";
 import { userByEmail, toPublic } from "@/lib/users";
@@ -43,7 +44,9 @@ export const POST = handle(async (request) => {
   if (user.status !== "active") return fail(`This account is ${user.status}.`, 403);
 
   await clearAttempts(email);
+  // Signing in while the account waits to be deleted keeps it.
+  const kept = await cancelDeletion(user.id, user.id);
   const token = await createSession(user.id, platform);
   if (platform === "web") (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions());
-  return json({ token: platform === "android" ? token : undefined, user: toPublic(user) });
+  return json({ token: platform === "android" ? token : undefined, user: toPublic(user), deletionCancelled: kept || undefined });
 });

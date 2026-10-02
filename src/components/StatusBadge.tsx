@@ -6,6 +6,7 @@ const tone: Record<Status, string> = {
   suspended: "border-amber-500/40 bg-amber-500/10 text-amber-300",
   dismissed: "border-snow/20 bg-snow/5 text-snow-faint",
   banned: "border-danger/40 bg-danger/10 text-danger",
+  deleted: "border-snow/20 bg-snow/5 text-snow-faint",
 };
 
 export function StatusBadge({ status }: { status: Status }) {

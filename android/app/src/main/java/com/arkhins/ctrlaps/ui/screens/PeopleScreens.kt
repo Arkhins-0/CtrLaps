@@ -513,6 +513,13 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
                 }
             }
         }
+        if (d.canDelete) {
+            item {
+                DeletePanel(u.name ?: u.email, d.deletionDueAt, busy,
+                    onDelete = { run("Will be deleted in 7 days.") { app.api.post("/api/users/${u.id}/deletion", Ok.serializer()) } },
+                    onCancel = { run("Deletion cancelled.") { app.api.delete("/api/users/${u.id}/deletion") } })
+            }
+        }
         if (d.canSetDev) item { DeveloperPanel(u.isDev, busy) { dev -> run(if (dev) "Now a developer." else "No longer a developer.") { app.api.put("/api/users/${u.id}/developer", UserResponse.serializer()) { put("dev", dev) } } } }
         if (d.canEdit) {
             item {
@@ -913,6 +920,41 @@ private fun RaceCategoriesPanel(d: UserResponse) {
 }
 
 /** For a developer on another admin's page: make them a developer (they answer support), or take it back after asking. */
+@Composable
+private fun DeletePanel(name: String, dueAt: String?, busy: Boolean, onDelete: () -> Unit, onCancel: () -> Unit) {
+    var asking by remember { mutableStateOf(false) }
+    Panel {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionTitle("DELETE ACCOUNT")
+            if (dueAt != null) {
+                val day = runCatching {
+                    java.time.Instant.parse(dueAt).atZone(java.time.ZoneId.systemDefault())
+                        .format(java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy"))
+                }.getOrDefault(dueAt.take(10))
+                Text("Will be deleted on $day, unless they sign in before then.", style = MaterialTheme.typography.bodySmall, color = SnowSoft)
+                GhostButton("Cancel deletion", enabled = !busy) { onCancel() }
+            } else {
+                Text("Only when they ask for it. They get an email and 7 days to change their mind.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                GhostButton("Delete account", enabled = !busy, danger = true) { asking = true }
+            }
+        }
+    }
+    if (asking) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { asking = false },
+            containerColor = NightPanel,
+            title = { Text("Delete $name's account?", color = Snow) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    DELETION_POINTS.forEach { Text("•  $it", style = MaterialTheme.typography.bodySmall, color = SnowSoft) }
+                }
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { asking = false; onDelete() }) { Text("Delete", color = Danger) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { asking = false }) { Text("Cancel", color = SnowSoft) } },
+        )
+    }
+}
+
 @Composable
 private fun DeveloperPanel(isDev: Boolean, busy: Boolean, onChange: (Boolean) -> Unit) {
     var asking by remember { mutableStateOf(false) }

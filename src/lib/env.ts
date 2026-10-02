@@ -54,6 +54,9 @@ export const env = {
   /** Optional token so release checks are not limited to 60 an hour. */
   githubToken: read("GITHUB_TOKEN"),
 
+  /** Vercel's daily jobs (vercel.json crons) send it as `Bearer <CRON_SECRET>`; blank turns them off. */
+  cronSecret: read("CRON_SECRET"),
+
   /**
    * Names shown in mails (and, at build time, in the app): who made it ("Powered by Arkhins", linking to its domain),
    * and the organisation's main domain (on the right of every mail's header). Blank ones are left out.

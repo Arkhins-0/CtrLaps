@@ -1,6 +1,7 @@
 import QRCode from "qrcode";
 import { AccountActions } from "@/components/AccountActions";
 import { CopyButton } from "@/components/CopyButton";
+import { DeleteMyAccount } from "@/components/DeleteAccount";
 import { EmailSettings } from "@/components/EmailSettings";
 import { FollowCategories } from "@/components/FollowCategories";
 import { ProfileEditor } from "@/components/ProfileEditor";
@@ -88,6 +89,7 @@ export default async function Account() {
       )}
       {user.role === "user" && <FollowCategories categories={categories} initial={following} />}
       <EmailSettings />
+      <DeleteMyAccount />
       </div>
       <AccountActions appVersion={release?.version ?? null} />
     </div>
