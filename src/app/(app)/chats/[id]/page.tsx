@@ -31,6 +31,7 @@ export default async function Chat({ params }: { params: Promise<{ id: string }>
         other={other ? personCard(other) : null}
         group={group}
         myName={user.name || user.email}
+        canOpenPeople={user.role === "admin" || user.role === "coordinator"}
       />
     </div>
   );

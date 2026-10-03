@@ -208,8 +208,13 @@ fun ChatsScreen(
     onOpenCategory: (String) -> Unit = {},
     onManageVolunteers: (String) -> Unit = {},
 ) {
-    // Admins, coordinators and volunteers get a third page: the volunteer groups' chats.
+    // Admins, coordinators and volunteers get a third page: the volunteer groups' chats. Its copy is refreshed as soon
+    // as the tab opens, so a swipe over finds it current.
     val volunteers = vm.me?.user?.role in setOf("admin", "coordinator", "volunteer")
+    val app = LocalApp.current
+    LaunchedEffect(volunteers, vm.refreshTick) {
+        if (volunteers) runCatching { app.store.fetch("/api/volunteer-groups", com.arkhins.ctrlaps.data.VolunteerGroupsResponse.serializer()) }
+    }
     val pager = rememberPagerState(initialPage = page) { if (volunteers) 3 else 2 }
     LaunchedEffect(page) { if (pager.currentPage != page) pager.animateScrollToPage(page) }
     LaunchedEffect(pager.currentPage) { if (pager.currentPage != page) onPage(pager.currentPage) }
@@ -587,6 +592,9 @@ fun ChatScreen(
 ) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
+    val openRoute = LocalOpen.current
+    // Admins and coordinators may open a sender's page from their name in a group.
+    val canOpenPeople = vm.me?.user?.role == "admin" || vm.me?.user?.role == "coordinator"
     // What the phone already holds for this chat, from the very first frame: no blank page while it opens.
     var detail by remember { mutableStateOf(app.chatCache.peek(conversationId)) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -838,6 +846,8 @@ fun ChatScreen(
                                 selecting = selected.isNotEmpty(),
                                 highlight = query.trim().takeIf { q -> q.isNotBlank() && r.run.any { it.id in hits } },
                                 senderName = if (d.group != null && !m.mine) m.sender?.name else null,
+                                senderId = m.sender?.id,
+                                onSender = if (d.group != null && !m.mine && canOpenPeople) m.sender?.id?.let { id -> { openRoute("person/$id") } } else null,
                                 onInvite = ::answerInvite,
                                 onToggle = { toggle(r.run) },
                                 onView = onView,
@@ -1114,8 +1124,10 @@ private fun Bubble(
     selected: Boolean,
     selecting: Boolean,
     highlight: String? = null,
-    /** In a group: who said it (not shown for your own). */
+    /** In a group: who said it (not shown for your own), their id for the name's colour, and a tap on the name for those who may open them. */
     senderName: String? = null,
+    senderId: String? = null,
+    onSender: (() -> Unit)? = null,
     onInvite: ((GroupInvite, Boolean) -> Unit)? = null,
     onToggle: () -> Unit,
     onView: (FileView) -> Unit,
@@ -1264,7 +1276,14 @@ private fun Bubble(
                         )
                     } else {
                         if (senderName != null) {
-                            Text(senderName, style = MaterialTheme.typography.labelMedium, color = Gold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = inset)
+                            Text(
+                                senderName,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = com.arkhins.ctrlaps.ui.nameColor(senderId),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = if (onSender != null) inset.clickable(onClick = onSender) else inset,
+                            )
                             Spacer(Modifier.height(2.dp))
                         }
                         if (m.forwarded) {

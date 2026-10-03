@@ -799,11 +799,11 @@ export async function postGroup(sender: SessionUser, conversationId: string, dra
 }
 
 /** A line in a group chat about the group itself: who joined, left, was removed, and so on. Everyone's chat updates. */
-export async function groupEvent(groupId: string, actorId: string, text: string): Promise<void> {
+export async function groupEvent(groupId: string, actorId: string, text: string, staffOnly = false): Promise<void> {
   const season = await currentSeason();
   const row = await one<{ created_at: string }>(
-    "INSERT INTO messages (conversation_id, sender_id, body, season_id, event) VALUES ($1, $2, $3, $4, $3) RETURNING created_at",
-    [groupId, actorId, text, season.id],
+    "INSERT INTO messages (conversation_id, sender_id, body, season_id, event, staff_only) VALUES ($1, $2, $3, $4, $3, $5) RETURNING created_at",
+    [groupId, actorId, text, season.id, staffOnly],
   );
   await run("UPDATE conversations SET last_message_at = $2 WHERE id = $1", [groupId, row!.created_at]);
   after(async () => {
@@ -1091,7 +1091,7 @@ export async function myConversations(user: SessionUser): Promise<ConversationOu
 /* ───────────────────────────── Reading ───────────────────────────── */
 
 export async function conversationMessages(user: SessionUser, conversationId: string, limit = 100): Promise<MessageOut[]> {
-  const rows = await q<Row>(`${SELECT} WHERE m.conversation_id = $2 AND ${LIVE_SEASON("m")} ORDER BY m.created_at DESC LIMIT $3`, [
+  const rows = await q<Row>(`${SELECT} WHERE m.conversation_id = $2 AND ${LIVE_SEASON("m")} AND (NOT m.staff_only OR EXISTS (SELECT 1 FROM group_members ga WHERE ga.conversation_id = m.conversation_id AND ga.user_id = $1 AND ga.role = 'admin')) ORDER BY m.created_at DESC LIMIT $3`, [
     user.id,
     conversationId,
     limit,

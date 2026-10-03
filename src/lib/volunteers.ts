@@ -125,8 +125,8 @@ export async function listVolunteerGroups(user: SessionUser): Promise<VolunteerG
                          WHEN m.event IS NOT NULL THEN m.body
                          ELSE COALESCE(NULLIF(u.name, ''), u.email, 'Someone') || ': ' || CASE WHEN m.body <> '' THEN m.body ELSE 'Attachment' END END
                FROM messages m LEFT JOIN users u ON u.id = m.sender_id
-               WHERE m.conversation_id = g.conversation_id AND ${LIVE_SEASON("m")} ORDER BY m.created_at DESC LIMIT 1) AS last_body,
-            (SELECT max(m.created_at) FROM messages m WHERE m.conversation_id = g.conversation_id AND ${LIVE_SEASON("m")}) AS last_at
+               WHERE m.conversation_id = g.conversation_id AND ${LIVE_SEASON("m")} AND (NOT m.staff_only OR EXISTS (SELECT 1 FROM group_members ga WHERE ga.conversation_id = m.conversation_id AND ga.user_id = $1 AND ga.role = 'admin')) ORDER BY m.created_at DESC LIMIT 1) AS last_body,
+            (SELECT max(m.created_at) FROM messages m WHERE m.conversation_id = g.conversation_id AND ${LIVE_SEASON("m")} AND (NOT m.staff_only OR EXISTS (SELECT 1 FROM group_members ga WHERE ga.conversation_id = m.conversation_id AND ga.user_id = $1 AND ga.role = 'admin'))) AS last_at
      FROM volunteer_groups g LEFT JOIN users cu ON cu.id = g.coordinator_id
      WHERE $2 = 'admin' OR ($2 = 'coordinator' AND g.coordinator_id = $1)
         OR ($2 = 'volunteer' AND g.id = (SELECT volunteer_group_id FROM users WHERE id = $1))
@@ -276,7 +276,7 @@ export async function moveVolunteer(user: SessionUser, volunteerId: string, toGr
   const name = v.name || v.email;
   if (from) {
     await syncVolunteerGroup(from.id);
-    await groupEvent(from.conversation_id, user.id, `${name} moved to another group`);
+    await groupEvent(from.conversation_id, user.id, `${name} moved to another group`, true);
   }
   if (to) {
     await syncVolunteerGroup(to.id);
@@ -317,7 +317,7 @@ export async function moveVolunteers(user: SessionUser, fromGroupId: string, use
   if (to) await syncVolunteerGroup(to.id);
   const who = user.name || user.email;
   const names = people.length <= 3 ? people.map((p) => p.name || p.email).join(", ") : `${people.length} volunteers`;
-  await groupEvent(from.conversation_id, user.id, to ? `${who} moved ${names} to ${to.name}` : `${who} took ${names} out of the group`);
+  await groupEvent(from.conversation_id, user.id, to ? `${who} moved ${names} to ${to.name}` : `${who} took ${names} out of the group`, true);
   if (to) {
     await groupEvent(to.conversation_id, user.id, `${names} joined from ${from.name}`);
     const lead = to.coordinator_id ? await userById(to.coordinator_id) : undefined;
@@ -351,6 +351,7 @@ export async function setPermission(user: SessionUser, conversationId: string, m
     conversationId,
     user.id,
     permission === "full" ? `${name} can chat again` : permission === "no_messages" ? `${name} can no longer send messages` : `${name} can now only read the chat`,
+    true,
   );
   after(async () => pushSync((await q<{ user_id: string }>("SELECT user_id FROM group_members WHERE conversation_id = $1", [conversationId])).map((m) => m.user_id), { scope: "chat", id: conversationId }));
 }

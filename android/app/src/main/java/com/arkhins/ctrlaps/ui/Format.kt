@@ -74,3 +74,13 @@ fun bytes(n: Long): String = when {
     n < 1024L * 1024 * 1024 -> String.format(Locale.US, "%.1f MB", n / (1024.0 * 1024.0))
     else -> String.format(Locale.US, "%.1f GB", n / (1024.0 * 1024.0 * 1024.0))
 }
+
+/** A steady colour for a person's name in a group chat, from their id: eight shades that read well on dark. */
+private val NAME_PALETTE = listOf(0xFFFFD100, 0xFF5BD1C4, 0xFFFF8AB3, 0xFFB7A4FF, 0xFFFFA14A, 0xFF8BE28B, 0xFF6EC6FF, 0xFFFF7B6B)
+fun nameColor(id: String?): androidx.compose.ui.graphics.Color {
+    if (id == null) return androidx.compose.ui.graphics.Color(NAME_PALETTE[0])
+    var h = 0L
+    for (ch in id) h = (h * 31 + ch.code) and 0xFFFFFFFFL
+    return androidx.compose.ui.graphics.Color(NAME_PALETTE[(h % NAME_PALETTE.size).toInt()])
+}
+
