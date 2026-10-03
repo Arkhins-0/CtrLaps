@@ -328,13 +328,15 @@ fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: 
                     Column(Modifier.weight(1f)) {
                         Text(d.name, style = MaterialTheme.typography.titleLarge, color = Snow)
                         Text(
-                            listOf(
-                                d.coordinator?.let { "Led by ${it.name}" } ?: "No coordinator",
+                            listOfNotNull(
+                                d.coordinator?.name ?: "No coordinator",
                                 "${d.volunteers.size} volunteer${if (d.volunteers.size == 1) "" else "s"}",
-                                if (d.open) "chat open" else "chat closed",
+                                if (d.open) null else "chat closed",
                             ).joinToString(" · "),
                             style = MaterialTheme.typography.bodySmall,
                             color = if (d.open) SnowSoft else Danger,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                     GoldButton("Open chat", enabled = !busy) { onOpenChat(d.conversationId) }
