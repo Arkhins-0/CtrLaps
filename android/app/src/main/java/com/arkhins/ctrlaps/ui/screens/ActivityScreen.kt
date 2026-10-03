@@ -3,6 +3,7 @@ package com.arkhins.ctrlaps.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,24 +46,54 @@ private val KINDS = listOf("" to "All", "messages" to "Messages", "schedule" to 
 
 /**
  * The Activity log (Account → Activity log, developers only): who did what and when — announcements, emails, channel
- * posts, schedule and results changes, people's roles and status. Private chats and groups are never logged.
+ * posts, schedule and results changes, people's roles and status. Private chats and groups are never logged. Swipe
+ * left and right between All, Messages, Schedule, Results and People; the chips follow, and a tap slides.
  */
 @Composable
 fun ActivityScreen() {
+    val scope = rememberCoroutineScope()
+    val pager = rememberPagerState { KINDS.size }
+    val chips = rememberLazyListState()
+    LaunchedEffect(pager.currentPage) { chips.animateScrollToItem((pager.currentPage - 1).coerceAtLeast(0)) }
+
+    Column(Modifier.fillMaxSize()) {
+        Text(
+            "Who did what, and when. Only the support team sees this. Private chats and groups are never logged.",
+            style = MaterialTheme.typography.bodySmall,
+            color = SnowFaint,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+        )
+        LazyRow(
+            state = chips,
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            itemsIndexed(KINDS) { i, (_, label) ->
+                Chip(label, Gold, filled = i == pager.currentPage) { scope.launch { pager.animateScrollToPage(i) } }
+            }
+        }
+        HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = 1, key = { KINDS[it].first.ifEmpty { "all" } }) { page ->
+            ActivityList(KINDS[page].first)
+        }
+    }
+}
+
+/** One filter's entries, newest first, with older ones on demand. Loaded the first time its page is shown. */
+@Composable
+private fun ActivityList(kind: String) {
     val app = LocalApp.current
     val openRoute = LocalOpen.current
     val scope = rememberCoroutineScope()
-    var kind by remember { mutableStateOf("") }
     var entries by remember { mutableStateOf<List<ActivityEntry>?>(null) }
     var next by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    suspend fun load(k: String, before: String?) {
+    suspend fun load(before: String?) {
         busy = true
         error = null
         try {
-            val query = listOfNotNull(k.takeIf { it.isNotEmpty() }?.let { "kind=$it" }, before?.let { "before=$it" }).joinToString("&")
+            val query = listOfNotNull(kind.takeIf { it.isNotEmpty() }?.let { "kind=$it" }, before?.let { "before=$it" }).joinToString("&")
             val page = app.api.get("/api/activity" + if (query.isEmpty()) "" else "?$query", ActivityPage.serializer())
             entries = if (before == null) page.entries else (entries ?: emptyList()) + page.entries
             next = page.next
@@ -68,24 +103,9 @@ fun ActivityScreen() {
             busy = false
         }
     }
-    LaunchedEffect(Unit) { load("", null) }
+    LaunchedEffect(kind) { load(null) }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item {
-            Text("Who did what, and when. Only the support team sees this. Private chats and groups are never logged.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
-        }
-        item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(KINDS) { (key, label) ->
-                    Chip(label, Gold, filled = kind == key) {
-                        if (kind != key && !busy) {
-                            kind = key
-                            scope.launch { load(key, null) }
-                        }
-                    }
-                }
-            }
-        }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { ErrorText(error) }
         val list = entries
         when {
@@ -119,7 +139,7 @@ fun ActivityScreen() {
             }
         }
         if (next != null) {
-            item { GhostButton(if (busy) "Loading…" else "Show older", Modifier.fillMaxWidth(), enabled = !busy) { scope.launch { load(kind, next) } } }
+            item { GhostButton(if (busy) "Loading…" else "Show older", Modifier.fillMaxWidth(), enabled = !busy) { scope.launch { load(next) } } }
         }
     }
 }
