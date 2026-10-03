@@ -294,6 +294,46 @@ export async function moveVolunteer(user: SessionUser, volunteerId: string, toGr
   after(() => pushSync([v.id], { scope: "chat", id: (to ?? from)!.conversation_id }));
 }
 
+/**
+ * Move several of a group's volunteers at once to another group (or to none): an admin, or the group's own
+ * coordinator. One line in each chat, one push per volunteer. Returns how many moved.
+ */
+export async function moveVolunteers(user: SessionUser, fromGroupId: string, userIds: string[], toGroupId: string | null): Promise<number> {
+  const from = await volunteerGroup(fromGroupId);
+  if (!from || !managesGroup(user, from)) throw new AuthError(404, "No such volunteer group.");
+  const to = toGroupId ? await volunteerGroup(toGroupId) : undefined;
+  if (toGroupId && !to) throw new AuthError(404, "No such volunteer group.");
+  if (to && to.id === from.id) throw new AuthError(400, "They are in that group already.");
+  const ids = Array.from(new Set(userIds));
+  const people = ids.length
+    ? await q<{ id: string; name: string | null; email: string }>(
+        "SELECT id, name, email FROM users WHERE id = ANY($1::uuid[]) AND role = 'volunteer' AND volunteer_group_id = $2",
+        [ids, from.id],
+      )
+    : [];
+  if (people.length === 0) throw new AuthError(400, "Pick at least one volunteer of this group.");
+  await run("UPDATE users SET volunteer_group_id = $2, parent_id = COALESCE($3, parent_id) WHERE id = ANY($1::uuid[])", [people.map((p) => p.id), to?.id ?? null, to?.coordinator_id ?? null]);
+  await syncVolunteerGroup(from.id);
+  if (to) await syncVolunteerGroup(to.id);
+  const who = user.name || user.email;
+  const names = people.length <= 3 ? people.map((p) => p.name || p.email).join(", ") : `${people.length} volunteers`;
+  await groupEvent(from.conversation_id, user.id, to ? `${who} moved ${names} to ${to.name}` : `${who} took ${names} out of the group`);
+  if (to) {
+    await groupEvent(to.conversation_id, user.id, `${names} joined from ${from.name}`);
+    const lead = to.coordinator_id ? await userById(to.coordinator_id) : undefined;
+    after(() =>
+      pushTo(people.map((p) => p.id), {
+        title: "Volunteer group",
+        body: `You're now in ${to.name}${lead ? `, with ${lead.name || lead.email}` : ""}.`,
+        link: `/chats/${to.conversation_id}`,
+        tag: `vg-${to.id}`,
+      }),
+    );
+  }
+  after(() => pushSync(people.map((p) => p.id), { scope: "chat", id: (to ?? from).conversation_id }));
+  return people.length;
+}
+
 /** Keep a volunteer in the chat from sending, or from doing anything; or let them again. */
 export async function setPermission(user: SessionUser, conversationId: string, memberId: string, permission: Permission): Promise<void> {
   const g = await volunteerGroupOfChat(conversationId);
