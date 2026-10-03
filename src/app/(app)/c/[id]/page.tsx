@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { ChannelMenu } from "@/components/channels/ChannelMenu";
 import { MuteButton } from "@/components/channels/MuteButton";
 import { isMuted } from "@/lib/channels";
 import { ChannelView } from "@/components/ChannelView";
@@ -9,7 +10,7 @@ import { requireProfile } from "@/lib/session";
 
 export const metadata = { title: "Category channel" };
 
-/** A race category's channel ("ITC 2026"): its people read, admins, coordinators and its race officials post. */
+/** A race category's channel ("ITC 2026"): everyone reads; admins and its managers post; an admin closes or reopens it. */
 export default async function CategoryChannelPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireProfile();
   const { id } = await params;
@@ -19,6 +20,7 @@ export default async function CategoryChannelPage({ params }: { params: Promise<
   const conversationId = await categoryConversation(id);
   const [messages, mayPost] = await Promise.all([conversationMessages(user, conversationId), canPostCategory(user, id)]);
   await markConversationRead(user.id, conversationId);
+  const isAdmin = user.role === "admin";
 
   return (
     <div className="space-y-5">
@@ -29,6 +31,9 @@ export default async function CategoryChannelPage({ params }: { params: Promise<
           <p className="text-xs text-snow-faint">Category channel · {category.seasonName}</p>
         </div>
         <MuteButton url={`/api/categories/${id}/mute`} initial={await isMuted(user.id, conversationId)} />
+        {isAdmin && (
+          <ChannelMenu name={category.name} channelUrl={`/api/categories/${id}/channel`} managersUrl={`/api/categories/${id}/managers`} open={category.open} locked={category.closedReason === "archived"} />
+        )}
       </div>
       <ChannelView
         weekendId=""
@@ -37,8 +42,8 @@ export default async function CategoryChannelPage({ params }: { params: Promise<
         initial={messages}
         canPost={category.open && mayPost}
         open={category.open}
-        closedReason={category.open ? null : "archived"}
-        isAdmin={false}
+        closedReason={category.closedReason}
+        isAdmin={isAdmin}
       />
     </div>
   );

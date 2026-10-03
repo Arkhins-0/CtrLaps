@@ -297,7 +297,13 @@ data class CategoryChannelResponse(
     val canPost: Boolean,
     val messages: List<Message>,
     val muted: Boolean = false,
+    /** Why it is closed: "archived" (its season is archived) or "admin" (an admin closed it). */
+    val closedReason: String? = null,
 )
+
+/** The answer to closing or reopening a category's channel. */
+@Serializable
+data class OpenResponse(val open: Boolean = true)
 
 /** The answer to muting or unmuting a channel. */
 @Serializable

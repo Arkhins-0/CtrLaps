@@ -1,9 +1,10 @@
 import { body, bool, handle, isUuid, str, uuids, type Params } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { canPostCategory, categoryConversation, categoryInfo } from "@/lib/categoryChannels";
+import { canPostCategory, categoryConversation, categoryInfo, setCategoryChannelOpen } from "@/lib/categoryChannels";
 import { isMuted } from "@/lib/channels";
 import { fail, json } from "@/lib/http";
 import { canReadCategory, conversationMessages, markConversationRead, postToCategory } from "@/lib/messages";
+import { audit } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +22,25 @@ export const GET = handle<Params<"id">>(async (request, { params }) => {
     channelId: conversationId,
     category: { id: category.id, name: category.name, code: category.code, color: category.color, seasonName: category.seasonName },
     open: category.open,
-    closedReason: category.open ? null : "archived",
+    closedReason: category.closedReason,
     canPost: category.open && (await canPostCategory(user, id)),
     muted: await isMuted(user.id, conversationId),
     messages,
   });
+});
+
+/** Admin: close or reopen the channel (`{ open: true | false }`). A channel in an archived season stays closed. */
+export const PATCH = handle<Params<"id">>(async (request, { params }) => {
+  const admin = await requireUser(["admin"]);
+  const { id } = await params;
+  if (!isUuid(id)) return fail("No such category.", 404);
+  const category = await categoryInfo(id);
+  if (!category) return fail("No such category.", 404);
+  const open = bool((await body(request)).open);
+  if (open && category.closedReason === "archived") return fail("Its season is archived. Bring the season back first.");
+  await setCategoryChannelOpen(id, open);
+  await audit(admin.id, null, open ? "category.channel_opened" : "category.channel_closed", { categoryId: id, name: category.name });
+  return json({ open: (await categoryInfo(id))?.open ?? open });
 });
 
 /** Admins and the channel's managers post; it reaches everyone (who may mute it). */

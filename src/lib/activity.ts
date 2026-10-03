@@ -73,6 +73,8 @@ const TITLE: Record<string, string> = {
   "account.deletion_cancelled": "Cancelled an account deletion",
   "account.deleted": "An account was deleted",
   "category.managers": "Set a category channel's managers",
+  "category.channel_opened": "Reopened a category channel",
+  "category.channel_closed": "Closed a category channel",
   "volunteers.group_created": "Made a group",
   "volunteers.group_updated": "Changed a group",
   "volunteers.moved": "Moved people between groups",
@@ -130,6 +132,9 @@ function describe(r: Row): string | null {
       return text((d.session as { name?: string })?.name) || null;
     case "session.results_saved":
       return d.rows !== undefined ? `${text(d.rows)} rows` : null;
+    case "category.channel_opened":
+    case "category.channel_closed":
+      return text(d.name) || null;
     case "weekend.managers":
       return Array.isArray(d.userIds) ? `${d.userIds.length} ${d.userIds.length === 1 ? "manager" : "managers"}` : null;
     case "user.created":

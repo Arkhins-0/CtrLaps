@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { SessionUser } from "./auth";
-import { one, q } from "./db";
+import { one, q, run } from "./db";
 import { currentSeason, LIVE_SEASON } from "./seasons";
 
 /*
@@ -45,17 +45,41 @@ export async function canPostCategory(user: SessionUser, categoryId: string): Pr
   return Boolean(await one("SELECT 1 FROM category_managers WHERE category_id = $1 AND user_id = $2", [categoryId, user.id]));
 }
 
-export type CategoryInfo = { id: string; seasonId: string; name: string; code: string; color: string; open: boolean; seasonName: string };
+export type CategoryInfo = {
+  id: string;
+  seasonId: string;
+  name: string;
+  code: string;
+  color: string;
+  open: boolean;
+  /** Why it is closed: its season is archived, or an admin closed it. */
+  closedReason: "archived" | "admin" | null;
+  seasonName: string;
+};
 
-/** The category, and whether its channel is open (it is while its season is live). */
+/** The category, and whether its channel is open (while its season is live, unless an admin closed it). */
 export async function categoryInfo(categoryId: string): Promise<CategoryInfo | null> {
-  const row = await one<{ id: string; season_id: string; name: string; code: string; color: string; status: string; season_name: string }>(
-    `SELECT c.id, c.season_id, c.name, c.code, c.color, s.status, s.name AS season_name FROM categories c JOIN seasons s ON s.id = c.season_id WHERE c.id = $1`,
+  const row = await one<{ id: string; season_id: string; name: string; code: string; color: string; status: string; season_name: string; channel_open: boolean }>(
+    `SELECT c.id, c.season_id, c.name, c.code, c.color, c.channel_open, s.status, s.name AS season_name FROM categories c JOIN seasons s ON s.id = c.season_id WHERE c.id = $1`,
     [categoryId],
   );
   return row
-    ? { id: row.id, seasonId: row.season_id, name: row.name, code: row.code, color: row.color, open: row.status === "active", seasonName: row.season_name }
+    ? {
+        id: row.id,
+        seasonId: row.season_id,
+        name: row.name,
+        code: row.code,
+        color: row.color,
+        open: row.status === "active" && row.channel_open,
+        closedReason: row.status !== "active" ? "archived" : row.channel_open ? null : "admin",
+        seasonName: row.season_name,
+      }
     : null;
+}
+
+/** Admin: close or reopen a category's channel. */
+export async function setCategoryChannelOpen(categoryId: string, open: boolean): Promise<void> {
+  await run("UPDATE categories SET channel_open = $2 WHERE id = $1", [categoryId, open]);
 }
 
 /** The category's conversation, made the first time it is needed. */

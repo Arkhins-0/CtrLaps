@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { ChannelView, type ClosedReason } from "@/components/ChannelView";
+import { ChannelMenu } from "@/components/channels/ChannelMenu";
 import { MuteButton } from "@/components/channels/MuteButton";
 import { WeekendCard } from "@/components/schedule/WeekendCard";
 import { isMuted } from "@/lib/channels";
@@ -46,7 +47,12 @@ export default async function WeekendPage({ params }: { params: Promise<{ id: st
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-semibold">Weekend channel</h2>
-          {channel && <MuteButton url={`/api/weekends/${id}/mute`} initial={await isMuted(user.id, channel.id)} />}
+          <div className="flex items-center gap-1">
+            {channel && <MuteButton url={`/api/weekends/${id}/mute`} initial={await isMuted(user.id, channel.id)} />}
+            {channel && isAdmin && (
+              <ChannelMenu name={weekend.name} channelUrl={`/api/weekends/${id}/channel`} managersUrl={`/api/weekends/${id}/managers`} open={open} locked={closedReason === "archived"} />
+            )}
+          </div>
         </div>
         <ChannelView weekendId={id} initial={messages} canPost={open && mayPost} open={open} closedReason={closedReason} isAdmin={isAdmin} />
       </section>
