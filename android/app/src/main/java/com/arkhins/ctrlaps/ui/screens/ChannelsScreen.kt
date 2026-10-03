@@ -1,6 +1,15 @@
 package com.arkhins.ctrlaps.ui.screens
 
 import com.arkhins.ctrlaps.data.CategoryChannel
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import com.arkhins.ctrlaps.R
+import com.arkhins.ctrlaps.ui.components.IconAction
 import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -64,21 +73,16 @@ import kotlinx.serialization.json.putJsonArray
 /**
  * The broadcast channels: one per race weekend, listed season by season
  * with the current season on top. Tapping a weekend opens its channel.
- * An admin names the people who manage a channel from here. Above them,
- * the channels of the race categories this person is in.
+ * Above them, every race category's channel. Closing a channel and picking
+ * its managers happen inside the channel, from its ⋮ menu ([ChannelMenu]).
  */
 @Composable
 fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCategory: (String) -> Unit = {}) {
     val app = LocalApp.current
     var data by remember { mutableStateOf<ChannelsResponse?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    var reload by remember { mutableStateOf(0) }
-    // Whose managers are being picked: (name, managers API).
-    var managing by remember { mutableStateOf<Pair<String, String>?>(null) }
-    // Admins pick the coordinators who manage a weekend's or a category's channel.
-    val canManage = vm.me?.isAdmin == true
 
-    LaunchedEffect(reload, vm.refreshTick) {
+    LaunchedEffect(vm.refreshTick) {
         try {
             data = app.store.get("/api/channels", ChannelsResponse.serializer()) { if (data == null) data = it }
             error = null
@@ -97,7 +101,7 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCate
             else -> {
               if (categories.isNotEmpty()) {
                 item(key = "categories") { SectionTitle("CATEGORIES", Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
-                items(categories, key = { "c-" + it.id }) { c -> CategoryChannelRow(c, onManagers = if (canManage) ({ managing = c.name to "/api/categories/${c.id}/managers" }) else null) { onOpenCategory(c.id) } }
+                items(categories, key = { "c-" + it.id }) { c -> CategoryChannelRow(c) { onOpenCategory(c.id) } }
               }
               seasons.filter { it.weekends.isNotEmpty() }.forEach { season ->
                 item(key = "season-${season.id}") {
@@ -147,15 +151,6 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCate
                                 Spacer(Modifier.height(4.dp))
                                 UnreadBadge(w.unread, w.muted)
                             }
-                            if (canManage) {
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    "Managers",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Gold,
-                                    modifier = Modifier.clickable { managing = w.name to "/api/weekends/${w.id}/managers" }.padding(2.dp),
-                                )
-                            }
                         }
                     }
                     Box(Modifier.padding(start = 76.dp)) { Divider() }
@@ -165,12 +160,43 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCate
         }
     }
 
-    managing?.let { (name, url) ->
-        ManagersSheet(name, url, onDismiss = { managing = null }) { ids ->
-            managing = null
+}
+
+/**
+ * Admin: the ⋮ inside a channel (a weekend's or a category's) — close or reopen it, and pick the coordinators who
+ * manage it. [locked]: its season is archived, so it can't be reopened from here.
+ */
+@Composable
+internal fun ChannelMenu(name: String, open: Boolean, locked: Boolean, managersUrl: String, onToggle: () -> Unit) {
+    val app = LocalApp.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var menu by remember { mutableStateOf(false) }
+    var managing by remember { mutableStateOf(false) }
+    Box {
+        IconAction(Icons.Outlined.MoreVert, "Channel options", SnowSoft) { menu = true }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = NightPanel) {
+            if (open || !locked) {
+                DropdownMenuItem(
+                    text = { Text(if (open) "Close channel" else "Reopen channel", color = if (open) SnowSoft else Gold) },
+                    leadingIcon = { Icon(painterResource(if (open) R.drawable.ic_archive else R.drawable.ic_unarchive), contentDescription = null, tint = if (open) SnowSoft else Gold) },
+                    onClick = { menu = false; onToggle() },
+                )
+            }
+            DropdownMenuItem(
+                text = { Text("Managers", color = SnowSoft) },
+                leadingIcon = { Icon(painterResource(R.drawable.ic_tab_people), contentDescription = null, tint = SnowSoft, modifier = Modifier.size(24.dp)) },
+                onClick = { menu = false; managing = true },
+            )
+        }
+    }
+    if (managing) {
+        ManagersSheet(name, managersUrl, onDismiss = { managing = false }) { ids ->
+            managing = false
             app.appScope.launch {
-                runCatching { app.api.put(url, ManagersResponse.serializer()) { putJsonArray("userIds") { ids.forEach { add(it) } } } }
-                withContext(Dispatchers.Main) { reload++ }
+                val saved = runCatching { app.api.put(managersUrl, ManagersResponse.serializer()) { putJsonArray("userIds") { ids.forEach { add(it) } } } }
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(context, if (saved.isSuccess) "Managers saved" else "Couldn't save the managers. Try again.", android.widget.Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -178,7 +204,7 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCate
 
 /** A race category's channel: its code in its colour, the last post, unread. */
 @Composable
-private fun CategoryChannelRow(c: CategoryChannel, onManagers: (() -> Unit)? = null, onOpen: () -> Unit) {
+private fun CategoryChannelRow(c: CategoryChannel, onOpen: () -> Unit) {
     val color = runCatching { androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(c.color)) }.getOrDefault(SnowSoft)
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 16.dp, vertical = 10.dp),
@@ -200,10 +226,6 @@ private fun CategoryChannelRow(c: CategoryChannel, onManagers: (() -> Unit)? = n
             if (c.unread > 0) {
                 Spacer(Modifier.height(4.dp))
                 UnreadBadge(c.unread, c.muted)
-            }
-            if (onManagers != null) {
-                Spacer(Modifier.height(4.dp))
-                Text("Managers", style = MaterialTheme.typography.labelSmall, color = Gold, modifier = Modifier.clickable(onClick = onManagers).padding(2.dp))
             }
         }
     }

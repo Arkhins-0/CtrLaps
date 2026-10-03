@@ -9,5 +9,5 @@ export const metadata = { title: "Channels" };
 export default async function Channels() {
   const user = await requireProfile();
   const [seasons, categories] = await Promise.all([listChannels(user), listCategoryChannels(user)]);
-  return <ChannelList initial={seasons} categories={categories} canManage={user.role === "admin"} />;
+  return <ChannelList initial={seasons} categories={categories} />;
 }

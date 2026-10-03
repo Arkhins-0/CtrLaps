@@ -585,7 +585,7 @@ export async function postToCategory(sender: SessionUser, categoryId: string, dr
   const category = await categoryInfo(categoryId);
   if (!category) throw new AuthError(404, "No such category.");
   if (!(await canPostCategory(sender, categoryId))) throw new AuthError(403, "Only admins and this channel's managers post here.");
-  if (!category.open) throw new AuthError(403, "This season has ended; its channels are closed.");
+  if (!category.open) throw new AuthError(403, category.closedReason === "admin" ? "This channel is closed." : "This season has ended; its channels are closed.");
   if (!hasContent(draft)) throw new AuthError(400, "Write something or attach a document.");
   const files = await checkFiles(sender, draft);
   const conversationId = await categoryConversation(categoryId);

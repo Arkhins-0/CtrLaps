@@ -56,7 +56,7 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
-/** A race category's channel ("ITC 2026"): its people read; admins, coordinators and its race officials post. */
+/** A race category's channel ("ITC 2026"): everyone reads; admins and its managers post; an admin closes or reopens it. */
 @Composable
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 fun CategoryChannelScreen(vm: AppViewModel, categoryId: String, onView: (FileView) -> Unit) {
@@ -101,6 +101,20 @@ fun CategoryChannelScreen(vm: AppViewModel, categoryId: String, onView: (FileVie
                             Text("Category channel · ${c.category.seasonName}", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                         }
                         MuteChip(c.muted) { toggleMute(context, scope, app.api, "/api/categories/$categoryId/mute", c.muted) { m -> channel = channel?.copy(muted = m) } }
+                        if (vm.me?.isAdmin == true) {
+                            ChannelMenu(c.category.name, c.open, locked = c.closedReason == "archived", managersUrl = "/api/categories/$categoryId/managers") {
+                                scope.launch {
+                                    val toast = try {
+                                        app.api.patch("/api/categories/$categoryId/channel", com.arkhins.ctrlaps.data.OpenResponse.serializer()) { put("open", !c.open) }
+                                        reload++
+                                        if (c.open) "Channel closed" else "Channel reopened"
+                                    } catch (e: Exception) {
+                                        e.message ?: "Could not change the channel."
+                                    }
+                                    android.widget.Toast.makeText(context, toast, android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
                     }
                 }
                 if (c.canPost) {
@@ -117,7 +131,7 @@ fun CategoryChannelScreen(vm: AppViewModel, categoryId: String, onView: (FileVie
                     }
                 }
                 if (!c.open) item {
-                    Text("This channel is closed: its season is archived.", style = MaterialTheme.typography.labelSmall, color = SnowFaint, modifier = Modifier.padding(vertical = 2.dp))
+                    Text(if (c.closedReason == "admin") "This channel was closed by an admin." else "This channel is closed: its season is archived.", style = MaterialTheme.typography.labelSmall, color = SnowFaint, modifier = Modifier.padding(vertical = 2.dp))
                 }
                 if (c.messages.isEmpty()) item { Empty("No posts yet.") }
                 // Photos posted one after another show as one grid; the newest post on top; a NEW line under the last unread.

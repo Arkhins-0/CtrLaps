@@ -1,29 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { api } from "@/lib/client";
 import type { CategoryChannel } from "@/lib/categoryChannels";
-import type { ChannelManager, ChannelSeason } from "@/lib/channels";
+import type { ChannelSeason } from "@/lib/channels";
 import { WhenLabel } from "../ChatList";
 import { BellIcon } from "./BellIcon";
-import { Dialog } from "../groups/Dialog";
-import { PeoplePicker } from "../groups/PeoplePicker";
-import { pickPerson, type PickPerson } from "../groups/people";
 
 /**
  * The broadcast channels: one per race weekend, listed season by season
- * with the current season on top. A row opens its weekend. An admin names the coordinators who manage a channel from
- * here. Above them, every race category's channel (everyone sees them all). A muted channel's count is drawn inverted.
+ * with the current season on top. A row opens its weekend. Above them, every race category's channel (everyone sees
+ * them all). A muted channel's count is drawn inverted. Closing a channel and picking its managers happen inside the
+ * channel, from its ⋮ menu (ChannelMenu).
  */
-export function ChannelList({ initial, categories = [], canManage }: { initial: ChannelSeason[]; categories?: CategoryChannel[]; canManage: boolean }) {
-  const [seasons, setSeasons] = useState(initial);
-  // Whose managers are being picked: a weekend's channel or a category's (its name and managers API).
-  const [managing, setManaging] = useState<{ name: string; url: string; weekendId?: string } | null>(null);
-  const shown = seasons.filter((s) => s.weekends.length > 0);
-
-  const saved = (weekendId: string, managers: ChannelManager[]) =>
-    setSeasons((all) => all.map((s) => ({ ...s, weekends: s.weekends.map((w) => (w.id === weekendId ? { ...w, managers } : w)) })));
+export function ChannelList({ initial, categories = [] }: { initial: ChannelSeason[]; categories?: CategoryChannel[] }) {
+  const shown = initial.filter((s) => s.weekends.length > 0);
 
   return (
     <div className="-mx-4 min-h-0 flex-1 overflow-y-auto pb-4 sm:-mx-6 lg:mx-0">
@@ -59,11 +49,6 @@ export function ChannelList({ initial, categories = [], canManage }: { initial: 
                     </span>
                   )}
                   {c.unread > 0 && <span className={c.muted ? "badge-muted" : "badge"}>{c.unread > 99 ? "99+" : c.unread}</span>}
-                  {canManage && (
-                    <button className="rounded px-1 text-[11px] font-semibold text-gold hover:underline" onClick={() => setManaging({ name: c.name, url: `/api/categories/${c.id}/managers` })}>
-                      Managers
-                    </button>
-                  )}
                 </span>
               </div>
             </div>
@@ -112,78 +97,12 @@ export function ChannelList({ initial, categories = [], canManage }: { initial: 
                     </span>
                   )}
                   {w.unread > 0 && <span className={w.muted ? "badge-muted" : "badge"}>{w.unread > 99 ? "99+" : w.unread}</span>}
-                  {canManage && (
-                    <button className="rounded px-1 text-[11px] font-semibold text-gold hover:underline" onClick={() => setManaging({ name: w.name, url: `/api/weekends/${w.id}/managers`, weekendId: w.id })}>
-                      Managers
-                    </button>
-                  )}
                 </span>
               </div>
             </div>
           ))}
         </section>
       ))}
-      {managing && (
-        <ManagersDialog
-          name={managing.name}
-          url={managing.url}
-          onClose={() => setManaging(null)}
-          onSaved={(managers) => {
-            if (managing.weekendId) saved(managing.weekendId, managers);
-            setManaging(null);
-          }}
-        />
-      )}
     </div>
-  );
-}
-
-/** Admin: tick the coordinators who manage a weekend's or a category's channel (they post there; admins post everywhere). */
-function ManagersDialog({ name, url, onClose, onSaved }: { name: string; url: string; onClose: () => void; onSaved: (managers: ChannelManager[]) => void }) {
-  type Row = { id: string; name: string | null; email: string; role: string; status?: string; roleLabel: string; teamName?: string | null; photoUrl: string | null };
-  const [people, setPeople] = useState<PickPerson[] | null>(null);
-  const [picked, setPicked] = useState<Set<string>>(new Set());
-  const [filter, setFilter] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    api<{ managers: Row[]; candidates: Row[] }>(url)
-      .then((r) => {
-        const eligible = r.candidates.map((p) => pickPerson({ ...p, teamName: p.teamName ?? null }));
-        // Someone already managing but no longer a coordinator stays tickable, so saving does not drop them unseen.
-        const extra = r.managers.filter((m) => !eligible.some((p) => p.id === m.id)).map((m) => pickPerson({ ...m, teamName: null }));
-        setPeople([...extra, ...eligible]);
-        setPicked(new Set(r.managers.map((m) => m.id)));
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : "Could not load people."));
-  }, [url]);
-
-  const save = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await api<{ managers: ChannelManager[] }>(url, { method: "PUT", json: { userIds: Array.from(picked) } });
-      onSaved(r.managers);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save.");
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Dialog title={`Managers of ${name}`} onClose={onClose}>
-      <p className="-mt-2 text-sm text-snow-soft">Coordinators who post in this channel. Admins post in every channel.</p>
-      <input className="input" placeholder="Search people" value={filter} onChange={(e) => setFilter(e.target.value)} />
-      {error && <p className="error">{error}</p>}
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {!people && !error && <p className="py-3 text-sm text-snow-faint">Loading…</p>}
-        {people && people.length === 0 && <p className="py-3 text-sm text-snow-faint">There are no coordinators to pick.</p>}
-        {people && people.length > 0 && <PeoplePicker people={people} picked={picked} filter={filter} onChange={setPicked} disabled={busy} />}
-      </div>
-      <button className="btn-gold w-full" onClick={save} disabled={busy || !people}>
-        {busy ? "Saving…" : "Save"}
-      </button>
-    </Dialog>
   );
 }

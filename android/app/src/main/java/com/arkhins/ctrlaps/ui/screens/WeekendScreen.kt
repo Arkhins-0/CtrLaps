@@ -89,6 +89,20 @@ fun WeekendScreen(vm: AppViewModel, weekendId: String, onView: (FileView) -> Uni
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Weekend channel", style = MaterialTheme.typography.titleMedium, color = Snow, modifier = Modifier.weight(1f))
                         if (c != null) MuteChip(c.muted) { toggleMute(context, scope, app.api, "/api/weekends/$weekendId/mute", c.muted) { m -> channel = channel?.copy(muted = m) } }
+                        if (c != null && vm.me?.isAdmin == true) {
+                            ChannelMenu(w.name, c.open, locked = c.closedReason == "archived", managersUrl = "/api/weekends/$weekendId/managers") {
+                                scope.launch {
+                                    val toast = try {
+                                        app.api.patch("/api/weekends/$weekendId/channel", WeekendResponse.serializer()) { put("open", !c.open) }
+                                        reload++
+                                        if (c.open) "Channel closed" else "Channel reopened"
+                                    } catch (e: Exception) {
+                                        e.message ?: "Could not change the channel."
+                                    }
+                                    android.widget.Toast.makeText(context, toast, android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
                     }
                 }
                 if (c?.canPost == true) {
