@@ -40,6 +40,8 @@ data class Me(
     val qrUrl: String,
     val parent: ParentInfo? = null,
     val canCreate: List<String> = emptyList(),
+    /** Sends announcements (admins and coordinators), to anyone. */
+    val canAnnounce: Boolean = false,
     val canPostChannel: Boolean = false,
     val canRelay: Boolean = false,
     val canBulkEmail: Boolean = false,
@@ -253,7 +255,7 @@ data class GroupResponse(val group: GroupInfo)
 @Serializable
 data class ChannelsResponse(val seasons: List<ChannelSeason> = emptyList(), val categories: List<CategoryChannel> = emptyList())
 
-/** A race category's channel this person is in (this season). */
+/** A race category's channel (this season; everyone sees them all). */
 @Serializable
 data class CategoryChannel(
     val id: String,
@@ -263,6 +265,8 @@ data class CategoryChannel(
     val unread: Int = 0,
     val lastMessageAt: String? = null,
     val lastMessage: String? = null,
+    /** This person muted its notifications. */
+    val muted: Boolean = false,
 )
 
 @Serializable
@@ -275,7 +279,12 @@ data class CategoryChannelResponse(
     val open: Boolean,
     val canPost: Boolean,
     val messages: List<Message>,
+    val muted: Boolean = false,
 )
+
+/** The answer to muting or unmuting a channel. */
+@Serializable
+data class MuteResponse(val muted: Boolean = false)
 
 @Serializable
 data class ChannelSeason(val id: String, val name: String, val current: Boolean = false, val status: String = "active", val weekends: List<ChannelWeekend> = emptyList())
@@ -291,12 +300,14 @@ data class ChannelWeekend(
     val lastMessageAt: String? = null,
     val lastMessage: String? = null,
     val managers: List<GroupMember> = emptyList(),
+    /** This person muted its notifications. */
+    val muted: Boolean = false,
 )
 
 @Serializable
 data class ManagersResponse(
     val managers: List<GroupMember> = emptyList(),
-    /** For admins and coordinators: who may be picked (active admins and coordinators). */
+    /** For admins: who may be picked (active coordinators). */
     val candidates: List<PublicUser> = emptyList(),
 )
 
@@ -369,6 +380,7 @@ data class ChannelResponse(
     val open: Boolean,
     val canPost: Boolean,
     val messages: List<Message>,
+    val muted: Boolean = false,
     /** Why it is closed: "admin", "season" (closed when its season was archived) or "archived" (its season is archived now). */
     val closedReason: String? = null,
 )

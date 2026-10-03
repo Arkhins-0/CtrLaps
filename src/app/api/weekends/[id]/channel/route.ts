@@ -4,6 +4,7 @@ import { fail, json } from "@/lib/http";
 import { canPostChannel, channelFor, conversationMessages, markConversationRead, postToChannel } from "@/lib/messages";
 import { setChannelOpen, weekendById } from "@/lib/races";
 import { audit } from "@/lib/users";
+import { isMuted } from "@/lib/channels";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export const GET = handle<Params<"id">>(async (request, { params }) => {
     // Why it is closed: its season is archived, it was archived with its season, or an admin closed it.
     closedReason: channel.open ? null : weekend?.seasonArchived ? "archived" : (weekend?.channelClosedReason ?? "admin"),
     canPost: channel.open && (await canPostChannel(user, id)),
+    muted: await isMuted(user.id, channel.id),
     messages,
   });
 });

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
 import type { CategoryChannel } from "@/lib/categoryChannels";
-import type { ChannelManager, ChannelSeason, ChannelWeekend } from "@/lib/channels";
+import type { ChannelManager, ChannelSeason } from "@/lib/channels";
 import { WhenLabel } from "../ChatList";
 import { Dialog } from "../groups/Dialog";
 import { PeoplePicker } from "../groups/PeoplePicker";
@@ -12,12 +12,13 @@ import { pickPerson, type PickPerson } from "../groups/people";
 
 /**
  * The broadcast channels: one per race weekend, listed season by season
- * with the current season on top. A row opens its weekend. An admin names
- * the people who manage a channel from here. Above them, the channels of the race categories this person is in.
+ * with the current season on top. A row opens its weekend. An admin names the coordinators who manage a channel from
+ * here. Above them, every race category's channel (everyone sees them all). A muted channel's count is drawn inverted.
  */
 export function ChannelList({ initial, categories = [], canManage }: { initial: ChannelSeason[]; categories?: CategoryChannel[]; canManage: boolean }) {
   const [seasons, setSeasons] = useState(initial);
-  const [managing, setManaging] = useState<ChannelWeekend | null>(null);
+  // Whose managers are being picked: a weekend's channel or a category's (its name and managers API).
+  const [managing, setManaging] = useState<{ name: string; url: string; weekendId?: string } | null>(null);
   const shown = seasons.filter((s) => s.weekends.length > 0);
 
   const saved = (weekendId: string, managers: ChannelManager[]) =>
@@ -33,27 +34,37 @@ export function ChannelList({ initial, categories = [], canManage }: { initial: 
           {categories.map((c, i) => (
             <div key={c.id}>
               {i > 0 && <div className="ml-[4.75rem] border-t border-night-line sm:ml-[5.25rem] lg:ml-[4.5rem]" />}
-              <Link href={`/c/${c.id}`} className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-snow/5 sm:px-6 lg:rounded-xl lg:px-3">
-                <span
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] text-[12px] font-bold tracking-wide"
-                  style={{ color: c.color, backgroundColor: `${c.color}26` }}
-                  aria-hidden
-                >
-                  {c.code.slice(0, 5)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-medium">{c.name}</span>
-                  <span className={`block truncate text-[13px] ${c.unread > 0 ? "text-snow" : "text-snow-faint"}`}>{c.lastMessage ?? "No posts yet"}</span>
-                </span>
+              <div className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-snow/5 sm:px-6 lg:rounded-xl lg:px-3">
+                <Link href={`/c/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                  <span
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] text-[12px] font-bold tracking-wide"
+                    style={{ color: c.color, backgroundColor: `${c.color}26` }}
+                    aria-hidden
+                  >
+                    {c.code.slice(0, 5)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-medium">
+                      {c.name}
+                      {c.muted && <span className="ml-1.5 text-[11px]" title="Muted">🔕</span>}
+                    </span>
+                    <span className={`block truncate text-[13px] ${c.unread > 0 ? "text-snow" : "text-snow-faint"}`}>{c.lastMessage ?? "No posts yet"}</span>
+                  </span>
+                </Link>
                 <span className="flex shrink-0 flex-col items-end gap-1">
                   {c.lastMessageAt && (
-                    <span className={`text-[11px] ${c.unread > 0 ? "text-gold" : "text-snow-faint"}`}>
+                    <span className={`text-[11px] ${c.unread > 0 && !c.muted ? "text-gold" : "text-snow-faint"}`}>
                       <WhenLabel iso={c.lastMessageAt} />
                     </span>
                   )}
-                  {c.unread > 0 && <span className="badge">{c.unread > 99 ? "99+" : c.unread}</span>}
+                  {c.unread > 0 && <span className={c.muted ? "badge-muted" : "badge"}>{c.unread > 99 ? "99+" : c.unread}</span>}
+                  {canManage && (
+                    <button className="rounded px-1 text-[11px] font-semibold text-gold hover:underline" onClick={() => setManaging({ name: c.name, url: `/api/categories/${c.id}/managers` })}>
+                      Managers
+                    </button>
+                  )}
                 </span>
-              </Link>
+              </div>
             </div>
           ))}
         </section>
@@ -81,7 +92,10 @@ export function ChannelList({ initial, categories = [], canManage }: { initial: 
                     📣
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-medium">{w.name}</span>
+                    <span className="block truncate text-[15px] font-medium">
+                      {w.name}
+                      {w.muted && <span className="ml-1.5 text-[11px]" title="Muted">🔕</span>}
+                    </span>
                     <span className={`block truncate text-[13px] ${w.unread > 0 ? "text-snow" : "text-snow-faint"}`}>
                       {w.lastMessage ?? `${w.startsOn} → ${w.endsOn}${w.channelOpen ? "" : " · closed"}`}
                     </span>
@@ -92,13 +106,13 @@ export function ChannelList({ initial, categories = [], canManage }: { initial: 
                 </Link>
                 <span className="flex shrink-0 flex-col items-end gap-1">
                   {w.lastMessageAt && (
-                    <span className={`text-[11px] ${w.unread > 0 ? "text-gold" : "text-snow-faint"}`}>
+                    <span className={`text-[11px] ${w.unread > 0 && !w.muted ? "text-gold" : "text-snow-faint"}`}>
                       <WhenLabel iso={w.lastMessageAt} />
                     </span>
                   )}
-                  {w.unread > 0 && <span className="badge">{w.unread > 99 ? "99+" : w.unread}</span>}
+                  {w.unread > 0 && <span className={w.muted ? "badge-muted" : "badge"}>{w.unread > 99 ? "99+" : w.unread}</span>}
                   {canManage && (
-                    <button className="rounded px-1 text-[11px] font-semibold text-gold hover:underline" onClick={() => setManaging(w)}>
+                    <button className="rounded px-1 text-[11px] font-semibold text-gold hover:underline" onClick={() => setManaging({ name: w.name, url: `/api/weekends/${w.id}/managers`, weekendId: w.id })}>
                       Managers
                     </button>
                   )}
@@ -110,10 +124,11 @@ export function ChannelList({ initial, categories = [], canManage }: { initial: 
       ))}
       {managing && (
         <ManagersDialog
-          weekend={managing}
+          name={managing.name}
+          url={managing.url}
           onClose={() => setManaging(null)}
           onSaved={(managers) => {
-            saved(managing.id, managers);
+            if (managing.weekendId) saved(managing.weekendId, managers);
             setManaging(null);
           }}
         />
@@ -122,32 +137,32 @@ export function ChannelList({ initial, categories = [], canManage }: { initial: 
   );
 }
 
-/** Admins and coordinators: tick the people who manage this weekend's channel. Only admins and coordinators can be picked. */
-function ManagersDialog({ weekend, onClose, onSaved }: { weekend: ChannelWeekend; onClose: () => void; onSaved: (managers: ChannelManager[]) => void }) {
+/** Admin: tick the coordinators who manage a weekend's or a category's channel (they post there; admins post everywhere). */
+function ManagersDialog({ name, url, onClose, onSaved }: { name: string; url: string; onClose: () => void; onSaved: (managers: ChannelManager[]) => void }) {
+  type Row = { id: string; name: string | null; email: string; role: string; status?: string; roleLabel: string; teamName?: string | null; photoUrl: string | null };
   const [people, setPeople] = useState<PickPerson[] | null>(null);
-  const [picked, setPicked] = useState<Set<string>>(new Set(weekend.managers.map((m) => m.id)));
+  const [picked, setPicked] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api<{ candidates: { id: string; name: string | null; email: string; role: string; status: string; roleLabel: string; teamName: string | null; photoUrl: string | null }[] }>(
-      `/api/weekends/${weekend.id}/managers`,
-    )
+    api<{ managers: Row[]; candidates: Row[] }>(url)
       .then((r) => {
-        const eligible = r.candidates.map(pickPerson);
-        // Someone already managing but not in the list (you, say) stays tickable, so saving does not drop them unseen.
-        const extra = weekend.managers.filter((m) => !eligible.some((p) => p.id === m.id)).map((m) => pickPerson({ ...m, teamName: null }));
+        const eligible = r.candidates.map((p) => pickPerson({ ...p, teamName: p.teamName ?? null }));
+        // Someone already managing but no longer a coordinator stays tickable, so saving does not drop them unseen.
+        const extra = r.managers.filter((m) => !eligible.some((p) => p.id === m.id)).map((m) => pickPerson({ ...m, teamName: null }));
         setPeople([...extra, ...eligible]);
+        setPicked(new Set(r.managers.map((m) => m.id)));
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Could not load people."));
-  }, [weekend]);
+  }, [url]);
 
   const save = async () => {
     setBusy(true);
     setError(null);
     try {
-      const r = await api<{ managers: ChannelManager[] }>(`/api/weekends/${weekend.id}/managers`, { method: "PUT", json: { userIds: Array.from(picked) } });
+      const r = await api<{ managers: ChannelManager[] }>(url, { method: "PUT", json: { userIds: Array.from(picked) } });
       onSaved(r.managers);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save.");
@@ -156,13 +171,13 @@ function ManagersDialog({ weekend, onClose, onSaved }: { weekend: ChannelWeekend
   };
 
   return (
-    <Dialog title={`Managers of ${weekend.name}`} onClose={onClose}>
-      <p className="-mt-2 text-sm text-snow-soft">They post in this channel like an admin.</p>
+    <Dialog title={`Managers of ${name}`} onClose={onClose}>
+      <p className="-mt-2 text-sm text-snow-soft">Coordinators who post in this channel. Admins post in every channel.</p>
       <input className="input" placeholder="Search people" value={filter} onChange={(e) => setFilter(e.target.value)} />
       {error && <p className="error">{error}</p>}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {!people && !error && <p className="py-3 text-sm text-snow-faint">Loading…</p>}
-        {people && people.length === 0 && <p className="py-3 text-sm text-snow-faint">There are no admins or coordinators to pick.</p>}
+        {people && people.length === 0 && <p className="py-3 text-sm text-snow-faint">There are no coordinators to pick.</p>}
         {people && people.length > 0 && <PeoplePicker people={people} picked={picked} filter={filter} onChange={setPicked} disabled={busy} />}
       </div>
       <button className="btn-gold w-full" onClick={save} disabled={busy || !people}>

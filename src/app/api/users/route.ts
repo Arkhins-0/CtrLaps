@@ -3,7 +3,7 @@ import { issueToken, requireUser, USER_COLUMNS, type SessionUser } from "@/lib/a
 import { APP_NAME, SITE_URL } from "@/lib/config";
 import { one } from "@/lib/db";
 import { sendInvite, sendNotice } from "@/lib/email";
-import { canCreateRole, canPromote, chatCandidates, descendants, groupCandidates } from "@/lib/hierarchy";
+import { announceCandidates, canCreateRole, canPromote, chatCandidates, descendants, groupCandidates } from "@/lib/hierarchy";
 import { fail, json } from "@/lib/http";
 import { isRole, ROLE_LABEL } from "@/lib/roles";
 import { categoryRoster } from "@/lib/categoryChannels";
@@ -26,6 +26,8 @@ export const GET = handle(async (request) => {
     const people = (await groupCandidates(user)).filter((x) => !role || x.user.role === role);
     return json({ users: people.map((x) => ({ ...toPublic(x.user), groupMode: x.mode })) });
   }
+  // `?announce=1`: everyone an announcement may go to (admins and coordinators: every active person).
+  if (params.get("announce") === "1") return json({ users: (await announceCandidates(user)).map(toPublic), categories: await categoryRoster() });
   const base = params.get("chat") === "1" ? await chatCandidates(user) : await descendants(user);
   const people = base.filter((p) => !role || p.role === role);
   if (params.get("chat") === "1") return json({ users: people.map(toPublic) });

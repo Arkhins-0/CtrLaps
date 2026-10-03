@@ -5,7 +5,6 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env, isStorageConfigured } from "./env";
 import { one, q, run } from "./db";
 import { storage } from "./storage";
-import { categoryMemberSql } from "./categoryChannels";
 
 /*
  * Documents. The bytes go to storage; the row says what they are. On S3
@@ -130,7 +129,7 @@ export async function fileForUser(userId: string, fileId: string): Promise<FileR
              OR EXISTS (SELECT 1 FROM message_recipients r WHERE r.message_id = m.id AND r.user_id = $2)
              OR (c.kind = 'direct' AND $2 IN (c.owner_id, c.member_id))
              OR (c.kind = 'group' AND EXISTS (SELECT 1 FROM group_members g WHERE g.conversation_id = c.id AND g.user_id = $2))
-             OR (c.kind = 'category' AND EXISTS (SELECT 1 FROM users u WHERE u.id = $2 AND ${categoryMemberSql("u", "c.category_id")}))
+             OR c.kind = 'category'
              OR (c.kind = 'support' AND (
                EXISTS (SELECT 1 FROM users u WHERE u.id = $2 AND u.role = 'admin' AND u.is_dev)
                OR EXISTS (SELECT 1 FROM support_tickets t WHERE t.conversation_id = c.id AND t.user_id = $2))))

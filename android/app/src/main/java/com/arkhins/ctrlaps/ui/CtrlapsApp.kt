@@ -83,6 +83,7 @@ import com.arkhins.ctrlaps.ui.screens.PermissionsScreen
 import com.arkhins.ctrlaps.ui.screens.ThemeScreen
 import com.arkhins.ctrlaps.ui.screens.AboutScreen
 import com.arkhins.ctrlaps.ui.screens.ActivityScreen
+import com.arkhins.ctrlaps.ui.screens.ChannelsScreen
 import com.arkhins.ctrlaps.ui.screens.DeleteAccountScreen
 import com.arkhins.ctrlaps.ui.screens.EmailSettingsScreen
 import com.arkhins.ctrlaps.ui.screens.FaqScreen
@@ -429,6 +430,8 @@ private fun MainNav(vm: AppViewModel) {
             composable("settings") { Pushed("Settings") { SettingsScreen(onPermissions = { nav.open("permissions") }, onTheme = { nav.open("theme") }, onEmail = { nav.open("email-settings") }, onDelete = { nav.open("delete-account") }) } }
             composable("email-settings") { Pushed("Email") { EmailSettingsScreen() } }
             composable("activity") { Pushed("Activity log") { ActivityScreen() } }
+            // The Channels page on its own (also what a link or a debug route to "channels" opens).
+            composable("channels") { Pushed("Channels") { ChannelsScreen(vm, openWeekend) { nav.open("category/$it") } } }
             composable("delete-account") { Pushed("Delete account") { DeleteAccountScreen(onDeleted = { vm.accountDeleted() }) } }
             composable("theme") { Pushed("Theme") { ThemeScreen() } }
             composable("permissions") { Pushed("Permissions") { PermissionsScreen() } }

@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Alignment
 import com.arkhins.ctrlaps.ui.components.GhostButton
 import kotlinx.coroutines.launch
+import com.arkhins.ctrlaps.data.MuteResponse
+import com.arkhins.ctrlaps.ui.components.MuteChip
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -72,8 +74,18 @@ fun WeekendScreen(vm: AppViewModel, weekendId: String, onView: (FileView) -> Uni
             w == null -> item { Loading() }
             else -> {
                 item { WeekendCard(w, isAdmin = vm.me?.isAdmin == true, editTimes = vm.me?.user?.role == "coordinator", onOpen = {}, onChanged = { reload++ }, startOpen = true, categories = weekend?.categories ?: emptyList()) }
-                item { Text("Weekend channel", style = MaterialTheme.typography.titleMedium, color = Snow) }
                 val c = channel
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Weekend channel", style = MaterialTheme.typography.titleMedium, color = Snow, modifier = Modifier.weight(1f))
+                        if (c != null) MuteChip(c.muted) {
+                            scope.launch {
+                                runCatching { app.api.put("/api/weekends/$weekendId/mute", MuteResponse.serializer()) { put("muted", !c.muted) } }
+                                    .onSuccess { r -> channel = c.copy(muted = r.muted) }
+                            }
+                        }
+                    }
+                }
                 if (c?.canPost == true) {
                     item {
                         Composer(placeholder = "Post to everyone for this weekend", sendLabel = "Post", voiceNoteSends = false) { d ->

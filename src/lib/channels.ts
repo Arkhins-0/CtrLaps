@@ -7,8 +7,8 @@ import { listSeasons, LIVE_SEASON } from "./seasons";
 
 /*
  * The channels page: every race weekend's channel, season by season, the
- * current season first. An admin names managers for a weekend's channel;
- * they post there like an admin or coordinator.
+ * current season first. Admins post in every channel; an admin names coordinators as a weekend's (or a category's)
+ * channel managers, who post there. Anyone can mute a channel's notifications (push only).
  */
 
 export type ChannelManager = PersonCard;
@@ -23,6 +23,8 @@ export type ChannelWeekend = {
   lastMessageAt: string | null;
   lastMessage: string | null;
   managers: ChannelManager[];
+  /** This person muted its notifications. */
+  muted: boolean;
 };
 
 export type ChannelSeason = { id: string; name: string; current: boolean; status: "active" | "archived"; weekends: ChannelWeekend[] };
@@ -40,8 +42,10 @@ export async function listChannels(user: SessionUser): Promise<ChannelSeason[]> 
       unread: string;
       last_at: string | null;
       last_body: string | null;
+      muted: boolean;
     }>(
       `SELECT w.id, w.name, w.season_id, w.starts_on::text AS starts_on, w.ends_on::text AS ends_on,
+              EXISTS (SELECT 1 FROM channel_mutes mu WHERE mu.user_id = $1 AND mu.conversation_id = c.id) AS muted,
               (w.channel_open AND COALESCE(s.status, 'active') = 'active') AS channel_open,
               COALESCE((SELECT count(*) FROM messages m JOIN message_recipients r ON r.message_id = m.id AND r.user_id = $1
                         WHERE m.conversation_id = c.id AND r.read_at IS NULL AND ${LIVE_SEASON("m")}), 0)::text AS unread,
@@ -75,6 +79,7 @@ export async function listChannels(user: SessionUser): Promise<ChannelSeason[]> 
     lastMessageAt: w.last_at ? new Date(w.last_at).toISOString() : null,
     lastMessage: w.last_body ? (w.last_body.length > 140 ? `${w.last_body.slice(0, 137)}…` : w.last_body) : null,
     managers: byWeekend.get(w.id) ?? [],
+    muted: w.muted,
   });
   // The current season first, then the rest newest first; a weekend without a season goes with the current one.
   const current = seasons.find((s) => s.current);
@@ -97,22 +102,67 @@ export async function channelManagers(weekendId: string): Promise<ChannelManager
   return rows.map(personCard);
 }
 
-/** Admin: exactly these people manage the weekend's channel. Only admins and coordinators can be managers. */
+/** Admin: exactly these coordinators manage the weekend's channel (admins post everywhere already). */
 export async function setChannelManagers(admin: SessionUser, weekendId: string, userIds: string[]): Promise<ChannelManager[]> {
-  if (admin.role !== "admin" && admin.role !== "coordinator") throw new AuthError(403, "Only admins and coordinators assign channel managers.");
+  if (admin.role !== "admin") throw new AuthError(403, "Only an admin picks channel managers.");
   const ids = Array.from(new Set(userIds));
   await tx(async (c) => {
     await c.query("DELETE FROM channel_managers WHERE weekend_id = $1", [weekendId]);
     if (ids.length > 0) {
       await c.query(
         `INSERT INTO channel_managers (weekend_id, user_id)
-         SELECT $1, u.id FROM users u
-         WHERE u.id = ANY($2::uuid[]) AND u.status = 'active' AND u.role IN ('admin', 'coordinator')`,
+         SELECT $1, u.id FROM users u WHERE u.id = ANY($2::uuid[]) AND u.status = 'active' AND u.role = 'coordinator'`,
         [weekendId, ids],
       );
     }
   });
   return channelManagers(weekendId);
+}
+
+/** Who may be picked as a channel manager: active coordinators. */
+export async function managerCandidates(): Promise<ChannelManager[]> {
+  const rows = await q<PersonRow>(
+    `SELECT u.id, u.name, u.email, u.role, u.photo_key, u.is_dev FROM users u WHERE u.status = 'active' AND u.role = 'coordinator'
+     ORDER BY u.name NULLS LAST, u.email`,
+  );
+  return rows.map(personCard);
+}
+
+export async function categoryManagers(categoryId: string): Promise<ChannelManager[]> {
+  const rows = await q<PersonRow>(
+    `SELECT u.id, u.name, u.email, u.role, u.photo_key, u.is_dev FROM category_managers cm JOIN users u ON u.id = cm.user_id
+     WHERE cm.category_id = $1 ORDER BY u.name NULLS LAST, u.email`,
+    [categoryId],
+  );
+  return rows.map(personCard);
+}
+
+/** Admin: exactly these coordinators manage the category's channel. */
+export async function setCategoryManagers(admin: SessionUser, categoryId: string, userIds: string[]): Promise<ChannelManager[]> {
+  if (admin.role !== "admin") throw new AuthError(403, "Only an admin picks channel managers.");
+  const ids = Array.from(new Set(userIds));
+  await tx(async (c) => {
+    await c.query("DELETE FROM category_managers WHERE category_id = $1", [categoryId]);
+    if (ids.length > 0) {
+      await c.query(
+        `INSERT INTO category_managers (category_id, user_id)
+         SELECT $1, u.id FROM users u WHERE u.id = ANY($2::uuid[]) AND u.status = 'active' AND u.role = 'coordinator'`,
+        [categoryId, ids],
+      );
+    }
+  });
+  return categoryManagers(categoryId);
+}
+
+/** Mute or unmute a channel's notifications for this person (push only; unread still counts). */
+export async function setMuted(userId: string, conversationId: string, muted: boolean): Promise<boolean> {
+  if (muted) await run("INSERT INTO channel_mutes (user_id, conversation_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [userId, conversationId]);
+  else await run("DELETE FROM channel_mutes WHERE user_id = $1 AND conversation_id = $2", [userId, conversationId]);
+  return muted;
+}
+
+export async function isMuted(userId: string, conversationId: string): Promise<boolean> {
+  return (await q("SELECT 1 FROM channel_mutes WHERE user_id = $1 AND conversation_id = $2", [userId, conversationId])).length > 0;
 }
 
 export async function isChannelManager(userId: string, weekendId: string): Promise<boolean> {

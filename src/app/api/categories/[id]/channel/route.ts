@@ -1,12 +1,13 @@
 import { body, bool, handle, isUuid, str, uuids, type Params } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { canPostCategory, categoryConversation, categoryInfo } from "@/lib/categoryChannels";
+import { isMuted } from "@/lib/channels";
 import { fail, json } from "@/lib/http";
 import { canReadCategory, conversationMessages, markConversationRead, postToCategory } from "@/lib/messages";
 
 export const dynamic = "force-dynamic";
 
-/** A race category's channel, for the people in it. Reading marks it read, except `?read=0` (the phone in the background). */
+/** A race category's channel, for everyone. Reading marks it read, except `?read=0` (the phone in the background). */
 export const GET = handle<Params<"id">>(async (request, { params }) => {
   const user = await requireUser();
   const { id } = await params;
@@ -22,11 +23,12 @@ export const GET = handle<Params<"id">>(async (request, { params }) => {
     open: category.open,
     closedReason: category.open ? null : "archived",
     canPost: category.open && (await canPostCategory(user, id)),
+    muted: await isMuted(user.id, conversationId),
     messages,
   });
 });
 
-/** Admins, coordinators and the category's race officials post; it reaches everyone in the category. */
+/** Admins and the channel's managers post; it reaches everyone (who may mute it). */
 export const POST = handle<Params<"id">>(async (request, { params }) => {
   const user = await requireUser();
   const { id } = await params;

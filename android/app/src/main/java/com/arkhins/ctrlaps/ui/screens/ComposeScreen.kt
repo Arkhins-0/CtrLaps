@@ -75,7 +75,7 @@ fun ComposeScreen(onSent: () -> Unit) {
 
     LaunchedEffect(Unit) {
         try {
-            val r = app.store.get("/api/users", UsersResponse.serializer()) { c -> people = c.users.filter { it.status == "active" }; categories = c.categories }
+            val r = app.store.get("/api/users?announce=1", UsersResponse.serializer()) { c -> people = c.users.filter { it.status == "active" }; categories = c.categories }
             people = r.users.filter { it.status == "active" }
             categories = r.categories
         } catch (e: Exception) {

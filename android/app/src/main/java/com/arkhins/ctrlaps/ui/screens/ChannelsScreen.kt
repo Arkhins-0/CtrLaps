@@ -45,6 +45,7 @@ import com.arkhins.ctrlaps.ui.components.ErrorText
 import com.arkhins.ctrlaps.ui.components.Field
 import com.arkhins.ctrlaps.ui.components.GoldButton
 import com.arkhins.ctrlaps.ui.components.Loading
+import com.arkhins.ctrlaps.ui.components.UnreadBadge
 import com.arkhins.ctrlaps.ui.components.SectionTitle
 import com.arkhins.ctrlaps.ui.theme.Gold
 import com.arkhins.ctrlaps.ui.theme.Night
@@ -71,9 +72,10 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCate
     var data by remember { mutableStateOf<ChannelsResponse?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableStateOf(0) }
-    var managing by remember { mutableStateOf<ChannelWeekend?>(null) }
-    // Admins and coordinators pick a weekend's channel managers.
-    val canManage = vm.me?.isAdmin == true || vm.me?.user?.role == "coordinator"
+    // Whose managers are being picked: (name, managers API).
+    var managing by remember { mutableStateOf<Pair<String, String>?>(null) }
+    // Admins pick the coordinators who manage a weekend's or a category's channel.
+    val canManage = vm.me?.isAdmin == true
 
     LaunchedEffect(reload, vm.refreshTick) {
         try {
@@ -94,7 +96,7 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCate
             else -> {
               if (categories.isNotEmpty()) {
                 item(key = "categories") { SectionTitle("CATEGORIES", Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
-                items(categories, key = { "c-" + it.id }) { c -> CategoryChannelRow(c) { onOpenCategory(c.id) } }
+                items(categories, key = { "c-" + it.id }) { c -> CategoryChannelRow(c, onManagers = if (canManage) ({ managing = c.name to "/api/categories/${c.id}/managers" }) else null) { onOpenCategory(c.id) } }
               }
               seasons.filter { it.weekends.isNotEmpty() }.forEach { season ->
                 item(key = "season-${season.id}") {
@@ -117,7 +119,7 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCate
                         ) { Text("📣", style = MaterialTheme.typography.titleMedium) }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(w.name, style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(w.name + if (w.muted) "  🔕" else "", style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(
                                 w.lastMessage ?: "${w.startsOn} → ${w.endsOn}" + if (w.channelOpen) "" else " · closed",
                                 style = MaterialTheme.typography.bodySmall,
@@ -136,12 +138,10 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCate
                             }
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            w.lastMessageAt?.let { Text(whenLabel(it), style = MaterialTheme.typography.labelSmall, color = if (w.unread > 0) Gold else SnowFaint) }
+                            w.lastMessageAt?.let { Text(whenLabel(it), style = MaterialTheme.typography.labelSmall, color = if (w.unread > 0 && !w.muted) Gold else SnowFaint) }
                             if (w.unread > 0) {
                                 Spacer(Modifier.height(4.dp))
-                                Box(Modifier.background(Gold, RoundedCornerShape(999.dp)).padding(horizontal = 7.dp, vertical = 2.dp)) {
-                                    Text("${w.unread}", style = MaterialTheme.typography.labelSmall, color = OnGold)
-                                }
+                                UnreadBadge(w.unread, w.muted)
                             }
                             if (canManage) {
                                 Spacer(Modifier.height(4.dp))
@@ -149,7 +149,7 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCate
                                     "Managers",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = Gold,
-                                    modifier = Modifier.clickable { managing = w }.padding(2.dp),
+                                    modifier = Modifier.clickable { managing = w.name to "/api/weekends/${w.id}/managers" }.padding(2.dp),
                                 )
                             }
                         }
@@ -161,11 +161,11 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCate
         }
     }
 
-    managing?.let { w ->
-        ManagersSheet(w, onDismiss = { managing = null }) { ids ->
+    managing?.let { (name, url) ->
+        ManagersSheet(name, url, onDismiss = { managing = null }) { ids ->
             managing = null
             app.appScope.launch {
-                runCatching { app.api.put("/api/weekends/${w.id}/managers", ManagersResponse.serializer()) { putJsonArray("userIds") { ids.forEach { add(it) } } } }
+                runCatching { app.api.put(url, ManagersResponse.serializer()) { putJsonArray("userIds") { ids.forEach { add(it) } } } }
                 withContext(Dispatchers.Main) { reload++ }
             }
         }
@@ -174,7 +174,7 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCate
 
 /** A race category's channel: its code in its colour, the last post, unread. */
 @Composable
-private fun CategoryChannelRow(c: CategoryChannel, onOpen: () -> Unit) {
+private fun CategoryChannelRow(c: CategoryChannel, onManagers: (() -> Unit)? = null, onOpen: () -> Unit) {
     val color = runCatching { androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(c.color)) }.getOrDefault(SnowSoft)
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 16.dp, vertical = 10.dp),
@@ -185,40 +185,45 @@ private fun CategoryChannelRow(c: CategoryChannel, onOpen: () -> Unit) {
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(c.name, style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(c.name + if (c.muted) "  🔕" else "", style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(c.lastMessage ?: "No posts yet", style = MaterialTheme.typography.bodySmall, color = if (c.unread > 0) Snow else SnowFaint, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Column(horizontalAlignment = Alignment.End) {
-            c.lastMessageAt?.let { Text(whenLabel(it), style = MaterialTheme.typography.labelSmall, color = if (c.unread > 0) Gold else SnowFaint) }
+            c.lastMessageAt?.let { Text(whenLabel(it), style = MaterialTheme.typography.labelSmall, color = if (c.unread > 0 && !c.muted) Gold else SnowFaint) }
             if (c.unread > 0) {
                 Spacer(Modifier.height(4.dp))
-                Box(Modifier.background(Gold, RoundedCornerShape(999.dp)).padding(horizontal = 7.dp, vertical = 2.dp)) {
-                    Text("${c.unread}", style = MaterialTheme.typography.labelSmall, color = OnGold)
-                }
+                UnreadBadge(c.unread, c.muted)
+            }
+            if (onManagers != null) {
+                Spacer(Modifier.height(4.dp))
+                Text("Managers", style = MaterialTheme.typography.labelSmall, color = Gold, modifier = Modifier.clickable(onClick = onManagers).padding(2.dp))
             }
         }
     }
     Box(Modifier.padding(start = 76.dp)) { Divider() }
 }
 
-/** Admins and coordinators: tick the people who manage this weekend's channel. */
+/** Admin: tick the coordinators who manage a weekend's or a category's channel (admins post everywhere already). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ManagersSheet(w: ChannelWeekend, onDismiss: () -> Unit, onSave: (List<String>) -> Unit) {
+private fun ManagersSheet(name: String, url: String, onDismiss: () -> Unit, onSave: (List<String>) -> Unit) {
     val app = LocalApp.current
     var people by remember { mutableStateOf<List<PublicUser>?>(null) }
-    var picked by remember { mutableStateOf(w.managers.map { it.id }.toSet()) }
+    var picked by remember { mutableStateOf(emptySet<String>()) }
     var filter by remember { mutableStateOf("") }
-    // Only admins and coordinators can manage a channel; the server says who they are.
-    LaunchedEffect(Unit) {
-        runCatching { app.api.get("/api/weekends/${w.id}/managers", ManagersResponse.serializer()) }
-            .onSuccess { r -> people = r.candidates }
+    // The server gives the current managers and who may be picked (active coordinators).
+    LaunchedEffect(url) {
+        runCatching { app.api.get(url, ManagersResponse.serializer()) }
+            .onSuccess { r ->
+                picked = r.managers.map { it.id }.toSet()
+                people = r.candidates
+            }
             .onFailure { people = emptyList() }
     }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = NightPanel) {
         Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
-            Text("Managers of ${w.name}", style = MaterialTheme.typography.titleMedium, color = Snow)
-            Text("They post in this channel like an admin.", style = MaterialTheme.typography.bodySmall, color = SnowSoft)
+            Text("Managers of $name", style = MaterialTheme.typography.titleMedium, color = Snow)
+            Text("Coordinators who post in this channel. Admins post in every channel.", style = MaterialTheme.typography.bodySmall, color = SnowSoft)
             Spacer(Modifier.height(8.dp))
             Field(filter, { filter = it }, "Search people")
             Spacer(Modifier.height(6.dp))

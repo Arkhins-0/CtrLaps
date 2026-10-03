@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { MuteButton } from "@/components/channels/MuteButton";
+import { isMuted } from "@/lib/channels";
 import { ChannelView } from "@/components/ChannelView";
 import { CategoryTag } from "@/components/schedule/CategoryTag";
 import { canPostCategory, categoryConversation, categoryInfo } from "@/lib/categoryChannels";
@@ -26,11 +28,12 @@ export default async function CategoryChannelPage({ params }: { params: Promise<
           <h1 className="truncate text-lg font-semibold">{category.name}</h1>
           <p className="text-xs text-snow-faint">Category channel · {category.seasonName}</p>
         </div>
+        <MuteButton url={`/api/categories/${id}/mute`} initial={await isMuted(user.id, conversationId)} />
       </div>
       <ChannelView
         weekendId=""
         url={`/api/categories/${id}/channel`}
-        placeholder={`Post to everyone in ${category.code}`}
+        placeholder={`Post to everyone in the ${category.code} channel`}
         initial={messages}
         canPost={category.open && mayPost}
         open={category.open}

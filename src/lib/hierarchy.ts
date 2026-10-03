@@ -2,7 +2,7 @@ import "server-only";
 
 import { q } from "./db";
 import { USER_COLUMNS, type SessionUser } from "./auth";
-import { CREATE_RULES, hasChats, type Role } from "./roles";
+import { canAnnounce, CREATE_RULES, hasChats, type Role } from "./roles";
 
 /*
  * The one-way rule, in code. Everything that decides who may see, message,
@@ -83,6 +83,19 @@ export async function filterBelow(user: Pick<SessionUser, "id" | "role">, ids: s
      SELECT id FROM users WHERE id = ANY($2::uuid[]) AND id IN (SELECT id FROM below)`,
     [user.id, ids],
   );
+  return rows.map((r) => r.id);
+}
+
+/** Everyone an announcer (admin or coordinator) may send to: every active person of any role but themselves. */
+export async function announceCandidates(user: Pick<SessionUser, "id" | "role">): Promise<UserRow[]> {
+  if (!canAnnounce(user.role)) return [];
+  return q<UserRow>(`SELECT ${USER_COLUMNS} FROM users WHERE id <> $1 AND status = 'active' ORDER BY role, name NULLS LAST, email`, [user.id]);
+}
+
+/** The subset of `ids` an announcement from `user` goes to. */
+export async function announceRecipients(user: Pick<SessionUser, "id" | "role">, ids: string[]): Promise<string[]> {
+  if (!canAnnounce(user.role) || ids.length === 0) return [];
+  const rows = await q<{ id: string }>("SELECT id FROM users WHERE id = ANY($1::uuid[]) AND id <> $2 AND status = 'active'", [ids, user.id]);
   return rows.map((r) => r.id);
 }
 
