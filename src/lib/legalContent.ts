@@ -105,6 +105,7 @@ const privacy: LegalDoc = {
             "Messages are grouped by season. Admins can archive a season (read-only) or delete it, which permanently removes that season’s messages.",
             "A private message you delete loses its text and attachment straight away, for both people.",
             "Sign-in attempt records are kept only as long as needed to limit repeated attempts.",
+            "We keep a log of what organisers do in CTR[L]APS, for example sending an announcement, moving a session or changing someone’s role or status: who did it, to whom and when, with a short preview of announcements and channel posts. Only our support team can see it. Private chats and groups are never logged.",
           ],
         },
         { p: "Emails and notifications that were already delivered cannot be recalled from the devices or inboxes that received them." },

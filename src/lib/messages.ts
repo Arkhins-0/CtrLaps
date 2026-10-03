@@ -9,7 +9,7 @@ import { saveEvent, type EventDraft } from "./events";
 import { keepLinkAfterEdit, linkForMessage, previewOut } from "./linkPreview";
 import { filesByIds, messageFileIds, type FileRow } from "./files";
 import { canChat, filterBelow } from "./hierarchy";
-import { userById } from "./users";
+import { audit, userById } from "./users";
 import { activeUserIds, deliver, describeFiles, fileKind, preview } from "./notify";
 import { pushSync } from "./push";
 import { CHANNEL_POSTERS, isDeveloper, roleLabel, type Role } from "./roles";
@@ -500,6 +500,14 @@ export async function sendBroadcast(
         }
       : undefined,
   });
+  // The Activity log: an announcement, or a notice from the organisers' Email page.
+  await audit(sender.id, null, draft.forceEmail ? "email.sent" : "announcement.sent", {
+    messageId: id,
+    recipients: recipients.length,
+    urgent: Boolean(draft.urgent),
+    subject: subject || undefined,
+    preview: text.slice(0, 160),
+  });
   return { id, delivered: recipients.length };
 }
 
@@ -564,6 +572,7 @@ export async function postToChannel(sender: SessionUser, weekendId: string, draf
           }
         : undefined,
   });
+  await audit(sender.id, weekendId, "channel.posted", { messageId: id, channel: channel.name, urgent: Boolean(draft.urgent), preview: text.slice(0, 160) });
   return id;
 }
 
@@ -601,6 +610,7 @@ export async function postToCategory(sender: SessionUser, categoryId: string, dr
           }
         : undefined,
   });
+  await audit(sender.id, null, "category.posted", { messageId: id, category: category.code, categoryId, urgent: Boolean(draft.urgent), preview: text.slice(0, 160) });
   return id;
 }
 

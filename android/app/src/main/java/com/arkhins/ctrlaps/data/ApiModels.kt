@@ -294,7 +294,11 @@ data class ChannelWeekend(
 )
 
 @Serializable
-data class ManagersResponse(val managers: List<GroupMember> = emptyList())
+data class ManagersResponse(
+    val managers: List<GroupMember> = emptyList(),
+    /** For admins and coordinators: who may be picked (active admins and coordinators). */
+    val candidates: List<PublicUser> = emptyList(),
+)
 
 @Serializable
 data class InviteAnswer(val groupId: String, val accepted: Boolean = false)
@@ -715,3 +719,25 @@ data class SessionResult(
     /** Typed by hand: the table doesn't change it. */
     val manualPoints: Boolean = true,
 )
+
+/** The Activity log (developers only): a page of entries, newest first; `next` asks for older ones. */
+@Serializable
+data class ActivityPage(val entries: List<ActivityEntry> = emptyList(), val next: String? = null)
+
+@Serializable
+data class ActivityEntry(
+    val id: String,
+    val at: String,
+    val action: String,
+    val title: String,
+    val detail: String? = null,
+    val actor: ActivityActor? = null,
+    val target: ActivityTarget? = null,
+)
+
+@Serializable
+data class ActivityActor(val id: String, val name: String, val roleLabel: String = "")
+
+/** Who or what it was done to: a person or a race weekend. */
+@Serializable
+data class ActivityTarget(val id: String, val name: String, val kind: String)
