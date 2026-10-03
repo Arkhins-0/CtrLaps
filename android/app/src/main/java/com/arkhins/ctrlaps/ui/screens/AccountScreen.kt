@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import com.arkhins.ctrlaps.BuildConfig
+import com.arkhins.ctrlaps.Config
 import com.arkhins.ctrlaps.LocalApp
 import com.arkhins.ctrlaps.ui.AppViewModel
 import com.arkhins.ctrlaps.ui.components.Avatar
@@ -156,7 +157,13 @@ fun AccountScreen(
         }
 
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelSmall, color = SnowFaint, modifier = Modifier.weight(1f))
+            // The version, and the organisation's main domain (MAIN_DOMAIN at build time) when there is one.
+            Text(
+                "v${BuildConfig.VERSION_NAME}${if (Config.MAIN_DOMAIN.isNotBlank()) " · ${Config.MAIN_DOMAIN}" else ""}",
+                style = MaterialTheme.typography.labelSmall,
+                color = SnowFaint,
+                modifier = Modifier.weight(1f),
+            )
             GhostButton("Sign out", danger = true) { confirmOut = true }
         }
     }
