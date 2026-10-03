@@ -58,7 +58,8 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
                 onClick = onSupport,
             )
         }
-        Text("CTR[L]APS v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+        // A debug build says so, so it can't be mistaken for the release (same name, icon and version).
+        Text("CTR[L]APS v${BuildConfig.VERSION_NAME}${if (BuildConfig.DEBUG) " · Debug" else ""}", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
     }
 }
 
