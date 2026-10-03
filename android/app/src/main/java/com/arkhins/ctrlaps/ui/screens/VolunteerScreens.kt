@@ -47,6 +47,7 @@ import com.arkhins.ctrlaps.data.VolunteerGroupDetailResponse
 import com.arkhins.ctrlaps.data.VolunteerGroupsResponse
 import com.arkhins.ctrlaps.ui.AppViewModel
 import com.arkhins.ctrlaps.ui.components.Avatar
+import com.arkhins.ctrlaps.ui.components.Chip
 import com.arkhins.ctrlaps.ui.components.Empty
 import com.arkhins.ctrlaps.ui.components.ErrorText
 import com.arkhins.ctrlaps.ui.components.Field
@@ -64,6 +65,14 @@ import com.arkhins.ctrlaps.ui.theme.SnowFaint
 import com.arkhins.ctrlaps.ui.theme.SnowSoft
 import com.arkhins.ctrlaps.ui.whenLabel
 import kotlinx.coroutines.launch
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -82,7 +91,7 @@ private fun permissionLabel(p: String) = when (p) { "no_messages" -> "Can't send
  * they lead, a volunteer their own). Admins and coordinators get a + to make a group and Manage on the ones they lead.
  */
 @Composable
-fun VolunteersScreen(vm: AppViewModel, onOpenChat: (String) -> Unit, onManage: (String) -> Unit) {
+fun VolunteersScreen(vm: AppViewModel, onOpenChat: (String) -> Unit, onManage: (String) -> Unit, onMade: (String) -> Unit = onManage) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     var data by remember { mutableStateOf<VolunteerGroupsResponse?>(null) }
@@ -158,7 +167,7 @@ fun VolunteersScreen(vm: AppViewModel, onOpenChat: (String) -> Unit, onManage: (
                         }
                         if (g.canManage) {
                             Spacer(Modifier.height(4.dp))
-                            Text("Manage", style = MaterialTheme.typography.labelSmall, color = Gold, modifier = Modifier.clickable { onManage(g.id) }.padding(2.dp))
+                            Text("Manage", style = MaterialTheme.typography.labelSmall, color = Gold, modifier = Modifier.clickable { onManage(g.conversationId) }.padding(2.dp))
                         }
                     }
                 }
@@ -212,7 +221,7 @@ fun VolunteersScreen(vm: AppViewModel, onOpenChat: (String) -> Unit, onManage: (
                                 lead?.let { put("coordinatorId", it.id) }
                             }
                             creating = false
-                            onManage(r.id)
+                            onMade(r.id)
                         } catch (e: Exception) {
                             err = e.message ?: "Could not make the group."
                             busy = false
@@ -226,16 +235,21 @@ fun VolunteersScreen(vm: AppViewModel, onOpenChat: (String) -> Unit, onManage: (
 }
 
 /**
- * Manage one volunteer group (its coordinator or an admin). One card for the group — name, who leads it, how many,
- * whether the chat is open, with Open chat and a ⋮ menu (rename, close or reopen, hand over) — then the volunteers as
- * one list, each with a ⋮ menu for what they may do and where they go.
+ * A volunteer group's one page for whoever manages it (its coordinator or an admin; the chat's info page shows this
+ * for them). One card — picture (tap to change), name, who leads it, how many, whether the chat is open, Open chat
+ * and a ⋮ menu (rename, close or reopen, hand over, move volunteers) — then who can send, the staff in the chat, and
+ * the volunteers as one list, each with a ⋮ menu for what they may do and where they go.
  */
 @Composable
 fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: () -> Unit, onTitle: (String) -> Unit) {
     val app = LocalApp.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val path = "/api/volunteer-groups/$groupId"
     var g by remember { mutableStateOf<VolunteerGroupDetail?>(null) }
+    // The chat's own info: picture, who may send, who the staff are.
+    var info by remember { mutableStateOf<com.arkhins.ctrlaps.data.GroupInfo?>(null) }
+    var photoVersion by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
@@ -249,6 +263,29 @@ fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: 
     fun show(r: VolunteerGroupDetailResponse) {
         g = r.group ?: throw IllegalStateException("No longer yours to manage.")
         onTitle(r.group.name)
+    }
+    suspend fun loadInfo(conv: String) {
+        runCatching { app.store.get("/api/groups/$conv", com.arkhins.ctrlaps.data.GroupResponse.serializer()) { if (info == null) info = it.group } }.onSuccess { info = it.group }
+    }
+    LaunchedEffect(g?.conversationId) { g?.conversationId?.let { loadInfo(it) } }
+    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val conv = g?.conversationId ?: return@rememberLauncherForActivityResult
+        busy = true
+        scope.launch {
+            try {
+                val bmp = withContext(Dispatchers.IO) { loadShrunk(context, uri) } ?: throw IllegalStateException("Could not read that picture.")
+                val file = withContext(Dispatchers.IO) { File(context.cacheDir, "group-photo.jpg").also { f -> f.outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 85, it) } } }
+                app.api.postForm("/api/groups/$conv/photo", emptyMap(), "photo" to file, "image/jpeg", com.arkhins.ctrlaps.data.Ok.serializer())
+                file.delete()
+                photoVersion++
+                loadInfo(conv)
+            } catch (e: Exception) {
+                error = e.message ?: "Could not change the picture."
+            } finally {
+                busy = false
+            }
+        }
     }
     LaunchedEffect(groupId) {
         try {
@@ -265,6 +302,7 @@ fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: 
             try {
                 block()
                 runCatching { show(app.store.fetch(path, VolunteerGroupDetailResponse.serializer())) }.onFailure { onGone() }
+                g?.conversationId?.let { loadInfo(it) }
             } catch (e: Exception) {
                 error = e.message ?: "Could not save."
             } finally {
@@ -283,6 +321,10 @@ fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: 
         item {
             Panel {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.clickable(enabled = !busy) { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
+                        Avatar(info?.photoUrl?.let { app.api.absolute("$it?v=$photoVersion") }, d.name, 56)
+                    }
+                    Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(d.name, style = MaterialTheme.typography.titleLarge, color = Snow)
                         Text(
@@ -309,6 +351,42 @@ fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: 
             }
         }
         item { ErrorText(error) }
+        info?.let { gi ->
+            item {
+                Panel {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Who can send", style = MaterialTheme.typography.titleSmall, color = Snow, modifier = Modifier.weight(1f))
+                        listOf("everyone" to "Everyone", "admins" to "Staff only").forEach { (key, label) ->
+                            Spacer(Modifier.width(6.dp))
+                            Chip(label, Gold, filled = gi.sendPolicy == key) {
+                                if (gi.sendPolicy != key && !busy) run { app.api.patch("/api/groups/${d.conversationId}", com.arkhins.ctrlaps.data.GroupResponse.serializer()) { put("sendPolicy", key) } }
+                            }
+                        }
+                    }
+                }
+            }
+            val staff = gi.members.filter { it.userRole != "volunteer" }
+            if (staff.isNotEmpty()) {
+                item { SectionTitle("STAFF · ${staff.size}") }
+                item {
+                    Panel(padding = PaddingValues(6.dp)) {
+                        Column {
+                            staff.forEachIndexed { i, m ->
+                                if (i > 0) HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
+                                Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Avatar(app.api.absolute(m.photoUrl), m.name, 40)
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(m.name, style = MaterialTheme.typography.titleSmall, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(if (m.id == d.coordinator?.id) "Lead coordinator" else m.roleLabel, style = MaterialTheme.typography.bodySmall, color = if (m.id == d.coordinator?.id) Gold else SnowFaint)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 SectionTitle("VOLUNTEERS · ${d.volunteers.size}", Modifier.weight(1f))

@@ -207,6 +207,7 @@ fun ChatsScreen(
     onOpenWeekend: (String) -> Unit,
     onOpenCategory: (String) -> Unit = {},
     onManageVolunteers: (String) -> Unit = {},
+    onVolunteerGroupMade: (String) -> Unit = onManageVolunteers,
 ) {
     // Admins, coordinators and volunteers get a third page: the volunteer groups' chats. Its copy is refreshed as soon
     // as the tab opens, so a swipe over finds it current.
@@ -222,7 +223,7 @@ fun ChatsScreen(
         when (i) {
             0 -> ChatListPage(vm, onOpen, onNewChat)
             1 -> ChannelsScreen(vm, onOpenWeekend, onOpenCategory)
-            else -> VolunteersScreen(vm, onOpen, onManageVolunteers)
+            else -> VolunteersScreen(vm, onOpen, onManageVolunteers, onVolunteerGroupMade)
         }
     }
 }
