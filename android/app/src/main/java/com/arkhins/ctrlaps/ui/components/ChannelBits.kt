@@ -11,6 +11,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.put
 import com.arkhins.ctrlaps.ui.theme.Gold
 import com.arkhins.ctrlaps.ui.theme.OnGold
 
@@ -52,3 +54,29 @@ fun MutedMark() {
         modifier = Modifier.padding(start = 6.dp).size(14.dp),
     )
 }
+
+/**
+ * Mute or unmute at once: the bell flips and a toast says so while the request runs behind it; if the server refuses,
+ * the bell flips back and the toast says the change didn't take.
+ */
+fun toggleMute(
+    context: android.content.Context,
+    scope: kotlinx.coroutines.CoroutineScope,
+    api: com.arkhins.ctrlaps.data.CtrlapsApi,
+    path: String,
+    muted: Boolean,
+    show: (Boolean) -> Unit,
+) {
+    val next = !muted
+    show(next)
+    android.widget.Toast.makeText(context, if (next) "Notifications muted" else "Notifications on", android.widget.Toast.LENGTH_SHORT).show()
+    scope.launch {
+        runCatching { api.put(path, com.arkhins.ctrlaps.data.MuteResponse.serializer()) { put("muted", next) } }
+            .onSuccess { r -> show(r.muted) }
+            .onFailure {
+                show(muted)
+                android.widget.Toast.makeText(context, "Couldn't change notifications. Try again.", android.widget.Toast.LENGTH_SHORT).show()
+            }
+    }
+}
+
