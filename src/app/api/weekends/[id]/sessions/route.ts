@@ -9,12 +9,13 @@ import { audit } from "@/lib/users";
 export const dynamic = "force-dynamic";
 
 /**
- * Admin: add or change a session. Times come as the track's wall clock
- * ("2026-10-03T14:00") and are stored as instants. Any change goes out to
- * everyone as urgent.
+ * Admin: add or change a session. Coordinator: change an existing session's start and end only (its name and
+ * category stay as they are, and the change is always announced). Times come as the track's wall clock
+ * ("2026-10-03T14:00") and are stored as instants. Any change goes out to everyone as urgent.
  */
 export const POST = handle<Params<"id">>(async (request, { params }) => {
-  const admin = await requireUser(["admin"]);
+  const admin = await requireUser(["admin", "coordinator"]);
+  const timesOnly = admin.role === "coordinator";
   const { id } = await params;
   if (!isUuid(id)) return fail("No such race weekend.", 404);
   const weekend = await weekendById(id);
@@ -23,15 +24,18 @@ export const POST = handle<Params<"id">>(async (request, { params }) => {
   const b = await body(request);
   const sessionId = str(b.id, 64) || null;
   if (sessionId && !isUuid(sessionId)) return fail("No such session.", 404);
-  const name = str(b.name, 80);
+  const existing = sessionId ? weekend.sessions.find((s) => s.id === sessionId) : undefined;
+  if (timesOnly && !existing) return fail("Only an admin adds a session; coordinators change the times of one.", 403);
+  if (sessionId && !existing) return fail("No such session.", 404);
+  const name = timesOnly ? existing!.name : str(b.name, 80);
   const startsAt = zonedToUtc(str(b.startsAt, 32), weekend.timezone);
   const endsAt = zonedToUtc(str(b.endsAt, 32), weekend.timezone);
   if (name.length < 2) return fail("Name the session (e.g. Practice 1, Qualifying, Race).");
   if (!startsAt || !endsAt) return fail("Enter a start and end time.");
   if (endsAt <= startsAt) return fail("The session ends before it starts.");
   // Its race category; none (or "") = for everyone.
-  const categoryId = str(b.categoryId, 64) || null;
-  if (categoryId && (!isUuid(categoryId) || !(await categoryFitsWeekend(id, categoryId)))) return fail("That category isn't in this season.");
+  const categoryId = timesOnly ? (existing!.categoryId ?? null) : str(b.categoryId, 64) || null;
+  if (!timesOnly && categoryId && (!isUuid(categoryId) || !(await categoryFitsWeekend(id, categoryId)))) return fail("That category isn't in this season.");
 
   const before = sessionId ? weekend.sessions.find((s) => s.id === sessionId) : undefined;
   const saved = await upsertSession(id, sessionId, { name, startsAt, endsAt, categoryId });
@@ -41,7 +45,7 @@ export const POST = handle<Params<"id">>(async (request, { params }) => {
 
   const changed =
     !before || before.startsAt !== session.startsAt || before.endsAt !== session.endsAt || before.name !== session.name || before.categoryId !== session.categoryId;
-  if (changed && !(b.quiet === true)) {
+  if (changed && !(b.quiet === true && !timesOnly)) {
     const code = session.categoryId ? (await categoriesOf([after.seasonId ?? ""])).find((c) => c.id === session.categoryId)?.code : null;
     await announceScheduleChange(admin, after, `${before ? "Changed" : "Added"} — ${describeSession(session, after.timezone, code)}`);
   }

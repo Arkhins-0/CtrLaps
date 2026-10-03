@@ -57,7 +57,8 @@ export const STATUS_LABEL: Record<Status, string> = {
  */
 export const CREATE_RULES: Partial<Record<Role, Role[]>> = {
   admin: ["admin", "coordinator", "race_official", "team_manager", "racer", "crew", "security_head", "security", "volunteer"],
-  coordinator: ["coordinator", "race_official", "team_manager", "racer", "crew", "security_head", "security", "volunteer"],
+  // Only admins make coordinators.
+  coordinator: ["race_official", "team_manager", "racer", "crew", "security_head", "security", "volunteer"],
   team_manager: ["racer", "crew"],
   security_head: ["security"],
 };

@@ -99,7 +99,7 @@ export async function channelManagers(weekendId: string): Promise<ChannelManager
 
 /** Admin: exactly these people manage the weekend's channel. Only admins and coordinators can be managers. */
 export async function setChannelManagers(admin: SessionUser, weekendId: string, userIds: string[]): Promise<ChannelManager[]> {
-  if (admin.role !== "admin") throw new AuthError(403, "Only an admin assigns channel managers.");
+  if (admin.role !== "admin" && admin.role !== "coordinator") throw new AuthError(403, "Only admins and coordinators assign channel managers.");
   const ids = Array.from(new Set(userIds));
   await tx(async (c) => {
     await c.query("DELETE FROM channel_managers WHERE weekend_id = $1", [weekendId]);

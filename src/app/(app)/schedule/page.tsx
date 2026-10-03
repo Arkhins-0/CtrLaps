@@ -27,7 +27,7 @@ export default async function Schedule() {
         <>
           <h1 className="page-title">Schedule</h1>
           {weekends.length === 0 && <p className="card text-sm text-snow-faint">No race weekend has been scheduled yet.</p>}
-          <ScheduleList upcoming={upcoming} past={past} categories={categories} mine={await myCategories(user)} />
+          <ScheduleList upcoming={upcoming} past={past} categories={categories} mine={await myCategories(user)} editTimes={user.role === "coordinator"} />
         </>
       )}
     </div>
