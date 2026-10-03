@@ -236,12 +236,11 @@ fun VolunteersScreen(vm: AppViewModel, onOpenChat: (String) -> Unit, onManage: (
 
 /**
  * A volunteer group's one page for whoever manages it (its coordinator or an admin; the chat's info page shows this
- * for them). One card — picture (tap to change), name, who leads it, how many, whether the chat is open, Open chat
- * and a ⋮ menu (rename, close or reopen, hand over, move volunteers) — then who can send, the staff in the chat, and
+ * for them). One card — picture (tap to change), name, who leads it, how many, whether the chat is open, a ⋮ menu (rename, close or reopen, hand over, move volunteers) — then who can send, the staff in the chat, and
  * the volunteers as one list, each with a ⋮ menu for what they may do and where they go.
  */
 @Composable
-fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: () -> Unit, onTitle: (String) -> Unit) {
+fun VolunteerGroupScreen(groupId: String, onGone: () -> Unit, onTitle: (String) -> Unit) {
     val app = LocalApp.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -339,7 +338,7 @@ fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: 
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    GoldButton("Open chat", enabled = !busy) { onOpenChat(d.conversationId) }
+                    // No "Open chat" here: this page opens from the chat's header, so a button back would just loop.
                     Box {
                         IconAction(Icons.Outlined.MoreVert, "More", SnowSoft, enabled = !busy) { menu = true }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = NightPanel) {

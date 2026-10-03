@@ -437,7 +437,7 @@ private fun MainNav(vm: AppViewModel) {
             composable("volunteer-group/{id}") { e ->
                 var t by remember { mutableStateOf("Volunteer group") }
                 val gid = e.arguments?.getString("id") ?: ""
-                Pushed(t) { VolunteerGroupScreen(gid, onOpenChat = { openChat(it) }, onGone = { nav.popBackStack() }) { t = it } }
+                Pushed(t) { VolunteerGroupScreen(gid, onGone = { nav.popBackStack() }) { t = it } }
             }
             // The Channels page on its own (also what a link or a debug route to "channels" opens).
             composable("channels") { Pushed("Channels") { ChannelsScreen(vm, openWeekend) { nav.open("category/$it") } } }
