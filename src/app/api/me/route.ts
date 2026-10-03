@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { json } from "@/lib/http";
 import { unread } from "@/lib/messages";
 import { isPushConfigured } from "@/lib/push";
-import { CREATE_RULES, CHANNEL_POSTERS, isDeveloper, roleLabel } from "@/lib/roles";
+import { canAnnounce, CREATE_RULES, CHANNEL_POSTERS, isDeveloper, roleLabel } from "@/lib/roles";
 import { myCategories } from "@/lib/teams";
 import { qrUrl, toPublic, userById } from "@/lib/users";
 
@@ -19,6 +19,8 @@ export const GET = handle(async () => {
     qrUrl: qrUrl(user),
     parent: parent ? { id: parent.id, name: parent.name || parent.email, roleLabel: roleLabel(parent.role, isDeveloper(parent)) } : null,
     canCreate: CREATE_RULES[user.role] ?? [],
+    /** Sends announcements (admins and coordinators), to anyone. */
+    canAnnounce: canAnnounce(user.role),
     canPostChannel: CHANNEL_POSTERS.includes(user.role),
     canRelay: user.role === "coordinator",
     canBulkEmail: user.role === "admin",

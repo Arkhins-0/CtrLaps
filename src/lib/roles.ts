@@ -76,8 +76,12 @@ export const canCreate = (creator: Role, role: Role): boolean => (CREATE_RULES[c
 /** Roles that never get automatic email; their coordinator forwards by hand. */
 export const NO_AUTO_EMAIL: Role[] = ["volunteer", "security"];
 
-/** Roles allowed to post in a race-weekend channel. */
-export const CHANNEL_POSTERS: Role[] = ["admin", "coordinator"];
+/** Roles that post in every weekend and category channel; coordinators post where an admin makes them a manager. */
+export const CHANNEL_POSTERS: Role[] = ["admin"];
+
+/** Roles that send announcements, to anyone of any role (fans included). */
+export const ANNOUNCERS: Role[] = ["admin", "coordinator"];
+export const canAnnounce = (role: Role): boolean => ANNOUNCERS.includes(role);
 
 export const isRole = (value: unknown): value is Role => ROLES.includes(value as Role);
 export const isStatus = (value: unknown): value is Status => STATUSES.includes(value as Status);

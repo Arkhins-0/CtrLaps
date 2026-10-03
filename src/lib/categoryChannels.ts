@@ -8,7 +8,8 @@ import { currentSeason, LIVE_SEASON } from "./seasons";
  * One channel per race category, for the category's season ("ITC 2026"). Who is in it follows from the entries
  * (see teams.ts): admins and coordinators; the category's racers (their own classes, else their team's); crew and team
  * managers of a team entered in it; race officials given it, or given no category that season (they look after all);
- * users (no role yet) who follow it as fans. Admins, coordinators and its race officials post; the rest read.
+ * users (no role yet) who follow it as fans. That membership still decides results notices and "My categories"; the
+ * channel itself is read by everyone and posts reach everyone (who may mute it). Admins and its managers post.
  */
 
 /** The SQL test "user row u is a member of category $cat", for reuse in queries. */
@@ -38,10 +39,10 @@ export async function isCategoryMember(userId: string, categoryId: string): Prom
   return Boolean(await one(`SELECT 1 FROM users u WHERE u.id = $2 AND ${categoryMemberSql("u", "$1")}`, [categoryId, userId]));
 }
 
-/** Admins, coordinators and the category's race officials post. */
+/** Admins post in every category channel; coordinators in those an admin made them a manager of. */
 export async function canPostCategory(user: SessionUser, categoryId: string): Promise<boolean> {
-  if (user.role === "admin" || user.role === "coordinator") return true;
-  return user.role === "race_official" && (await isCategoryMember(user.id, categoryId));
+  if (user.role === "admin") return true;
+  return Boolean(await one("SELECT 1 FROM category_managers WHERE category_id = $1 AND user_id = $2", [categoryId, user.id]));
 }
 
 export type CategoryInfo = { id: string; seasonId: string; name: string; code: string; color: string; open: boolean; seasonName: string };
@@ -77,9 +78,11 @@ export type CategoryChannel = {
   unread: number;
   lastMessageAt: string | null;
   lastMessage: string | null;
+  /** This person muted its notifications. */
+  muted: boolean;
 };
 
-/** The current season's category channels this person is in, with unread counts and the last post. */
+/** The current season's category channels (everyone sees them all), with unread counts, the last post and mute. */
 export async function listCategoryChannels(user: SessionUser): Promise<CategoryChannel[]> {
   const season = await currentSeason();
   const rows = await q<{
@@ -90,8 +93,10 @@ export async function listCategoryChannels(user: SessionUser): Promise<CategoryC
     unread: string;
     last_at: string | null;
     last_body: string | null;
+    muted: boolean;
   }>(
     `SELECT c.id, c.name, c.code, c.color,
+            EXISTS (SELECT 1 FROM channel_mutes mu WHERE mu.user_id = $1 AND mu.conversation_id = cv.id) AS muted,
             COALESCE((SELECT count(*) FROM messages m JOIN message_recipients r ON r.message_id = m.id AND r.user_id = $1
                       WHERE m.conversation_id = cv.id AND r.read_at IS NULL AND ${LIVE_SEASON("m")}), 0)::text AS unread,
             (SELECT m.created_at FROM messages m WHERE m.conversation_id = cv.id AND ${LIVE_SEASON("m")} ORDER BY m.created_at DESC LIMIT 1) AS last_at,
@@ -101,8 +106,7 @@ export async function listCategoryChannels(user: SessionUser): Promise<CategoryC
                WHERE m.conversation_id = cv.id AND ${LIVE_SEASON("m")} ORDER BY m.created_at DESC LIMIT 1) AS last_body
      FROM categories c
      LEFT JOIN conversations cv ON cv.kind = 'category' AND cv.category_id = c.id
-     JOIN users me ON me.id = $1
-     WHERE c.season_id = $2 AND ${categoryMemberSql("me", "c.id")}
+     WHERE c.season_id = $2
      ORDER BY c.position`,
     [user.id, season.id],
   );
@@ -114,6 +118,7 @@ export async function listCategoryChannels(user: SessionUser): Promise<CategoryC
     unread: Number(r.unread),
     lastMessageAt: r.last_at ? new Date(r.last_at).toISOString() : null,
     lastMessage: r.last_body ? (r.last_body.length > 140 ? `${r.last_body.slice(0, 137)}…` : r.last_body) : null,
+    muted: r.muted,
   }));
 }
 

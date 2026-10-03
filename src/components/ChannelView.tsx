@@ -19,8 +19,8 @@ const CLOSED_LINE: Record<Exclude<ClosedReason, null>, string> = {
 };
 
 /**
- * A channel: a weekend's (posts from admins, coordinators and its channel managers, read by everyone), or a race
- * category's when [url] points at one (posts from admins, coordinators and its race officials, read by its people).
+ * A channel: a weekend's, or a race category's when [url] points at one. Admins and the channel's managers (coordinators
+ * an admin picked) post; everyone reads.
  */
 export function ChannelView({
   weekendId,

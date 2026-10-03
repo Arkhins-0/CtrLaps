@@ -8,15 +8,15 @@ import { savePoll, type PollDraft } from "./polls";
 import { saveEvent, type EventDraft } from "./events";
 import { keepLinkAfterEdit, linkForMessage, previewOut } from "./linkPreview";
 import { filesByIds, messageFileIds, type FileRow } from "./files";
-import { canChat, filterBelow } from "./hierarchy";
+import { announceRecipients, canChat } from "./hierarchy";
 import { audit, userById } from "./users";
 import { activeUserIds, deliver, describeFiles, fileKind, preview } from "./notify";
 import { pushSync } from "./push";
-import { CHANNEL_POSTERS, isDeveloper, roleLabel, type Role } from "./roles";
+import { canAnnounce, CHANNEL_POSTERS, isDeveloper, roleLabel, type Role } from "./roles";
 import { APP_NAME } from "./config";
 import { userPhotoUrl } from "./profile";
 import { currentSeason, LIVE_SEASON } from "./seasons";
-import { canPostCategory, categoryConversation, categoryInfo, categoryMemberIds, isCategoryMember } from "./categoryChannels";
+import { canPostCategory, categoryConversation, categoryInfo } from "./categoryChannels";
 
 /*
  * Messages, four ways: a one-off broadcast to chosen people below, a post
@@ -473,8 +473,9 @@ export async function sendBroadcast(
   /** `subject`: the mail's subject line and heading, as typed (the email pages); in the app it leads the message in bold. */
   draft: Draft & { recipientIds: string[]; forceEmail?: boolean; subject?: string },
 ): Promise<{ id: string; delivered: number }> {
-  const recipients = await filterBelow(sender, draft.recipientIds);
-  if (recipients.length === 0) throw new AuthError(400, "Pick at least one person below you.");
+  if (!canAnnounce(sender.role)) throw new AuthError(403, "Only admins and coordinators send announcements.");
+  const recipients = await announceRecipients(sender, draft.recipientIds);
+  if (recipients.length === 0) throw new AuthError(400, "Pick at least one person.");
   if (!hasContent(draft)) throw new AuthError(400, "Write something or attach a document.");
   const files = await checkFiles(sender, draft);
   const subject = draft.subject?.trim().replace(/\s+/g, " ") ?? "";
@@ -535,14 +536,14 @@ export async function channelFor(weekendId: string): Promise<{ id: string; open:
   return { id: conv!.id, open: weekend.channel_open, name: weekend.name };
 }
 
-/** Admins and coordinators post in every channel; a weekend's channel managers post in that one. */
+/** Admins post in every channel; a weekend's channel managers (coordinators an admin picked) post in that one. */
 export async function canPostChannel(user: SessionUser, weekendId: string): Promise<boolean> {
   if (CHANNEL_POSTERS.includes(user.role)) return true;
   return Boolean(await one("SELECT 1 FROM channel_managers WHERE weekend_id = $1 AND user_id = $2", [weekendId, user.id]));
 }
 
 export async function postToChannel(sender: SessionUser, weekendId: string, draft: Draft): Promise<string> {
-  if (!(await canPostChannel(sender, weekendId))) throw new AuthError(403, "Only admins, coordinators and this channel's managers post here.");
+  if (!(await canPostChannel(sender, weekendId))) throw new AuthError(403, "Only admins and this channel's managers post here.");
   const channel = await channelFor(weekendId);
   if (!channel) throw new AuthError(404, "No such race weekend.");
   if (!channel.open) throw new AuthError(403, "This channel is closed.");
@@ -553,6 +554,7 @@ export async function postToChannel(sender: SessionUser, weekendId: string, draf
   await deliver({
     messageId: id,
     recipientIds: await activeUserIds(sender.id),
+    muteConversation: channel.id,
     push: {
       title: `${channel.name} · ${sender.name || sender.email}`,
       body: text,
@@ -582,15 +584,18 @@ export async function postToChannel(sender: SessionUser, weekendId: string, draf
 export async function postToCategory(sender: SessionUser, categoryId: string, draft: Draft): Promise<string> {
   const category = await categoryInfo(categoryId);
   if (!category) throw new AuthError(404, "No such category.");
-  if (!(await canPostCategory(sender, categoryId))) throw new AuthError(403, "Only admins, coordinators and this category's race officials post here.");
+  if (!(await canPostCategory(sender, categoryId))) throw new AuthError(403, "Only admins and this channel's managers post here.");
   if (!category.open) throw new AuthError(403, "This season has ended; its channels are closed.");
   if (!hasContent(draft)) throw new AuthError(400, "Write something or attach a document.");
   const files = await checkFiles(sender, draft);
-  const id = await insertMessage(await categoryConversation(categoryId), sender, draft, files);
+  const conversationId = await categoryConversation(categoryId);
+  const id = await insertMessage(conversationId, sender, draft, files);
   const text = preview(draft.body, files);
+  // Everyone reads every category channel, and gets its posts unless they muted it.
   await deliver({
     messageId: id,
-    recipientIds: await categoryMemberIds(categoryId, sender.id),
+    recipientIds: await activeUserIds(sender.id),
+    muteConversation: conversationId,
     push: {
       title: `${category.code} · ${sender.name || sender.email}`,
       body: text,
@@ -615,8 +620,9 @@ export async function postToCategory(sender: SessionUser, categoryId: string, dr
 }
 
 /** May this person read a category's channel? Its members may; admins and coordinators read them all. */
-export async function canReadCategory(user: SessionUser, categoryId: string): Promise<boolean> {
-  return user.role === "admin" || user.role === "coordinator" || (await isCategoryMember(user.id, categoryId));
+export async function canReadCategory(_user: SessionUser, _categoryId: string): Promise<boolean> {
+  // Every category channel is open to everyone signed in.
+  return true;
 }
 
 /* ───────────────────────────── Direct ────────────────────────────── */

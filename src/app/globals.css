@@ -87,6 +87,10 @@
   .badge {
     @apply inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-gold px-1.5 py-0.5 text-[10px] font-bold leading-none text-night;
   }
+  /* A muted channel's unread count: the same badge inverted. */
+  .badge-muted {
+    @apply inline-flex min-w-[1.25rem] items-center justify-center rounded-full border border-gold/70 px-1.5 py-0.5 text-[10px] font-bold leading-none text-gold;
+  }
   .bubble {
     @apply max-w-[78%] rounded-2xl px-3.5 py-2 text-sm sm:max-w-[65%];
   }

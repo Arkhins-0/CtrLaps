@@ -7,7 +7,7 @@ import { plainText } from "@/lib/formatting";
 import { LocalTime } from "@/components/LocalTime";
 import { channelFor, conversationMessages, inbox, myConversations } from "@/lib/messages";
 import { listWeekends, nextRace } from "@/lib/races";
-import { CREATE_RULES } from "@/lib/roles";
+import { canAnnounce } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
 import { formatIn } from "@/lib/time";
 import { timeAgo } from "@/lib/client";
@@ -33,7 +33,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
       return { weekend: w, latest: posts[posts.length - 1] ?? null };
     }),
   );
-  const canSend = (CREATE_RULES[user.role] ?? []).length > 0 || user.role === "admin";
+  const canSend = canAnnounce(user.role);
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">

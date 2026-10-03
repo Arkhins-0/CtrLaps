@@ -1,5 +1,8 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.data.MuteResponse
+import com.arkhins.ctrlaps.ui.components.MuteChip
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,6 +56,7 @@ fun CategoryChannelScreen(vm: AppViewModel, categoryId: String, onView: (FileVie
     var channel by remember { mutableStateOf<CategoryChannelResponse?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableStateOf(0) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     LaunchedEffect(categoryId, reload, vm.refreshTick) {
         try {
@@ -86,11 +90,17 @@ fun CategoryChannelScreen(vm: AppViewModel, categoryId: String, onView: (FileVie
                             Text(c.category.name, style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("Category channel · ${c.category.seasonName}", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                         }
+                        MuteChip(c.muted) {
+                            scope.launch {
+                                runCatching { app.api.put("/api/categories/$categoryId/mute", MuteResponse.serializer()) { put("muted", !c.muted) } }
+                                    .onSuccess { r -> channel = c.copy(muted = r.muted) }
+                            }
+                        }
                     }
                 }
                 if (c.canPost) {
                     item {
-                        Composer(placeholder = "Post to everyone in ${c.category.code}", sendLabel = "Post", voiceNoteSends = false) { d ->
+                        Composer(placeholder = "Post to everyone in the ${c.category.code} channel", sendLabel = "Post", voiceNoteSends = false) { d ->
                             app.api.post("/api/categories/$categoryId/channel", IdResponse.serializer()) {
                                 put("body", d.body)
                                 d.link?.let { put("linkUrl", it.url) }

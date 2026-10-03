@@ -195,7 +195,8 @@ fun HomeScreen(
         }
     }
 
-    val canSend = vm.me?.let { it.isAdmin || it.canCreate.isNotEmpty() } ?: false
+    // Admins and coordinators send announcements, to anyone.
+    val canSend = vm.me?.canAnnounce == true
 
     LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {

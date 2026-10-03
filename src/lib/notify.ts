@@ -19,6 +19,8 @@ import { SITE_URL } from "./config";
  */
 
 export type Delivery = {
+  /** A channel's conversation: people who muted it get no push (the post still counts as unread). */
+  muteConversation?: string;
   messageId: string;
   recipientIds: string[];
   push: Push;
@@ -53,7 +55,11 @@ export async function deliver(d: Delivery): Promise<void> {
 
   after(async () => {
     if (d.sync) await pushSync(ids, d.sync);
-    await pushTo(ids, d.push).catch((error) => console.error("[notify] push", error));
+    const muted = d.muteConversation
+      ? new Set((await q<{ user_id: string }>("SELECT user_id FROM channel_mutes WHERE conversation_id = $1", [d.muteConversation])).map((m) => m.user_id))
+      : null;
+    const pushIds = muted ? ids.filter((id) => !muted.has(id)) : ids;
+    await pushTo(pushIds, d.push).catch((error) => console.error("[notify] push", error));
     if (!d.email) return;
     const roles = d.email.force ? null : NO_AUTO_EMAIL;
     const kind = d.email.kind;
