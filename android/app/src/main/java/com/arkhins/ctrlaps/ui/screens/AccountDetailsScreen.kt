@@ -69,7 +69,8 @@ fun AccountDetailsScreen(vm: AppViewModel) {
     val u = me.user
     var showPassword by remember { mutableStateOf(false) }
     // Users (no role yet) and admins, who have no manager above them, edit their own details: the pencil opens the form.
-    val canEdit = u.role == "user" || u.role == "admin"
+    // Users (no role yet), admins and coordinators change their own details; everyone else asks their manager.
+    val canEdit = u.role == "user" || u.role == "admin" || u.role == "coordinator"
     var editing by remember { mutableStateOf(false) }
 
     Column(
@@ -89,7 +90,7 @@ fun AccountDetailsScreen(vm: AppViewModel) {
                     KeyValue("Date of birth", u.dob ?: "—")
                     KeyValue("Role", u.roleLabel + (u.teamName?.let { " · $it" } ?: ""))
                     me.parent?.let { KeyValue("Reports to", "${it.name} · ${it.roleLabel}") }
-                    if (u.role != "user" && u.role != "admin") {
+                    if (!canEdit) {
                         Spacer(Modifier.height(4.dp))
                         Text("Profile details are locked. Your manager or an admin can change them.", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                     }

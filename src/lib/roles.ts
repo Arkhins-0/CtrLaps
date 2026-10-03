@@ -67,8 +67,8 @@ export const CREATE_RULES: Partial<Record<Role, Role[]>> = {
 export const NO_CHAT_ROLES: Role[] = ["user"];
 export const hasChats = (role: Role): boolean => !NO_CHAT_ROLES.includes(role);
 
-/** Roles that change their own name, contact, date of birth, photo and email: users (no role yet), and admins, who have no manager above them. */
-export const EDITS_OWN_PROFILE: Role[] = ["user", "admin"];
+/** Roles that change their own name, contact, date of birth, photo and email: users (no role yet), and admins and coordinators, who run the place. */
+export const EDITS_OWN_PROFILE: Role[] = ["user", "admin", "coordinator"];
 export const editsOwnProfile = (role: Role): boolean => EDITS_OWN_PROFILE.includes(role);
 
 export const canCreate = (creator: Role, role: Role): boolean => (CREATE_RULES[creator] ?? []).includes(role);
