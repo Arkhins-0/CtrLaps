@@ -2,6 +2,7 @@ package com.arkhins.ctrlaps.ui.screens
 
 import com.arkhins.ctrlaps.data.MuteResponse
 import com.arkhins.ctrlaps.ui.components.MuteChip
+import com.arkhins.ctrlaps.ui.components.toggleMute
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -64,6 +65,7 @@ fun CategoryChannelScreen(vm: AppViewModel, categoryId: String, onView: (FileVie
     var error by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableStateOf(0) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(categoryId, reload, vm.refreshTick) {
         try {
@@ -98,12 +100,7 @@ fun CategoryChannelScreen(vm: AppViewModel, categoryId: String, onView: (FileVie
                             Text(c.category.name, style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("Category channel · ${c.category.seasonName}", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                         }
-                        MuteChip(c.muted) {
-                            scope.launch {
-                                runCatching { app.api.put("/api/categories/$categoryId/mute", MuteResponse.serializer()) { put("muted", !c.muted) } }
-                                    .onSuccess { r -> channel = c.copy(muted = r.muted) }
-                            }
-                        }
+                        MuteChip(c.muted) { toggleMute(context, scope, app.api, "/api/categories/$categoryId/mute", c.muted) { m -> channel = channel?.copy(muted = m) } }
                     }
                 }
                 if (c.canPost) {
