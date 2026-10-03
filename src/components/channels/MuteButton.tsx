@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { api } from "@/lib/client";
+import { BellIcon } from "./BellIcon";
 
-/** Mute or unmute a channel's notifications for me (push only; unread still counts). `url`: the channel's mute API. */
+/** Mute or unmute a channel's notifications for me (push only; unread still counts): a bell, struck through when muted. */
 export function MuteButton({ url, initial }: { url: string; initial: boolean }) {
   const [muted, setMuted] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -20,14 +21,14 @@ export function MuteButton({ url, initial }: { url: string; initial: boolean }) 
   };
   return (
     <button
-      className={`chip shrink-0 gap-1.5 ${muted ? "border-gold/60 text-gold" : "hover:border-snow/40"}`}
+      className={`btn-icon shrink-0 ${muted ? "text-gold" : "text-snow-soft hover:text-snow"}`}
       onClick={toggle}
       disabled={busy}
       aria-pressed={muted}
-      title={muted ? "Notifications are off for this channel. Tap to turn them on." : "Turn off notifications for this channel"}
+      aria-label={muted ? "Muted. Turn notifications on" : "Notifications on. Mute this channel"}
+      title={muted ? "Muted" : "Notifications on"}
     >
-      <span aria-hidden>{muted ? "🔕" : "🔔"}</span>
-      {muted ? "Muted" : "Notifications on"}
+      <BellIcon muted={muted} />
     </button>
   );
 }

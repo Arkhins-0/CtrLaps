@@ -6,6 +6,7 @@ import { api } from "@/lib/client";
 import type { CategoryChannel } from "@/lib/categoryChannels";
 import type { ChannelManager, ChannelSeason } from "@/lib/channels";
 import { WhenLabel } from "../ChatList";
+import { BellIcon } from "./BellIcon";
 import { Dialog } from "../groups/Dialog";
 import { PeoplePicker } from "../groups/PeoplePicker";
 import { pickPerson, type PickPerson } from "../groups/people";
@@ -46,7 +47,7 @@ export function ChannelList({ initial, categories = [], canManage }: { initial: 
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-medium">
                       {c.name}
-                      {c.muted && <span className="ml-1.5 text-[11px]" title="Muted">🔕</span>}
+                      {c.muted && <BellIcon muted className="ml-1.5 inline h-3.5 w-3.5 text-snow-faint" />}
                     </span>
                     <span className={`block truncate text-[13px] ${c.unread > 0 ? "text-snow" : "text-snow-faint"}`}>{c.lastMessage ?? "No posts yet"}</span>
                   </span>
@@ -94,7 +95,7 @@ export function ChannelList({ initial, categories = [], canManage }: { initial: 
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-medium">
                       {w.name}
-                      {w.muted && <span className="ml-1.5 text-[11px]" title="Muted">🔕</span>}
+                      {w.muted && <BellIcon muted className="ml-1.5 inline h-3.5 w-3.5 text-snow-faint" />}
                     </span>
                     <span className={`block truncate text-[13px] ${w.unread > 0 ? "text-snow" : "text-snow-faint"}`}>
                       {w.lastMessage ?? `${w.startsOn} → ${w.endsOn}${w.channelOpen ? "" : " · closed"}`}

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,8 +30,25 @@ fun UnreadBadge(count: Int, muted: Boolean, modifier: Modifier = Modifier) {
     }
 }
 
-/** Mute or unmute a channel's notifications (push only; unread still counts). */
+/** Mute or unmute a channel's notifications (push only; unread still counts): a bell, struck through when muted. */
 @Composable
 fun MuteChip(muted: Boolean, enabled: Boolean = true, onToggle: () -> Unit) {
-    Chip(if (muted) "🔕 Muted" else "🔔 Notifications on", if (muted) Gold else com.arkhins.ctrlaps.ui.theme.SnowSoft, filled = false) { if (enabled) onToggle() }
+    IconAction(
+        androidx.compose.ui.res.painterResource(if (muted) com.arkhins.ctrlaps.R.drawable.ic_bell_off else com.arkhins.ctrlaps.R.drawable.ic_bell),
+        if (muted) "Muted. Tap for notifications" else "Notifications on. Tap to mute",
+        if (muted) Gold else com.arkhins.ctrlaps.ui.theme.SnowSoft,
+        enabled = enabled,
+        onClick = onToggle,
+    )
+}
+
+/** The small struck-through bell beside a muted channel's name in a list. */
+@Composable
+fun MutedMark() {
+    androidx.compose.material3.Icon(
+        androidx.compose.ui.res.painterResource(com.arkhins.ctrlaps.R.drawable.ic_bell_off),
+        contentDescription = "Muted",
+        tint = com.arkhins.ctrlaps.ui.theme.SnowFaint,
+        modifier = Modifier.padding(start = 6.dp).size(14.dp),
+    )
 }

@@ -84,3 +84,8 @@ fun nameColor(id: String?): androidx.compose.ui.graphics.Color {
     return androidx.compose.ui.graphics.Color(NAME_PALETTE[(h % NAME_PALETTE.size).toInt()])
 }
 
+private val dayHeadingFormat = DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault())
+
+/** "Saturday, 3 October": the day a post was made, in the phone's zone — the heading over a day's posts in a feed. */
+fun dayHeading(iso: String): String = dayHeadingFormat.format(instant(iso).atZone(ZoneId.systemDefault()))
+

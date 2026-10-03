@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.arkhins.ctrlaps.LocalApp
 import com.arkhins.ctrlaps.data.Message
 import com.arkhins.ctrlaps.data.attachments
-import com.arkhins.ctrlaps.ui.whenLabel
+import com.arkhins.ctrlaps.ui.localTime
 import com.arkhins.ctrlaps.ui.theme.Danger
 import com.arkhins.ctrlaps.ui.theme.Gold
 import com.arkhins.ctrlaps.ui.theme.NightLine
@@ -84,7 +84,7 @@ fun MessageCard(run: List<Message>, onView: (FileView) -> Unit, showSender: Bool
                         Chip("Urgent", Danger)
                     }
                     Spacer(Modifier.width(8.dp))
-                    Text(whenLabel(m.createdAt), style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                    Text(localTime(m.createdAt), style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                 }
                 // The photos as one grid, then the other files, then the words, then the place, if any.
                 val files = if (run.size > 1) run.flatMap { it.attachments } else m.attachments
