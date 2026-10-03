@@ -64,12 +64,15 @@ export function ChatView({
   other,
   group: initialGroup,
   myName,
+  canOpenPeople = false,
 }: {
   conversationId: string;
   initial: MessageOut[];
   other: PersonCard | null;
   group: GroupInfo | null;
   myName: string;
+  /** Admins and coordinators: a sender's name in a group opens their page. */
+  canOpenPeople?: boolean;
 }) {
   const hydrated = useHydrated();
   const router = useRouter();
@@ -402,6 +405,8 @@ export function ChatView({
         flash={run.some((x) => x.id === flash)}
         selected={run.some((x) => selected.includes(x.id))}
         senderName={group && !m.mine ? m.sender?.name ?? null : null}
+        senderId={m.sender?.id ?? null}
+        senderHref={group && !m.mine && canOpenPeople && m.sender ? `/people/${m.sender.id}` : null}
         highlight={needle && run.some((x) => hits.includes(x.id)) ? needle : null}
         onInvite={inv && !m.mine && inviteOpen(inv) ? (accept) => answerInvite(inv, accept) : undefined}
         press={pressOn(run)}

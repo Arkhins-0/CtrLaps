@@ -5,6 +5,7 @@ import { EventCard } from "@/components/EventCard";
 import { Formatted } from "@/components/Formatted";
 import { plainText } from "@/lib/formatting";
 import Link from "next/link";
+import { nameColor } from "@/lib/nameColor";
 import { useState } from "react";
 import type { MessageOut, ReplyRef } from "@/lib/messages";
 import { formatBytes, timeAgo } from "@/lib/client";
@@ -319,6 +320,8 @@ export function Bubble({
   flash = false,
   selected = false,
   senderName = null,
+  senderId = null,
+  senderHref = null,
   highlight = null,
   onInvite,
   press,
@@ -330,6 +333,9 @@ export function Bubble({
   flash?: boolean;
   selected?: boolean;
   senderName?: string | null;
+  /** In a group: whose it is (its name's colour), and where the name leads for those who may open the person. */
+  senderId?: string | null;
+  senderHref?: string | null;
   /** The search, when this message matches it. */
   highlight?: string | null;
   /** Answer the group invitation this message carries. */
@@ -350,7 +356,16 @@ export function Bubble({
             <p className={`italic ${m.mine ? "text-night/70" : "text-snow-faint"}`}>This message was deleted</p>
           ) : (
             <>
-              {senderName && <p className="mb-0.5 truncate text-xs font-semibold text-gold">{senderName}</p>}
+              {senderName &&
+                (senderHref ? (
+                  <Link href={senderHref} className="mb-0.5 block truncate text-xs font-semibold hover:underline" style={{ color: nameColor(senderId) }} onClick={(e) => e.stopPropagation()}>
+                    {senderName}
+                  </Link>
+                ) : (
+                  <p className="mb-0.5 truncate text-xs font-semibold" style={{ color: nameColor(senderId) }}>
+                    {senderName}
+                  </p>
+                ))}
               {m.forwarded && <span className={`mb-1 block text-[11px] italic ${m.mine ? "text-night/60" : "text-snow-faint"}`}>↪ Forwarded</span>}
               {quote && <Quote r={quote} onDark={!m.mine} onClick={() => onQuote?.(quote.id)} />}
               {m.groupInvite ? (
