@@ -241,6 +241,11 @@ fun GroupScreen(vm: AppViewModel, groupId: String, onOpenChat: (String) -> Unit,
     }
 
     val g = group
+    // A volunteer group's chat, for its coordinator or an admin: one page, the group's own (volunteers get the plain info below).
+    if (g?.volunteerGroupId != null && g.canLimit) {
+        VolunteerGroupScreen(g.volunteerGroupId, onOpenChat = onOpenChat, onGone = onLeft, onTitle = onTitle)
+        return
+    }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (g == null) {
             item { if (error != null) ErrorText(error) else Loading() }
@@ -348,7 +353,7 @@ fun GroupScreen(vm: AppViewModel, groupId: String, onOpenChat: (String) -> Unit,
                 GoldButton("Open chat", enabled = !busy) { onOpenChat(g.id) }
                 // A volunteer group's chat: nobody leaves it while in the group; its coordinator or an admin manages it.
                 if (g.volunteerGroupId == null) GhostButton("Leave group", enabled = !busy, danger = true) { confirmLeave = true }
-                else if (g.canLimit) GhostButton("Manage volunteer group", enabled = !busy) { openRoute("volunteer-group/${g.volunteerGroupId}") }
+
             }
         }
     }
