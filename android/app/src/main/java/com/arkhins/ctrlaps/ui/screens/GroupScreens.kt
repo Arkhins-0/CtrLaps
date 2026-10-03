@@ -243,7 +243,7 @@ fun GroupScreen(vm: AppViewModel, groupId: String, onOpenChat: (String) -> Unit,
     val g = group
     // A volunteer group's chat, for its coordinator or an admin: one page, the group's own (volunteers get the plain info below).
     if (g?.volunteerGroupId != null && g.canLimit) {
-        VolunteerGroupScreen(g.volunteerGroupId, onOpenChat = onOpenChat, onGone = onLeft, onTitle = onTitle)
+        VolunteerGroupScreen(g.volunteerGroupId, onGone = onLeft, onTitle = onTitle)
         return
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
