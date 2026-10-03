@@ -147,8 +147,10 @@ function describe(r: Row): string | null {
       const parts = [d.name ? `renamed to "${text(d.name)}"` : "", d.coordinatorId ? "handed to another coordinator" : "", d.open === true ? "chat opened" : d.open === false ? "chat closed" : ""].filter(Boolean);
       return parts.length ? parts.join(", ") : null;
     }
-    case "volunteers.moved":
-      return d.to ? "Into another group" : "Out of their group";
+    case "volunteers.moved": {
+      const n = typeof d.count === "number" ? `${d.count} volunteer${d.count === 1 ? "" : "s"} ` : "";
+      return d.to ? `${n}into another group` : `${n}out of their group`;
+    }
     case "account.deletion_requested":
       return d.self ? "By themselves" : "On their request";
     default:

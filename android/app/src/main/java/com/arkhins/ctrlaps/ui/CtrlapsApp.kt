@@ -83,6 +83,7 @@ import com.arkhins.ctrlaps.ui.screens.PermissionsScreen
 import com.arkhins.ctrlaps.ui.screens.ThemeScreen
 import com.arkhins.ctrlaps.ui.screens.AboutScreen
 import com.arkhins.ctrlaps.ui.screens.ActivityScreen
+import com.arkhins.ctrlaps.ui.screens.MoveVolunteersScreen
 import com.arkhins.ctrlaps.ui.screens.VolunteerGroupScreen
 import com.arkhins.ctrlaps.ui.screens.VolunteersScreen
 import com.arkhins.ctrlaps.ui.screens.ChannelsScreen
@@ -434,9 +435,13 @@ private fun MainNav(vm: AppViewModel) {
             composable("activity") { Pushed("Activity log") { ActivityScreen() } }
             // The Volunteers page on its own (also what a link or a debug route to "volunteers" opens).
             composable("volunteers") { Pushed("Volunteers") { VolunteersScreen(vm, onOpenChat = { openChat(it) }, onManage = { nav.open("volunteer-group/$it") }) } }
+            composable("volunteer-move/{id}/{pick}") { e ->
+                Pushed("Move volunteers") { MoveVolunteersScreen(e.arguments?.getString("id") ?: "", e.arguments?.getString("pick")?.takeIf { it != "none" }, onDone = { nav.popBackStack() }) }
+            }
             composable("volunteer-group/{id}") { e ->
                 var t by remember { mutableStateOf("Volunteer group") }
-                Pushed(t) { VolunteerGroupScreen(e.arguments?.getString("id") ?: "", onOpenChat = { openChat(it) }, onGone = { nav.popBackStack() }) { t = it } }
+                val gid = e.arguments?.getString("id") ?: ""
+                Pushed(t) { VolunteerGroupScreen(gid, onOpenChat = { openChat(it) }, onMove = { nav.open("volunteer-move/$gid/${it ?: "none"}") }, onGone = { nav.popBackStack() }) { t = it } }
             }
             // The Channels page on its own (also what a link or a debug route to "channels" opens).
             composable("channels") { Pushed("Channels") { ChannelsScreen(vm, openWeekend) { nav.open("category/$it") } } }

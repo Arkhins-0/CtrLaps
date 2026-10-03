@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -63,7 +64,9 @@ import com.arkhins.ctrlaps.ui.theme.SnowFaint
 import com.arkhins.ctrlaps.ui.theme.SnowSoft
 import com.arkhins.ctrlaps.ui.whenLabel
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 
 /*
  * Volunteer groups in the app. Both screens read the phone's copy first (the background download keeps
@@ -220,7 +223,7 @@ fun VolunteersScreen(vm: AppViewModel, onOpenChat: (String) -> Unit, onManage: (
  * one list, each with a ⋮ menu for what they may do and where they go.
  */
 @Composable
-fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: () -> Unit, onTitle: (String) -> Unit) {
+fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onMove: (String?) -> Unit, onGone: () -> Unit, onTitle: (String) -> Unit) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     val path = "/api/volunteer-groups/$groupId"
@@ -237,7 +240,7 @@ fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: 
         g = r.group ?: throw IllegalStateException("No longer yours to manage.")
         onTitle(r.group.name)
     }
-    LaunchedEffect(groupId) {
+    LaunchedEffect(groupId, LocalApp.current.moveTick.value) {
         try {
             show(app.store.get(path, VolunteerGroupDetailResponse.serializer()) { if (g == null) runCatching { show(it) } })
             error = null
@@ -289,6 +292,7 @@ fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: 
                             DropdownMenuItem(text = { Text("Rename", color = Snow) }, onClick = { menu = false; renaming = d.name })
                             DropdownMenuItem(text = { Text(if (d.open) "Close the chat" else "Reopen the chat", color = Snow) }, onClick = { menu = false; patch("open" to !d.open) })
                             DropdownMenuItem(text = { Text("Hand over to another coordinator", color = Snow) }, onClick = { menu = false; handing = true })
+                            if (d.volunteers.isNotEmpty()) DropdownMenuItem(text = { Text("Move volunteers…", color = Snow) }, onClick = { menu = false; onMove(null) })
                         }
                     }
                 }
@@ -333,12 +337,7 @@ fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: 
                                         )
                                     }
                                     HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f), modifier = Modifier.padding(vertical = 4.dp))
-                                    d.otherGroups.forEach { o ->
-                                        DropdownMenuItem(
-                                            text = { Text("Move to ${o.name}", color = Snow) },
-                                            onClick = { rowMenu = false; run { app.api.post("/api/volunteer-groups/${o.id}/volunteers", VolunteerGroupDetailResponse.serializer()) { put("userId", v.id) } } },
-                                        )
-                                    }
+                                    DropdownMenuItem(text = { Text("Move to another group…", color = Snow) }, onClick = { rowMenu = false; onMove(v.id) })
                                     DropdownMenuItem(
                                         text = { Text("Remove from the group", color = Danger) },
                                         onClick = { rowMenu = false; run { app.api.delete("/api/volunteer-groups/$groupId/volunteers?userId=${v.id}") } },
@@ -423,3 +422,153 @@ fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: 
         )
     }
 }
+
+/**
+ * Move volunteers: search this group's volunteers, tick as many as you like (or all), then pick where they go — a
+ * sheet of the other groups, searchable by name or coordinator, with "No group" at the end. One confirm, one request.
+ * Opened from the group's ⋮ menu, or from a volunteer's ⋮ with that one already ticked.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun MoveVolunteersScreen(groupId: String, preselect: String?, onDone: () -> Unit) {
+    val app = LocalApp.current
+    val scope = rememberCoroutineScope()
+    var g by remember { mutableStateOf<VolunteerGroupDetail?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var query by remember { mutableStateOf("") }
+    var picked by remember { mutableStateOf(setOfNotNull(preselect)) }
+    var choosing by remember { mutableStateOf(false) }
+    var groupQuery by remember { mutableStateOf("") }
+    var confirm by remember { mutableStateOf<Pair<String?, String>?>(null) }
+    var busy by remember { mutableStateOf(false) }
+
+    LaunchedEffect(groupId) {
+        try {
+            g = app.store.get("/api/volunteer-groups/$groupId", VolunteerGroupDetailResponse.serializer()) { if (g == null) g = it.group }.group
+        } catch (e: Exception) {
+            if (g == null) error = e.message
+        }
+    }
+    val d = g
+    val shown = d?.volunteers.orEmpty().filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
+    val allShown = shown.isNotEmpty() && shown.all { it.id in picked }
+
+    Column(Modifier.fillMaxSize()) {
+        Column(Modifier.weight(1f)) {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Field(query, { query = it }, "Search volunteers", modifier = Modifier.weight(1f))
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    if (allShown) "None" else "All",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Gold,
+                    modifier = Modifier.clickable(enabled = shown.isNotEmpty()) { picked = if (allShown) picked - shown.map { it.id }.toSet() else picked + shown.map { it.id } }.padding(8.dp),
+                )
+            }
+            when {
+                error != null && d == null -> ErrorText(error, Modifier.padding(16.dp))
+                d == null -> Loading()
+                shown.isEmpty() -> Box(Modifier.padding(16.dp)) { Empty(if (query.isBlank()) "No volunteers in this group." else "Nobody matches.") }
+                else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp)) {
+                    items(shown, key = { it.id }) { v ->
+                        val on = v.id in picked
+                        Row(
+                            Modifier.fillMaxWidth().clickable { picked = if (on) picked - v.id else picked + v.id }.padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (on) {
+                                Box(Modifier.width(40.dp).height(40.dp).background(Gold, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+                                    androidx.compose.material3.Icon(Icons.Outlined.Check, contentDescription = "Selected", tint = com.arkhins.ctrlaps.ui.theme.OnGold)
+                                }
+                            } else Avatar(app.api.absolute(v.photoUrl), v.name, 40)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(v.name, style = MaterialTheme.typography.titleSmall, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                permissionLabel(v.permission)?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Danger) }
+                            }
+                        }
+                        HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f), modifier = Modifier.padding(start = 52.dp))
+                    }
+                }
+            }
+        }
+        // The bar at the bottom: how many, and where to.
+        Row(
+            Modifier.fillMaxWidth().background(NightPanel).padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                if (picked.isEmpty()) "Tick the volunteers to move" else "${picked.size} selected",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (picked.isEmpty()) SnowFaint else Snow,
+                modifier = Modifier.weight(1f),
+            )
+            GoldButton("Move to…", enabled = picked.isNotEmpty() && !busy) { choosing = true }
+        }
+    }
+
+    if (choosing && d != null) {
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { choosing = false }, containerColor = NightPanel) {
+            val groups = d.otherGroups.filter { groupQuery.isBlank() || it.name.contains(groupQuery.trim(), true) || (it.coordinator ?: "").contains(groupQuery.trim(), true) }
+            Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
+                Text("Move ${picked.size} to", style = MaterialTheme.typography.titleMedium, color = Snow)
+                Spacer(Modifier.height(8.dp))
+                Field(groupQuery, { groupQuery = it }, "Search groups", placeholder = "Group or coordinator")
+                Spacer(Modifier.height(6.dp))
+                LazyColumn(Modifier.weight(1f, fill = false)) {
+                    items(groups, key = { it.id }) { o ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { choosing = false; confirm = o.id to o.name }.padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(Modifier.width(40.dp).height(40.dp).background(Gold.copy(alpha = 0.15f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) { Text("🦺") }
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(o.name, style = MaterialTheme.typography.titleSmall, color = Snow)
+                                Text(o.coordinator ?: "No coordinator", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                            }
+                        }
+                    }
+                    if (groups.isEmpty()) item { Text("No group matches.", style = MaterialTheme.typography.bodySmall, color = SnowFaint, modifier = Modifier.padding(vertical = 10.dp)) }
+                    item {
+                        HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
+                        Row(Modifier.fillMaxWidth().clickable { choosing = false; confirm = null to "no group" }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("No group", style = MaterialTheme.typography.titleSmall, color = Danger, modifier = Modifier.weight(1f))
+                            Text("Taken out, in none", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    confirm?.let { (toId, toName) ->
+        AlertDialog(
+            onDismissRequest = { confirm = null },
+            containerColor = NightPanel,
+            title = { Text("Move ${picked.size} volunteer${if (picked.size == 1) "" else "s"} to $toName?", color = Snow) },
+            text = { Text(if (toId != null) "Their chat moves with them, and they are told." else "They leave this group's chat and belong to no group.", color = SnowSoft) },
+            confirmButton = {
+                TextButton(enabled = !busy, onClick = {
+                    confirm = null
+                    busy = true
+                    error = null
+                    scope.launch {
+                        try {
+                            app.api.post("/api/volunteer-groups/$groupId/volunteers/move", VolunteerGroupDetailResponse.serializer()) {
+                                putJsonArray("userIds") { picked.forEach { add(it) } }
+                                if (toId != null) put("toGroupId", toId)
+                            }
+                            app.moveTick.value++
+                            onDone()
+                        } catch (e: Exception) {
+                            error = e.message ?: "Could not move."
+                            busy = false
+                        }
+                    }
+                }) { Text("Move", color = Gold) }
+            },
+            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancel", color = SnowFaint) } },
+        )
+    }
+}
+

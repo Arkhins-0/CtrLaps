@@ -26,6 +26,9 @@ import com.arkhins.ctrlaps.push.Notifications
 
 /** One place for the objects that live as long as the process. */
 class CtrlapsApplication : Application(), ImageLoaderFactory {
+    /** Bumped after volunteers are moved, so the group page showing refreshes. */
+    val moveTick = androidx.compose.runtime.mutableIntStateOf(0)
+
     /** Who this device is signed in as. */
     val session: SessionStore by lazy { SessionStore(this) }
 
