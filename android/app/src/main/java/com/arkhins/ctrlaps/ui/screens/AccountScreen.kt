@@ -76,6 +76,7 @@ fun AccountScreen(
     onStorage: () -> Unit,
     onSettings: () -> Unit,
     onAbout: () -> Unit,
+    onActivity: () -> Unit = {},
 ) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
@@ -141,6 +142,11 @@ fun AccountScreen(
                 HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
                 MenuRow("Settings", "Permissions and theme", onClick = onSettings)
                 HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
+                // The support team only: who did what, and when.
+                if (me.isDev) {
+                    MenuRow("Activity log", "Who did what, and when", onClick = onActivity)
+                    HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
+                }
                 val update = vm.updateInfo
                 val support = vm.me?.unreadSupport ?: 0
                 MenuRow(

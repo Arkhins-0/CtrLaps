@@ -7,7 +7,7 @@ import { Scanner } from "./Scanner";
 import { PasswordInput } from "./PasswordInput";
 
 /** The account page's tools: scan a QR / type a code, change password, sign out. */
-export function AccountActions({ appVersion }: { appVersion: string | null }) {
+export function AccountActions({ appVersion, isDev = false }: { appVersion: string | null; isDev?: boolean }) {
   const router = useRouter();
   const [panel, setPanel] = useState<"none" | "scan" | "password">("none");
   const [confirmOut, setConfirmOut] = useState(false);
@@ -37,6 +37,11 @@ export function AccountActions({ appVersion }: { appVersion: string | null }) {
         <a href="/support" className="btn-ghost px-4 py-1.5 text-xs">
           Support
         </a>
+        {isDev && (
+          <a href="/activity" className="btn-ghost px-4 py-1.5 text-xs">
+            Activity log
+          </a>
+        )}
         <button className="btn-ghost ml-auto px-4 py-1.5 text-xs text-danger" onClick={() => setConfirmOut(true)}>
           Sign out
         </button>

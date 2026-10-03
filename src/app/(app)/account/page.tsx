@@ -91,7 +91,7 @@ export default async function Account() {
       <EmailSettings />
       <DeleteMyAccount />
       </div>
-      <AccountActions appVersion={release?.version ?? null} />
+      <AccountActions appVersion={release?.version ?? null} isDev={isDeveloper(user)} />
     </div>
   );
 }

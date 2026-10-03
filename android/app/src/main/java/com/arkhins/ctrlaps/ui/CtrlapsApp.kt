@@ -82,6 +82,7 @@ import com.arkhins.ctrlaps.ui.screens.SettingsScreen
 import com.arkhins.ctrlaps.ui.screens.PermissionsScreen
 import com.arkhins.ctrlaps.ui.screens.ThemeScreen
 import com.arkhins.ctrlaps.ui.screens.AboutScreen
+import com.arkhins.ctrlaps.ui.screens.ActivityScreen
 import com.arkhins.ctrlaps.ui.screens.DeleteAccountScreen
 import com.arkhins.ctrlaps.ui.screens.EmailSettingsScreen
 import com.arkhins.ctrlaps.ui.screens.FaqScreen
@@ -345,7 +346,7 @@ private fun MainNav(vm: AppViewModel) {
         ) {
             composable("home") { Tab("home", "CTR[L]APS") { HomeScreen(vm, highlight = null, onOpenWeekend = openWeekend, onOpenChat = openChat, onAllChats = { nav.navigate("chats") { popUpTo("home"); launchSingleTop = true } }, onCompose = { nav.open("compose") }, onView = view) } }
             composable("home?m={m}") { e -> Tab("home", "CTR[L]APS") { HomeScreen(vm, highlight = e.arguments?.getString("m"), onOpenWeekend = openWeekend, onOpenChat = openChat, onAllChats = { nav.navigate("chats") { popUpTo("home"); launchSingleTop = true } }, onCompose = { nav.open("compose") }, onView = view) } }
-            composable("schedule") { Tab("schedule", "Schedule") { ScheduleScreen(isAdmin = vm.me?.isAdmin == true, onOpenWeekend = openWeekend, onArchive = { nav.open("archive") }, mine = vm.me?.categoryIds, onStandings = { nav.open("standings") }) } }
+            composable("schedule") { Tab("schedule", "Schedule") { ScheduleScreen(isAdmin = vm.me?.isAdmin == true, onOpenWeekend = openWeekend, onArchive = { nav.open("archive") }, mine = vm.me?.categoryIds, onStandings = { nav.open("standings") }, editTimes = vm.me?.user?.role == "coordinator") } }
             composable("chats") { Tab("chats", "Chats", center = { ChatsHeader(chatsPage) { chatsPage = it } }) { ChatsScreen(vm, page = chatsPage, onPage = { chatsPage = it }, onOpen = openChat, onNewChat = { nav.open("newchat") }, onOpenWeekend = openWeekend, onOpenCategory = { nav.open("category/$it") }) } }
             composable("people") {
                 val pages = peoplePages(vm.me?.user?.role)
@@ -363,6 +364,7 @@ private fun MainNav(vm: AppViewModel) {
                         onStorage = { nav.open("storage") },
                         onSettings = { nav.open("settings") },
                         onAbout = { nav.open("about") },
+                        onActivity = { nav.open("activity") },
                     )
                 }
             }
@@ -426,6 +428,7 @@ private fun MainNav(vm: AppViewModel) {
             composable("storage") { Pushed("Storage") { StorageScreen() } }
             composable("settings") { Pushed("Settings") { SettingsScreen(onPermissions = { nav.open("permissions") }, onTheme = { nav.open("theme") }, onEmail = { nav.open("email-settings") }, onDelete = { nav.open("delete-account") }) } }
             composable("email-settings") { Pushed("Email") { EmailSettingsScreen() } }
+            composable("activity") { Pushed("Activity log") { ActivityScreen() } }
             composable("delete-account") { Pushed("Delete account") { DeleteAccountScreen(onDeleted = { vm.accountDeleted() }) } }
             composable("theme") { Pushed("Theme") { ThemeScreen() } }
             composable("permissions") { Pushed("Permissions") { PermissionsScreen() } }
