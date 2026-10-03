@@ -127,9 +127,6 @@ export async function myCategories(user: Pick<SessionUser, "id" | "role"> & { te
     case "team_manager":
       ids = await teamCategories(team, season);
       break;
-    case "race_official":
-      ids = await assignedCategories(user.id, season);
-      break;
     case "user":
       ids = await followedCategories(user.id, season);
       break;

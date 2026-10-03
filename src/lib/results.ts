@@ -1,7 +1,7 @@
 import "server-only";
 
 import { AuthError, type SessionUser } from "./auth";
-import { categoryMemberSql, isCategoryMember } from "./categoryChannels";
+import { categoryMemberSql } from "./categoryChannels";
 import { categoriesOf } from "./categories";
 import { one, q, run, tx } from "./db";
 import { currentSeason, listSeasons } from "./seasons";
@@ -119,8 +119,7 @@ export async function categoryScoring(categoryId: string | null): Promise<Scorin
 /** Admins, coordinators and the category's race officials (or officials who look after every class). */
 export async function canEnterResults(user: SessionUser, categoryId: string | null): Promise<boolean> {
   if (!categoryId) return false;
-  if (user.role === "admin" || user.role === "coordinator") return true;
-  return user.role === "race_official" && (await isCategoryMember(user.id, categoryId));
+  return user.role === "admin" || user.role === "coordinator";
 }
 
 export async function sessionResults(sessionId: string): Promise<ResultRow[]> {

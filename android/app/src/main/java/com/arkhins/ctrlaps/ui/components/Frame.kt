@@ -112,10 +112,10 @@ fun TopBar(
     }
 }
 
-/** The chats tab's header: Chats | Channels (| Volunteers, for admins, coordinators and volunteers), the open one bright. */
+/** The chats tab's header: Chats | Channels (| Groups, for admins and coordinators), the open one bright. */
 @Composable
 fun ChatsHeader(page: Int, volunteers: Boolean = false, onPage: (Int) -> Unit) =
-    HeaderTabs(if (volunteers) listOf("Chats", "Channels", "Volunteers") else listOf("Chats", "Channels"), page, onPage)
+    HeaderTabs(if (volunteers) listOf("Chats", "Channels", "Groups") else listOf("Chats", "Channels"), page, onPage)
 
 /** A tab's pages named in its header, "People | Teams | Categories": the one showing in white, a tap switches. */
 @Composable

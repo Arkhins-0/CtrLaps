@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ConversationOut } from "@/lib/messages";
+import type { VolunteerGroup } from "@/lib/volunteers";
 import { Avatar } from "./Avatar";
 import { Icon } from "./Icon";
 
@@ -20,16 +21,30 @@ const FILTERS: { key: Filter; label: string }[] = [
  * beside it. The channels page takes the whole width instead: it is the
  * other half of the same section, one tab over.
  */
-export function ChatList({ conversations, canOpen, volunteers = false, children }: { conversations: ConversationOut[]; canOpen: boolean; volunteers?: boolean; children: React.ReactNode }) {
+export function ChatList({
+  conversations,
+  canOpen,
+  staffGroups = false,
+  pinned = [],
+  children,
+}: {
+  conversations: ConversationOut[];
+  canOpen: boolean;
+  /** Admins and coordinators: the Volunteers and Delegations pages. */
+  staffGroups?: boolean;
+  /** A volunteer's group or a delegate's delegation: pinned above their chats. */
+  pinned?: VolunteerGroup[];
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const onList = pathname === "/chats";
 
-  if (pathname === "/chats/channels" || pathname.startsWith("/chats/volunteers")) {
+  if (pathname === "/chats/channels" || pathname.startsWith("/chats/volunteers") || pathname.startsWith("/chats/delegations")) {
     return (
       <div className="flex h-full min-h-0 flex-col">
-        <ChatsTabs volunteers={volunteers} />
+        <ChatsTabs staff={staffGroups} />
         <section className="flex min-h-0 flex-1 flex-col">{children}</section>
       </div>
     );
@@ -45,7 +60,7 @@ export function ChatList({ conversations, canOpen, volunteers = false, children 
     <div className="grid grid-cols-1 h-full min-h-0 gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
       <aside className={`${onList ? "flex" : "hidden lg:flex"} -mx-4 h-full min-h-0 flex-col sm:-mx-6 lg:mx-0 lg:border-r lg:border-night-line lg:pr-2`}>
         <div className="px-4 sm:px-6 lg:px-0">
-          <ChatsTabs volunteers={volunteers} />
+          <ChatsTabs staff={staffGroups} />
         </div>
         <div className="flex items-center gap-2 px-4 pb-2 sm:px-6 lg:px-0">
           <div className="relative flex-1">
@@ -72,6 +87,35 @@ export function ChatList({ conversations, canOpen, volunteers = false, children 
           ))}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
+          {pinned.length > 0 && (
+            <div className="mb-1">
+              <p className="section-title px-4 pb-1 pt-1 sm:px-6 lg:px-3">{pinned[0].kind === "delegation" ? "Delegation" : "Volunteer group"}</p>
+              {pinned.map((g) => (
+                <Link
+                  key={g.id}
+                  href={`/chats/${g.conversationId}`}
+                  className={`flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-snow/5 sm:px-6 lg:rounded-xl lg:px-3 ${pathname.startsWith(`/chats/${g.conversationId}`) ? "bg-snow/5" : ""}`}
+                >
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-gold/15 text-xl" aria-hidden>
+                    {g.kind === "delegation" ? "🤝" : "🦺"}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-medium">{g.name}</span>
+                    <span className={`block truncate text-[13px] ${g.unread > 0 ? "text-snow" : "text-snow-faint"}`}>{g.lastMessage ?? "No messages yet"}</span>
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    {g.lastMessageAt && (
+                      <span className={`text-[11px] ${g.unread > 0 ? "text-gold" : "text-snow-faint"}`}>
+                        <WhenLabel iso={g.lastMessageAt} />
+                      </span>
+                    )}
+                    {g.unread > 0 && <span className="badge">{g.unread > 99 ? "99+" : g.unread}</span>}
+                  </span>
+                </Link>
+              ))}
+              <div className="mx-4 mt-1 border-t border-night-line sm:mx-6 lg:mx-3" />
+            </div>
+          )}
           {shown.length === 0 && (
             <p className="px-4 py-3 text-sm text-snow-faint sm:px-6 lg:px-3">
               {filter === "unread"
@@ -82,7 +126,7 @@ export function ChatList({ conversations, canOpen, volunteers = false, children 
                     ? "No chats match."
                     : canOpen
                       ? "No chats yet. Start one with the pencil."
-                      : "Race officials do not have private chats."}
+                      : "No chats yet."}
             </p>
           )}
           {shown.map((c, i) => (
@@ -127,16 +171,17 @@ function ChatRow({ c, active, divider }: { c: ConversationOut; active: boolean; 
   );
 }
 
-/** The "Chats | Channels | Volunteers" switch at the top of the section (Volunteers for admins, coordinators and volunteers). */
-export function ChatsTabs({ volunteers = false }: { volunteers?: boolean }) {
+/** The "Chats | Channels" switch at the top of the section, with Volunteers and Delegations for admins and coordinators. */
+export function ChatsTabs({ staff = false }: { staff?: boolean }) {
   const pathname = usePathname();
   const channels = pathname.startsWith("/chats/channels");
   const vols = pathname.startsWith("/chats/volunteers");
+  const dels = pathname.startsWith("/chats/delegations");
   const tab = (on: boolean) =>
     `relative pb-2 text-lg font-semibold tracking-tight transition-colors ${on ? "text-snow after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full after:bg-gold" : "text-snow-faint hover:text-snow-soft"}`;
   return (
     <nav className="mb-3 flex items-center gap-3" aria-label="Chats or channels">
-      <Link href="/chats" className={tab(!channels && !vols)} aria-current={!channels && !vols ? "page" : undefined}>
+      <Link href="/chats" className={tab(!channels && !vols && !dels)} aria-current={!channels && !vols && !dels ? "page" : undefined}>
         Chats
       </Link>
       <span className="pb-2 text-lg text-night-line" aria-hidden>
@@ -145,13 +190,19 @@ export function ChatsTabs({ volunteers = false }: { volunteers?: boolean }) {
       <Link href="/chats/channels" className={tab(channels)} aria-current={channels ? "page" : undefined}>
         Channels
       </Link>
-      {volunteers && (
+      {staff && (
         <>
           <span className="pb-2 text-lg text-night-line" aria-hidden>
             |
           </span>
           <Link href="/chats/volunteers" className={tab(vols)} aria-current={vols ? "page" : undefined}>
             Volunteers
+          </Link>
+          <span className="pb-2 text-lg text-night-line" aria-hidden>
+            |
+          </span>
+          <Link href="/chats/delegations" className={tab(dels)} aria-current={dels ? "page" : undefined}>
+            Delegations
           </Link>
         </>
       )}

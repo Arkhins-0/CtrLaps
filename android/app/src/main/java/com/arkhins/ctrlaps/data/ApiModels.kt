@@ -786,6 +786,8 @@ data class NamedRef(val id: String, val name: String)
 @Serializable
 data class VolunteerGroupRow(
     val id: String,
+    /** "volunteer" or "delegation". */
+    val kind: String = "volunteer",
     val name: String,
     val open: Boolean = true,
     val conversationId: String,
@@ -803,6 +805,8 @@ data class VolunteerGroupDetailResponse(val group: VolunteerGroupDetail? = null)
 @Serializable
 data class VolunteerGroupDetail(
     val id: String,
+    /** "volunteer" or "delegation". */
+    val kind: String = "volunteer",
     val name: String,
     val open: Boolean = true,
     val conversationId: String,

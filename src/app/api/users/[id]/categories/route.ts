@@ -20,7 +20,7 @@ export const PUT = handle<Params<"id">>(async (request, { params }) => {
   if (!isUuid(id)) return fail("No such person.", 404);
   const user = await userById(id);
   if (!user) return fail("No such person.", 404);
-  if (user.role !== "racer" && user.role !== "race_official") return fail("Only racers and race officials are given categories.");
+  if (user.role !== "racer") return fail("Only racers are given categories.");
   if (!(me.role === "admin" || me.role === "coordinator" || canEdit(me, user))) return fail("Only their manager, a coordinator or an admin can change this.", 403);
 
   const season = (await currentSeason()).id;

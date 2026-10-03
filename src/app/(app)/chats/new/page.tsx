@@ -22,12 +22,15 @@ export default async function NewChat() {
         </Link>
         <h1 className="text-lg font-semibold">New chat</h1>
       </div>
-      <Link href="/chats/new-group" className="card flex items-center gap-3 p-3.5 transition-colors hover:bg-snow/5">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-night">
-          <Icon name="people" className="h-5 w-5" />
-        </span>
-        <span className="text-sm font-semibold">New group</span>
-      </Link>
+      {/* Delegates have their delegation's chat: they start no groups. */}
+      {user.role !== "race_official" && (
+        <Link href="/chats/new-group" className="card flex items-center gap-3 p-3.5 transition-colors hover:bg-snow/5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-night">
+            <Icon name="people" className="h-5 w-5" />
+          </span>
+          <span className="text-sm font-semibold">New group</span>
+        </Link>
+      )}
       {people.length === 0 ? <p className="card text-sm text-snow-faint">There is nobody you can chat with yet.</p> : <ChatPicker people={people} />}
     </div>
   );

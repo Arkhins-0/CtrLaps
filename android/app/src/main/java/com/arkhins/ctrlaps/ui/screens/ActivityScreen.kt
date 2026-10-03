@@ -55,7 +55,7 @@ private val KINDS = listOf("" to "All", "messages" to "Messages", "schedule" to 
 
 /** Who did it, for the filter: the roles, a developer, or CTR[L]APS itself. */
 private val WHO = listOf(
-    "" to "Anyone", "developer" to "Developer", "admin" to "Admin", "coordinator" to "Coordinator", "race_official" to "Race official",
+    "" to "Anyone", "developer" to "Developer", "admin" to "Admin", "coordinator" to "Coordinator", "race_official" to "Delegate",
     "team_manager" to "Team manager", "racer" to "Racer", "crew" to "Crew", "security_head" to "Security head", "security" to "Security",
     "volunteer" to "Volunteer", "user" to "User", "system" to "CTR[L]APS",
 )

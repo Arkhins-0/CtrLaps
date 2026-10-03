@@ -209,12 +209,15 @@ fun ChatsScreen(
     onManageVolunteers: (String) -> Unit = {},
     onVolunteerGroupMade: (String) -> Unit = onManageVolunteers,
 ) {
-    // Admins, coordinators and volunteers get a third page: the volunteer groups' chats. Its copy is refreshed as soon
-    // as the tab opens, so a swipe over finds it current.
-    val volunteers = vm.me?.user?.role in setOf("admin", "coordinator", "volunteer")
+    // Admins and coordinators get a third page, Groups: the volunteer groups and the delegations. Their copies are
+    // refreshed as soon as the tab opens, so a swipe over finds them current. (A volunteer's or a delegate's one group
+    // is pinned above their chats instead.)
+    val volunteers = vm.me?.user?.role in setOf("admin", "coordinator")
     val app = LocalApp.current
     LaunchedEffect(volunteers, vm.refreshTick) {
-        if (volunteers) runCatching { app.store.fetch("/api/volunteer-groups", com.arkhins.ctrlaps.data.VolunteerGroupsResponse.serializer()) }
+        if (volunteers) listOf("/api/volunteer-groups", "/api/volunteer-groups?kind=delegation").forEach { path ->
+            launch { runCatching { app.store.fetch(path, com.arkhins.ctrlaps.data.VolunteerGroupsResponse.serializer()) } }
+        }
     }
     val pager = rememberPagerState(initialPage = page) { if (volunteers) 3 else 2 }
     LaunchedEffect(page) { if (pager.currentPage != page) pager.animateScrollToPage(page) }
@@ -223,7 +226,7 @@ fun ChatsScreen(
         when (i) {
             0 -> ChatListPage(vm, onOpen, onNewChat)
             1 -> ChannelsScreen(vm, onOpenWeekend, onOpenCategory)
-            else -> VolunteersScreen(vm, onOpen, onManageVolunteers, onVolunteerGroupMade)
+            else -> StaffGroupsPage(vm, onOpen, onManageVolunteers, onVolunteerGroupMade)
         }
     }
 }
@@ -313,6 +316,8 @@ private fun ChatListPage(vm: AppViewModel, onOpen: (String) -> Unit, onNewChat: 
             }
         }
         LazyColumn(Modifier.weight(1f).nestedScroll(pull), contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)) {
+            // A volunteer's group or a delegate's delegation, pinned above their chats.
+            item(key = "pinned-group") { PinnedGroup(vm, onOpen) }
             when {
                 error != null && c == null -> item { Box(Modifier.padding(16.dp)) { ErrorText(error) } }
                 c == null || shown == null -> item { Loading() }
@@ -323,7 +328,7 @@ private fun ChatListPage(vm: AppViewModel, onOpen: (String) -> Unit, onNewChat: 
                                 filter == "unread" -> "Nothing unread."
                                 filter == "groups" -> "No groups yet."
                                 canOpen -> "No chats yet. Tap the pencil to start one."
-                                else -> "Race officials do not have private chats."
+                                else -> "No chats yet."
                             },
                         )
                     }
@@ -421,7 +426,7 @@ internal fun withPhoneLast(chat: Conversation, messages: List<Message>): Convers
 
 /** Pick someone below you to chat with. */
 @Composable
-fun NewChatScreen(onNewGroup: () -> Unit = {}, onOpened: (String) -> Unit) {
+fun NewChatScreen(onNewGroup: () -> Unit = {}, canGroup: Boolean = true, onOpened: (String) -> Unit) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     var people by remember { mutableStateOf<List<PublicUser>?>(null) }
@@ -439,7 +444,8 @@ fun NewChatScreen(onNewGroup: () -> Unit = {}, onOpened: (String) -> Unit) {
 
     val p = people
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Row(
+        // Delegates have their delegation's chat: they start no groups.
+        if (canGroup) Row(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
@@ -455,7 +461,7 @@ fun NewChatScreen(onNewGroup: () -> Unit = {}, onOpened: (String) -> Unit) {
             Spacer(Modifier.width(12.dp))
             Text("New group", style = MaterialTheme.typography.titleSmall, color = Snow)
         }
-        Spacer(Modifier.height(12.dp))
+        if (canGroup) Spacer(Modifier.height(12.dp))
         Field(filter, { filter = it }, "Search by name, team or role")
         Spacer(Modifier.height(10.dp))
         ErrorText(error)

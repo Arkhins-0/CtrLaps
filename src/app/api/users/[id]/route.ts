@@ -24,7 +24,7 @@ export const GET = handle<Params<"id">>(async (_request, { params }) => {
   if (user.id !== me.id && !(await isBelow(me, user.id))) return fail("Not allowed.", 403);
   const season = (await currentSeason()).id;
   const team = (await one<{ team_id: string | null }>("SELECT team_id FROM users WHERE id = $1", [id]))?.team_id ?? null;
-  const assignable = user.role === "racer" || user.role === "race_official";
+  const assignable = user.role === "racer";
   return json({
     user: toPublic(user),
     qrUrl: qrUrl(user),

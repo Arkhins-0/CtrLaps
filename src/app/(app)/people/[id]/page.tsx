@@ -81,7 +81,7 @@ export default async function Person({ params }: { params: Promise<{ id: string 
         categories={raceCategories}
         initial={assigned}
         teamIds={teamIds}
-        canSet={(user.role === "racer" || user.role === "race_official") && user.id !== me.id && (me.role === "admin" || me.role === "coordinator" || canEdit(me, user))}
+        canSet={user.role === "racer" && user.id !== me.id && (me.role === "admin" || me.role === "coordinator" || canEdit(me, user))}
       />
 
       {isDeveloper(me) && user.id !== me.id && user.role === "admin" && user.status === "active" && <DeveloperToggle personId={p.id} isDev={p.isDev} />}

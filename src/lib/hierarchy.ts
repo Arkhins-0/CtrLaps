@@ -143,6 +143,8 @@ export function canChat(a: ChatParty, b: ChatParty): boolean {
   const pair = (x: ChatParty, y: ChatParty): boolean => {
     if (x.role === "volunteer") return y.role === "volunteer" || (y.role === "coordinator" && x.parent_id === y.id);
     if (x.role === "security") return y.role === "coordinator";
+    // Delegates: admins (above), coordinators and team managers; each other only in their delegation's chat.
+    if (x.role === "race_official") return y.role === "coordinator" || y.role === "team_manager";
     return true;
   };
   return pair(a, b) && pair(b, a);
@@ -174,6 +176,8 @@ const LEVEL: Record<Role, number> = {
  */
 export function groupAddMode(actor: ChatParty, target: ChatParty): "direct" | "request" | null {
   if (actor.id === target.id || !hasChats(actor.role) || !hasChats(target.role)) return null;
+  // Delegates have their delegation's chat: they start no groups and are brought into none.
+  if (actor.role === "race_official" || target.role === "race_official") return null;
   // A request travels in the private chat between the two, so there must be one. Adding someone straight in needs none.
   if (LEVEL[target.role] < LEVEL[actor.role]) return canChat(actor, target) ? "request" : null;
   const teammate = target.parent_id === actor.parent_id;
@@ -189,8 +193,6 @@ export function groupAddMode(actor: ChatParty, target: ChatParty): "direct" | "r
     case "security_head":
       if (target.role === "security_head") return "direct";
       return target.role === "security" && target.parent_id === actor.id ? "direct" : null;
-    case "race_official":
-      return target.role === "race_official" ? "direct" : null;
     case "volunteer":
       return target.role === "volunteer" ? "direct" : null;
     case "racer":
