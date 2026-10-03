@@ -108,7 +108,7 @@ import java.time.format.DateTimeFormatter
 
 /** Every race weekend and its sessions. Admins create and edit both here. */
 @Composable
-fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive: () -> Unit, mine: List<String>? = null, onStandings: () -> Unit = {}) {
+fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive: () -> Unit, mine: List<String>? = null, onStandings: () -> Unit = {}, editTimes: Boolean = false) {
     val app = LocalApp.current
     var seasons by remember { mutableStateOf<List<Season>>(emptyList()) }
     var weekends by remember { mutableStateOf<List<Weekend>?>(null) }
@@ -157,7 +157,7 @@ fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive:
                 groups.forEach { (seasonName, list) ->
                     if (seasonName.isNotBlank() && groups.size > 1) item(key = "season-$seasonName") { SectionTitle(seasonName.uppercase()) }
                     items(list, key = { it.id }) { weekend ->
-                        WeekendCard(weekend, isAdmin, onOpen = { onOpenWeekend(weekend.id) }, onChanged = { reload++ }, categories = categories, only = only)
+                        WeekendCard(weekend, isAdmin, onOpen = { onOpenWeekend(weekend.id) }, onChanged = { reload++ }, categories = categories, only = only, editTimes = editTimes)
                     }
                 }
             }
@@ -336,6 +336,8 @@ fun WeekendCard(
     categories: List<Category> = emptyList(),
     /** Show only this category's sessions (and those for everyone). */
     only: List<String>? = null,
+    /** A coordinator: may change a session's times (not add, rename or remove one). */
+    editTimes: Boolean = false,
 ) {
     val openRoute = LocalOpen.current
     val app = LocalApp.current
@@ -457,7 +459,7 @@ fun WeekendCard(
                                     modifier = Modifier.clickable { openRoute("results/${s.id}") }.padding(horizontal = 6.dp, vertical = 8.dp),
                                 )
                             }
-                            if (isAdmin) IconAction(Icons.Outlined.Edit, "Edit session", Gold) { editing = s }
+                            if (isAdmin || editTimes) IconAction(Icons.Outlined.Edit, if (isAdmin) "Edit session" else "Change the times", Gold) { editing = s }
                         }
                     }
                 }
@@ -465,7 +467,7 @@ fun WeekendCard(
         }
     }
     if (editing != null || adding) {
-        SessionDialog(w, editing, categories, onDismiss = { editing = null; adding = false }, onSaved = { editing = null; adding = false; onChanged() })
+        SessionDialog(w, editing, categories, timesOnly = !isAdmin, onDismiss = { editing = null; adding = false }, onSaved = { editing = null; adding = false; onChanged() })
     }
     if (editingWeekend) {
         WeekendDialog(w, emptyList(), categories, onDismiss = { editingWeekend = false }, onSaved = { editingWeekend = false; onChanged() })
@@ -595,7 +597,7 @@ private fun WeekendDialog(w: Weekend?, seasons: List<Season>, categories: List<C
 /** Name, start and end as the track's wall clock. Saving tells everyone. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SessionDialog(w: Weekend, session: RaceSession?, categories: List<Category>, onDismiss: () -> Unit, onSaved: () -> Unit) {
+private fun SessionDialog(w: Weekend, session: RaceSession?, categories: List<Category>, timesOnly: Boolean = false, onDismiss: () -> Unit, onSaved: () -> Unit) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf(session?.name ?: "") }
@@ -613,14 +615,15 @@ private fun SessionDialog(w: Weekend, session: RaceSession?, categories: List<Ca
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         containerColor = NightPanel,
-        title = { Text(if (session == null) "Add session" else "Edit session", style = MaterialTheme.typography.headlineSmall) },
+        title = { Text(if (session == null) "Add session" else if (timesOnly) "Change the times" else "Edit session", style = MaterialTheme.typography.headlineSmall) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 ErrorText(error)
-                Field(name, { name = it }, "Session", placeholder = "Qualifying", enabled = !busy)
+                Field(name, { name = it }, "Session", placeholder = "Qualifying", enabled = !busy && !timesOnly)
                 DateTimeField(starts, { starts = it; if (ends <= it) ends = it }, "Starts (${w.timezone})", enabled = !busy, defaultDay = w.startsOn)
                 DateTimeField(ends, { ends = it }, "Ends (${w.timezone})", enabled = !busy, defaultDay = w.startsOn)
-                if (offered.isNotEmpty()) {
+                // A coordinator changes the times only: the category stays as it is.
+                if (offered.isNotEmpty() && !timesOnly) {
                     Text("CATEGORY", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Chip("Everyone", Gold, filled = categoryId == null) { if (!busy) categoryId = null }

@@ -51,7 +51,7 @@ export const PATCH = handle<Params<"id">>(async (request, { params }) => {
   if (!isUuid(id)) return fail("No such person.", 404);
   const user = await userById(id);
   if (!user) return fail("No such person.", 404);
-  if (!canEdit(me, user)) return fail("Only this person's manager or an admin can change this.", 403);
+  if (!canEdit(me, user)) return fail("Only this person's manager, a coordinator or an admin can change this.", 403);
   if (user.id === me.id && me.role !== "admin") return fail("Your profile is locked.", 403);
 
   const b = await body(request);
@@ -72,7 +72,7 @@ export const PATCH = handle<Params<"id">>(async (request, { params }) => {
     if (!/^\+?[\d\s()-]{6,}$/.test(phone)) return fail("Enter a contact number.");
     changes.phone = phone;
   }
-  if (typeof b.teamName === "string" && (user.role === "team_manager" || me.role === "admin")) {
+  if (typeof b.teamName === "string" && (user.role === "team_manager" || me.role === "admin" || me.role === "coordinator")) {
     changes.team_name = str(b.teamName, 80) || null;
   }
   if (b.status !== undefined) {

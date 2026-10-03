@@ -15,7 +15,7 @@ import { pickPerson, type PickPerson } from "../groups/people";
  * with the current season on top. A row opens its weekend. An admin names
  * the people who manage a channel from here. Above them, the channels of the race categories this person is in.
  */
-export function ChannelList({ initial, categories = [], isAdmin }: { initial: ChannelSeason[]; categories?: CategoryChannel[]; isAdmin: boolean }) {
+export function ChannelList({ initial, categories = [], canManage }: { initial: ChannelSeason[]; categories?: CategoryChannel[]; canManage: boolean }) {
   const [seasons, setSeasons] = useState(initial);
   const [managing, setManaging] = useState<ChannelWeekend | null>(null);
   const shown = seasons.filter((s) => s.weekends.length > 0);
@@ -97,7 +97,7 @@ export function ChannelList({ initial, categories = [], isAdmin }: { initial: Ch
                     </span>
                   )}
                   {w.unread > 0 && <span className="badge">{w.unread > 99 ? "99+" : w.unread}</span>}
-                  {isAdmin && (
+                  {canManage && (
                     <button className="rounded px-1 text-[11px] font-semibold text-gold hover:underline" onClick={() => setManaging(w)}>
                       Managers
                     </button>
@@ -122,7 +122,7 @@ export function ChannelList({ initial, categories = [], isAdmin }: { initial: Ch
   );
 }
 
-/** Admin: tick the people who manage this weekend's channel. Only admins and coordinators can. */
+/** Admins and coordinators: tick the people who manage this weekend's channel. Only admins and coordinators can be picked. */
 function ManagersDialog({ weekend, onClose, onSaved }: { weekend: ChannelWeekend; onClose: () => void; onSaved: (managers: ChannelManager[]) => void }) {
   const [people, setPeople] = useState<PickPerson[] | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set(weekend.managers.map((m) => m.id)));
@@ -131,11 +131,11 @@ function ManagersDialog({ weekend, onClose, onSaved }: { weekend: ChannelWeekend
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api<{ users: { id: string; name: string | null; email: string; role: string; status: string; roleLabel: string; teamName: string | null; photoUrl: string | null }[] }>(
-      "/api/users",
+    api<{ candidates: { id: string; name: string | null; email: string; role: string; status: string; roleLabel: string; teamName: string | null; photoUrl: string | null }[] }>(
+      `/api/weekends/${weekend.id}/managers`,
     )
       .then((r) => {
-        const eligible = r.users.filter((u) => u.status === "active" && (u.role === "admin" || u.role === "coordinator")).map(pickPerson);
+        const eligible = r.candidates.map(pickPerson);
         // Someone already managing but not in the list (you, say) stays tickable, so saving does not drop them unseen.
         const extra = weekend.managers.filter((m) => !eligible.some((p) => p.id === m.id)).map((m) => pickPerson({ ...m, teamName: null }));
         setPeople([...extra, ...eligible]);

@@ -34,6 +34,7 @@ export default async function WeekendPage({ params }: { params: Promise<{ id: st
       <WeekendCard
         weekend={weekend}
         isAdmin={isAdmin}
+        editTimes={user.role === "coordinator"}
         seasons={seasons.filter((s) => s.status === "active")}
         startOpen
         deletedHref="/schedule"

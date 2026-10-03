@@ -11,15 +11,25 @@ import { CREATE_RULES, hasChats, type Role } from "./roles";
 
 export type UserRow = SessionUser;
 
-/** Coordinators look after everyone who registered and has no role yet, as admins do. */
-const seesUnassigned = (user: Pick<SessionUser, "role">): boolean => user.role === "coordinator";
+/**
+ * Coordinators look after everyone but admins (developers are admins) and other coordinators: every team manager,
+ * racer, crew, race official, security head, security, volunteer and user, whoever gave them their role.
+ */
+const COORDINATOR_REACH = "role NOT IN ('admin', 'coordinator')";
+const coordinatorReaches = (role: Role): boolean => role !== "admin" && role !== "coordinator";
 
-/** Everyone below a person: their direct reports and theirs, all the way down, plus unassigned users for a coordinator. Admins see everyone. */
+/** Everyone below a person: their direct reports and theirs, all the way down. Admins see everyone; coordinators, everyone they look after. */
 export async function descendants(user: Pick<SessionUser, "id" | "role">): Promise<UserRow[]> {
   if (user.role === "admin") {
     return q<UserRow>(`SELECT ${USER_COLUMNS} FROM users WHERE id <> $1 AND status <> 'deleted' ORDER BY role, name NULLS LAST, email`, [
       user.id,
     ]);
+  }
+  if (user.role === "coordinator") {
+    return q<UserRow>(
+      `SELECT ${USER_COLUMNS} FROM users WHERE id <> $1 AND status <> 'deleted' AND ${COORDINATOR_REACH} ORDER BY role, name NULLS LAST, email`,
+      [user.id],
+    );
   }
   return q<UserRow>(
     `WITH RECURSIVE below AS (
@@ -27,9 +37,9 @@ export async function descendants(user: Pick<SessionUser, "id" | "role">): Promi
        UNION
        SELECT u.id FROM users u JOIN below b ON u.parent_id = b.id
      )
-     SELECT ${USER_COLUMNS} FROM users WHERE status <> 'deleted' AND (id IN (SELECT id FROM below) OR ($2 AND role = 'user'))
+     SELECT ${USER_COLUMNS} FROM users WHERE status <> 'deleted' AND id IN (SELECT id FROM below)
      ORDER BY role, name NULLS LAST, email`,
-    [user.id, seesUnassigned(user)],
+    [user.id],
   );
 }
 
@@ -37,14 +47,15 @@ export async function descendants(user: Pick<SessionUser, "id" | "role">): Promi
 export async function isBelow(user: Pick<SessionUser, "id" | "role">, targetId: string): Promise<boolean> {
   if (targetId === user.id) return false;
   if (user.role === "admin") return true;
+  if (user.role === "coordinator") return (await q(`SELECT 1 FROM users WHERE id = $1 AND ${COORDINATOR_REACH}`, [targetId])).length > 0;
   const rows = await q<{ ok: boolean }>(
     `WITH RECURSIVE below AS (
        SELECT id FROM users WHERE parent_id = $1
        UNION
        SELECT u.id FROM users u JOIN below b ON u.parent_id = b.id
      )
-     SELECT true AS ok FROM users WHERE id = $2 AND (id IN (SELECT id FROM below) OR ($3 AND role = 'user')) LIMIT 1`,
-    [user.id, targetId, seesUnassigned(user)],
+     SELECT true AS ok FROM users WHERE id = $2 AND id IN (SELECT id FROM below) LIMIT 1`,
+    [user.id, targetId],
   );
   return rows.length > 0;
 }
@@ -59,14 +70,18 @@ export async function filterBelow(user: Pick<SessionUser, "id" | "role">, ids: s
     ]);
     return rows.map((r) => r.id);
   }
+  if (user.role === "coordinator") {
+    const rows = await q<{ id: string }>(`SELECT id FROM users WHERE id = ANY($1::uuid[]) AND id <> $2 AND ${COORDINATOR_REACH}`, [ids, user.id]);
+    return rows.map((r) => r.id);
+  }
   const rows = await q<{ id: string }>(
     `WITH RECURSIVE below AS (
        SELECT id FROM users WHERE parent_id = $1
        UNION
        SELECT u.id FROM users u JOIN below b ON u.parent_id = b.id
      )
-     SELECT id FROM users WHERE id = ANY($2::uuid[]) AND (id IN (SELECT id FROM below) OR ($3 AND role = 'user'))`,
-    [user.id, ids, seesUnassigned(user)],
+     SELECT id FROM users WHERE id = ANY($2::uuid[]) AND id IN (SELECT id FROM below)`,
+    [user.id, ids],
   );
   return rows.map((r) => r.id);
 }
@@ -74,12 +89,12 @@ export async function filterBelow(user: Pick<SessionUser, "id" | "role">, ids: s
 export const canCreateRole = (creator: Role, role: Role): boolean => (CREATE_RULES[creator] ?? []).includes(role);
 
 /**
- * Who may change a locked profile or an account's status: the admin,
- * anyone; a direct parent, their own direct reports — except team managers,
- * whose profile only the admin touches.
+ * Who may change a locked profile or an account's status: an admin, anyone; a coordinator, anyone but admins and
+ * coordinators; anyone else, their own direct reports — except team managers, whom only admins and coordinators touch.
  */
 export function canEdit(actor: Pick<SessionUser, "id" | "role">, target: Pick<UserRow, "id" | "role" | "parent_id">): boolean {
   if (actor.role === "admin") return true;
+  if (actor.role === "coordinator") return actor.id !== target.id && coordinatorReaches(target.role);
   if (target.role === "team_manager") return false;
   return target.parent_id === actor.id;
 }

@@ -72,7 +72,8 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCate
     var error by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableStateOf(0) }
     var managing by remember { mutableStateOf<ChannelWeekend?>(null) }
-    val isAdmin = vm.me?.isAdmin == true
+    // Admins and coordinators pick a weekend's channel managers.
+    val canManage = vm.me?.isAdmin == true || vm.me?.user?.role == "coordinator"
 
     LaunchedEffect(reload, vm.refreshTick) {
         try {
@@ -142,7 +143,7 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCate
                                     Text("${w.unread}", style = MaterialTheme.typography.labelSmall, color = OnGold)
                                 }
                             }
-                            if (isAdmin) {
+                            if (canManage) {
                                 Spacer(Modifier.height(4.dp))
                                 Text(
                                     "Managers",
@@ -200,7 +201,7 @@ private fun CategoryChannelRow(c: CategoryChannel, onOpen: () -> Unit) {
     Box(Modifier.padding(start = 76.dp)) { Divider() }
 }
 
-/** Admin: tick the people who manage this weekend's channel. */
+/** Admins and coordinators: tick the people who manage this weekend's channel. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ManagersSheet(w: ChannelWeekend, onDismiss: () -> Unit, onSave: (List<String>) -> Unit) {
@@ -208,10 +209,11 @@ private fun ManagersSheet(w: ChannelWeekend, onDismiss: () -> Unit, onSave: (Lis
     var people by remember { mutableStateOf<List<PublicUser>?>(null) }
     var picked by remember { mutableStateOf(w.managers.map { it.id }.toSet()) }
     var filter by remember { mutableStateOf("") }
-    // Only admins and coordinators can manage a channel. The phone's list first, then the server's.
+    // Only admins and coordinators can manage a channel; the server says who they are.
     LaunchedEffect(Unit) {
-        fun show(users: List<PublicUser>) { people = users.filter { it.status == "active" && (it.role == "admin" || it.role == "coordinator") } }
-        runCatching { app.store.get("/api/users", UsersResponse.serializer()) { show(it.users) } }.onSuccess { show(it.users) }
+        runCatching { app.api.get("/api/weekends/${w.id}/managers", ManagersResponse.serializer()) }
+            .onSuccess { r -> people = r.candidates }
+            .onFailure { people = emptyList() }
     }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = NightPanel) {
         Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp)) {

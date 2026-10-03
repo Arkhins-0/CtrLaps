@@ -24,6 +24,7 @@ import { SessionForm, WeekendForm } from "./WeekendForms";
 export function WeekendCard({
   weekend: w,
   isAdmin,
+  editTimes = false,
   seasons = [],
   startOpen = false,
   href,
@@ -35,6 +36,8 @@ export function WeekendCard({
 }: {
   weekend: Weekend;
   isAdmin: boolean;
+  /** A coordinator: may change a session's times (not add, rename or remove one). */
+  editTimes?: boolean;
   /** The seasons a weekend can be moved to, for the edit form. */
   seasons?: Season[];
   startOpen?: boolean;
@@ -167,6 +170,7 @@ export function WeekendCard({
                     <SessionForm
                       weekend={w}
                       session={s}
+                      timesOnly={!isAdmin}
                       categories={categories}
                       onDone={() => {
                         setEditingSession(null);
@@ -202,6 +206,11 @@ export function WeekendCard({
                     <Link href={`/results/${s.id}`} className="shrink-0 rounded px-1.5 text-xs font-semibold text-gold hover:underline">
                       Results
                     </Link>
+                  )}
+                  {!isAdmin && editTimes && (
+                    <button className="btn-icon text-gold hover:text-gold" aria-label={`Change the times of ${s.name}`} onClick={() => setEditingSession(s)}>
+                      <Icon name="edit" className="h-4 w-4" />
+                    </button>
                   )}
                   {isAdmin && (
                     <>

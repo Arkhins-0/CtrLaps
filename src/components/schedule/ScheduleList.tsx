@@ -12,12 +12,15 @@ export function ScheduleList({
   past,
   categories,
   mine,
+  editTimes = false,
 }: {
   upcoming: Weekend[];
   past: Weekend[];
   categories: Category[];
   /** The person's own categories ("Mine", the default when they have any); null = none. */
   mine: string[] | null;
+  /** A coordinator: may change sessions' times. */
+  editTimes?: boolean;
 }) {
   const [filter, setFilter] = useState<CategoryFilter>(mine ? "mine" : null);
   const only = filterIds(filter, mine);
@@ -34,7 +37,7 @@ export function ScheduleList({
       {/* Sessions start folded, as in the app: the arrow opens them. */}
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
         {shown.map((w) => (
-          <WeekendCard key={w.id} weekend={w} isAdmin={false} href={`/w/${w.id}`} showSeason dimmed={past.includes(w)} categories={categories} only={only} />
+          <WeekendCard key={w.id} weekend={w} isAdmin={false} editTimes={editTimes} href={`/w/${w.id}`} showSeason dimmed={past.includes(w)} categories={categories} only={only} />
         ))}
       </div>
     </div>

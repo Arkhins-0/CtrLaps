@@ -133,17 +133,19 @@ export function WeekendForm({
   );
 }
 
-/** A session: new, or its name and times changed. Times are typed in track time. */
+/** A session: new, or its name and times changed (a coordinator: its times only). Times are typed in track time. */
 export function SessionForm({
   weekend,
   session,
   categories = [],
+  timesOnly = false,
   onDone,
   onCancel,
 }: {
   weekend: Weekend;
   session?: Session;
   categories?: Category[];
+  timesOnly?: boolean;
   onDone: () => void;
   onCancel: () => void;
 }) {
@@ -175,7 +177,7 @@ export function SessionForm({
       {error && <p className="error">{error}</p>}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Field label="Session">
-          <input className="input" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Qualifying" />
+          <input className="input" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Qualifying" disabled={timesOnly} />
         </Field>
         <Field label={`Starts (${weekend.timezone})`}>
           <input className="input" type="datetime-local" required value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
@@ -186,7 +188,7 @@ export function SessionForm({
       </div>
       {offered.length > 0 && (
         <Field label="Category">
-          <select className="input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+          <select className="input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} disabled={timesOnly}>
             <option value="">Everyone (briefing, prize giving…)</option>
             {offered.map((c) => (
               <option key={c.id} value={c.id}>
