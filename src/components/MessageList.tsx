@@ -181,7 +181,21 @@ export function batched(messages: MessageOut[]): { shown: MessageOut; run: Messa
 }
 
 /** One message as it appears in the inbox or a channel. */
-export function MessageItem({ m, showSender = true, highlight = false, inPlace = false }: { m: MessageOut; showSender?: boolean; highlight?: boolean; /** Shown where it was posted: no link back there. */ inPlace?: boolean }) {
+export function MessageItem({
+  m,
+  showSender = true,
+  highlight = false,
+  inPlace = false,
+  timeOnly = false,
+}: {
+  m: MessageOut;
+  showSender?: boolean;
+  highlight?: boolean;
+  /** Shown where it was posted: no link back there. */
+  inPlace?: boolean;
+  /** In a feed with day headings: the time alone. */
+  timeOnly?: boolean;
+}) {
   const unread = !m.readAt && !m.mine;
   const loc = locationIn(m.body);
   return (
@@ -201,7 +215,7 @@ export function MessageItem({ m, showSender = true, highlight = false, inPlace =
             )}
             {m.urgent && <span className="chip border-danger/40 bg-danger/10 px-2 py-0 text-[10px] text-danger">Urgent</span>}
             <span className="ml-auto shrink-0 text-xs text-snow-faint" title={new Date(m.createdAt).toLocaleString()}>
-              {timeAgo(m.createdAt)}
+              {timeOnly ? <LocalTime iso={m.createdAt} mode="time" /> : timeAgo(m.createdAt)}
             </span>
           </div>
           {m.linkPreview && <div className="mt-2"><LinkCard preview={m.linkPreview} /></div>}

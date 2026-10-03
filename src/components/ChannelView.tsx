@@ -6,6 +6,8 @@ import { api } from "@/lib/client";
 import type { MessageOut } from "@/lib/messages";
 import { MessageComposer, post } from "./MessageComposer";
 import { MessageItem } from "./MessageList";
+import { Feed, useNewIds } from "./NewLine";
+import { useHydrated } from "@/lib/useHydrated";
 
 /** Why a channel is closed: its season is archived now, it was closed with its season, or an admin closed it. */
 export type ClosedReason = "archived" | "season" | "admin" | null;
@@ -45,6 +47,8 @@ export function ChannelView({
   const base = url ?? `/api/weekends/${weekendId}/channel`;
   const router = useRouter();
   const [messages, setMessages] = useState(initial);
+  const newIds = useNewIds(initial);
+  const hydrated = useHydrated();
   const [channel, setChannel] = useState<Channel>({ open, closedReason, canPost });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,9 +111,7 @@ export function ChannelView({
       )}
       {error && <p className="error">{error}</p>}
       {messages.length === 0 && <p className="card text-sm text-snow-faint">No posts yet.</p>}
-      {[...messages].reverse().map((m) => (
-        <MessageItem key={m.id} m={m} inPlace />
-      ))}
+      <Feed list={[...messages].reverse()} newIds={newIds} hydrated={hydrated} render={(m) => <MessageItem m={m} inPlace timeOnly />} />
     </div>
   );
 }

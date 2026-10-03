@@ -63,6 +63,12 @@ import com.arkhins.ctrlaps.ui.components.MessageCard
 import com.arkhins.ctrlaps.ui.components.photoRuns
 import com.arkhins.ctrlaps.ui.components.Panel
 import com.arkhins.ctrlaps.ui.components.DashboardCard
+import com.arkhins.ctrlaps.ui.components.DayHeader
+import com.arkhins.ctrlaps.ui.components.FeedRow
+import com.arkhins.ctrlaps.ui.components.NewLine
+import com.arkhins.ctrlaps.ui.components.feedRows
+import com.arkhins.ctrlaps.ui.components.lastNewRun
+import com.arkhins.ctrlaps.ui.components.rememberNewIds
 import com.arkhins.ctrlaps.ui.localDateTime
 import com.arkhins.ctrlaps.ui.theme.Gold
 import com.arkhins.ctrlaps.ui.theme.Night
@@ -115,6 +121,7 @@ suspend fun refreshHomeSnapshot(app: CtrlapsApplication) {
  * each race weekend still on, then the announcements sent to this person.
  */
 @Composable
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 fun HomeScreen(
     vm: AppViewModel,
     highlight: String?,
@@ -126,6 +133,8 @@ fun HomeScreen(
 ) {
     val app = LocalApp.current
     var messages by remember { mutableStateOf<List<Message>?>(null) }
+    // The announcements unread while this page is open: the NEW line goes under the last of them.
+    val newIds = rememberNewIds(messages)
     var chats by remember { mutableStateOf<List<Conversation>>(emptyList()) }
     var channels by remember { mutableStateOf<List<ChannelSummary>>(emptyList()) }
     var next by remember { mutableStateOf<NextRace?>(null) }
@@ -197,7 +206,7 @@ fun HomeScreen(
             }
             if (highlight != null) {
                 // Counted in cards, as the list shows them: a run of photos is one.
-                val idx = messages?.let { ms -> photoRuns(ms.asReversed()).asReversed().indexOfFirst { run -> run.any { it.id == highlight } } } ?: -1
+                val idx = messages?.let { ms -> feedRows(photoRuns(ms.asReversed()).asReversed(), newIds).indexOfFirst { r -> r is FeedRow.Run && r.run.any { it.id == highlight } } } ?: -1
                 if (idx >= 0) list.animateScrollToItem(idx + 4)
             }
         } catch (e: Exception) {
@@ -239,7 +248,7 @@ fun HomeScreen(
                     if (e.conversationId != null) onOpenChat(e.conversationId)
                     else scope.launch {
                         // An announcement: down to its card below.
-                        val idx = messages?.let { ms -> photoRuns(ms.asReversed()).asReversed().indexOfFirst { run -> run.any { it.id == e.messageId } } } ?: -1
+                        val idx = messages?.let { ms -> feedRows(photoRuns(ms.asReversed()).asReversed(), newIds).indexOfFirst { r -> r is FeedRow.Run && r.run.any { it.id == e.messageId } } } ?: -1
                         if (idx >= 0) list.animateScrollToItem(idx + 5 + (if (chats.isNotEmpty()) 2 else 0) + (if (channels.isNotEmpty()) 1 + channels.size else 0))
                     }
                 }
@@ -326,8 +335,16 @@ fun HomeScreen(
             error != null && m == null -> item { ErrorText(error) }
             m == null -> item { Loading() }
             m.isEmpty() -> item { Empty("Nothing yet. Messages sent to you appear here.") }
-            // Newest first: photos sent one after another are gathered in the order sent, then turned back round.
-            else -> items(photoRuns(m.asReversed()).asReversed(), key = { it.first().id }) { run -> MessageCard(run, onView, highlight = run.any { it.id == highlight }) }
+            // Newest first: photos sent one after another are gathered in the order sent, then turned back round; a NEW line under the last unread.
+            else -> {
+                feedRows(photoRuns(m.asReversed()).asReversed(), newIds).forEach { row ->
+                    when (row) {
+                        is FeedRow.Day -> stickyHeader(key = row.key) { DayHeader(row.label) }
+                        is FeedRow.Run -> item(key = row.key) { MessageCard(row.run, onView, highlight = row.run.any { it.id == highlight }) }
+                        FeedRow.New -> item(key = row.key) { NewLine() }
+                    }
+                }
+            }
         }
         item { Spacer(Modifier.fillMaxWidth().height(8.dp)) }
     }

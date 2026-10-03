@@ -45,6 +45,7 @@ import com.arkhins.ctrlaps.ui.components.ErrorText
 import com.arkhins.ctrlaps.ui.components.Field
 import com.arkhins.ctrlaps.ui.components.GoldButton
 import com.arkhins.ctrlaps.ui.components.Loading
+import com.arkhins.ctrlaps.ui.components.MutedMark
 import com.arkhins.ctrlaps.ui.components.UnreadBadge
 import com.arkhins.ctrlaps.ui.components.SectionTitle
 import com.arkhins.ctrlaps.ui.theme.Gold
@@ -119,7 +120,10 @@ fun ChannelsScreen(vm: AppViewModel, onOpenWeekend: (String) -> Unit, onOpenCate
                         ) { Text("📣", style = MaterialTheme.typography.titleMedium) }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(w.name + if (w.muted) "  🔕" else "", style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(w.name, style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                if (w.muted) MutedMark()
+                            }
                             Text(
                                 w.lastMessage ?: "${w.startsOn} → ${w.endsOn}" + if (w.channelOpen) "" else " · closed",
                                 style = MaterialTheme.typography.bodySmall,
@@ -185,7 +189,10 @@ private fun CategoryChannelRow(c: CategoryChannel, onManagers: (() -> Unit)? = n
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(c.name + if (c.muted) "  🔕" else "", style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(c.name, style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                if (c.muted) MutedMark()
+            }
             Text(c.lastMessage ?: "No posts yet", style = MaterialTheme.typography.bodySmall, color = if (c.unread > 0) Snow else SnowFaint, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Column(horizontalAlignment = Alignment.End) {

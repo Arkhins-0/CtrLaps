@@ -40,6 +40,12 @@ import com.arkhins.ctrlaps.ui.components.ErrorText
 import com.arkhins.ctrlaps.ui.components.FileView
 import com.arkhins.ctrlaps.ui.components.Loading
 import com.arkhins.ctrlaps.ui.components.MessageCard
+import com.arkhins.ctrlaps.ui.components.DayHeader
+import com.arkhins.ctrlaps.ui.components.FeedRow
+import com.arkhins.ctrlaps.ui.components.NewLine
+import com.arkhins.ctrlaps.ui.components.feedRows
+import com.arkhins.ctrlaps.ui.components.lastNewRun
+import com.arkhins.ctrlaps.ui.components.rememberNewIds
 import com.arkhins.ctrlaps.ui.components.photoRuns
 import com.arkhins.ctrlaps.ui.theme.Snow
 import com.arkhins.ctrlaps.ui.theme.SnowFaint
@@ -51,6 +57,7 @@ import kotlinx.serialization.json.putJsonArray
 
 /** A race category's channel ("ITC 2026"): its people read; admins, coordinators and its race officials post. */
 @Composable
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 fun CategoryChannelScreen(vm: AppViewModel, categoryId: String, onView: (FileView) -> Unit) {
     val app = LocalApp.current
     var channel by remember { mutableStateOf<CategoryChannelResponse?>(null) }
@@ -74,6 +81,7 @@ fun CategoryChannelScreen(vm: AppViewModel, categoryId: String, onView: (FileVie
     }
 
     val c = channel
+    val newIds = rememberNewIds(channel?.messages)
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         when {
             error != null && c == null -> item { ErrorText(error) }
@@ -115,8 +123,17 @@ fun CategoryChannelScreen(vm: AppViewModel, categoryId: String, onView: (FileVie
                     Text("This channel is closed: its season is archived.", style = MaterialTheme.typography.labelSmall, color = SnowFaint, modifier = Modifier.padding(vertical = 2.dp))
                 }
                 if (c.messages.isEmpty()) item { Empty("No posts yet.") }
-                // Photos posted one after another show as one grid; the newest post on top.
-                else items(photoRuns(c.messages).asReversed(), key = { it.first().id }) { run -> MessageCard(run, onView) }
+                // Photos posted one after another show as one grid; the newest post on top; a NEW line under the last unread.
+                else {
+                    val rows = feedRows(photoRuns(c.messages).asReversed(), newIds)
+                    rows.forEach { row ->
+                        when (row) {
+                            is FeedRow.Day -> stickyHeader(key = row.key) { DayHeader(row.label) }
+                            is FeedRow.Run -> item(key = row.key) { MessageCard(row.run, onView) }
+                            FeedRow.New -> item(key = row.key) { NewLine() }
+                        }
+                    }
+                }
             }
         }
     }

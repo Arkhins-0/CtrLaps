@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { api, changeMark, isStale } from "@/lib/client";
 import type { MessageOut } from "@/lib/messages";
 import { MessageItem } from "./MessageList";
+import { Feed, useNewIds } from "./NewLine";
+import { useHydrated } from "@/lib/useHydrated";
 
 /**
  * The inbox: newest first, what has come into view gets marked read, and
@@ -11,6 +13,8 @@ import { MessageItem } from "./MessageList";
  */
 export function Inbox({ initial, highlight }: { initial: MessageOut[]; highlight?: string }) {
   const [messages, setMessages] = useState(initial);
+  const newIds = useNewIds(initial);
+  const hydrated = useHydrated();
   const [more, setMore] = useState(initial.length >= 60);
   const [busy, setBusy] = useState(false);
   const marked = useRef<Set<string>>(new Set());
@@ -65,9 +69,7 @@ export function Inbox({ initial, highlight }: { initial: MessageOut[]; highlight
 
   return (
     <div className="space-y-3">
-      {messages.map((m) => (
-        <MessageItem key={m.id} m={m} highlight={m.id === highlight} />
-      ))}
+      <Feed list={messages} newIds={newIds} hydrated={hydrated} render={(m) => <MessageItem m={m} highlight={m.id === highlight} timeOnly />} />
       {more && (
         <button className="btn-ghost w-full" onClick={loadMore} disabled={busy}>
           {busy ? "Loading…" : "Older messages"}
