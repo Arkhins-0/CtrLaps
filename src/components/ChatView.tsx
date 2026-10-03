@@ -489,7 +489,7 @@ export function ChatView({
         </div>
       )}
       {group && !group.canSend ? (
-        <p className="shrink-0 border-t border-night-line p-4 text-center text-sm text-snow-faint">Only the group&apos;s admins can send here.</p>
+        <p className="shrink-0 border-t border-night-line p-4 text-center text-sm text-snow-faint">{group.sendNote ?? "Only the group's admins can send here."}</p>
       ) : (
         <div className="shrink-0 border-t border-night-line p-2 sm:p-3">
           <MessageComposer

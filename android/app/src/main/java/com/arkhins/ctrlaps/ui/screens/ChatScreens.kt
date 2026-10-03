@@ -198,12 +198,27 @@ import java.util.Locale
 
 /** The chats tab: the chat list, and a swipe to the left for the broadcast channels. */
 @Composable
-fun ChatsScreen(vm: AppViewModel, page: Int, onPage: (Int) -> Unit, onOpen: (String) -> Unit, onNewChat: () -> Unit, onOpenWeekend: (String) -> Unit, onOpenCategory: (String) -> Unit = {}) {
-    val pager = rememberPagerState(initialPage = page) { 2 }
+fun ChatsScreen(
+    vm: AppViewModel,
+    page: Int,
+    onPage: (Int) -> Unit,
+    onOpen: (String) -> Unit,
+    onNewChat: () -> Unit,
+    onOpenWeekend: (String) -> Unit,
+    onOpenCategory: (String) -> Unit = {},
+    onManageVolunteers: (String) -> Unit = {},
+) {
+    // Admins, coordinators and volunteers get a third page: the volunteer groups' chats.
+    val volunteers = vm.me?.user?.role in setOf("admin", "coordinator", "volunteer")
+    val pager = rememberPagerState(initialPage = page) { if (volunteers) 3 else 2 }
     LaunchedEffect(page) { if (pager.currentPage != page) pager.animateScrollToPage(page) }
     LaunchedEffect(pager.currentPage) { if (pager.currentPage != page) onPage(pager.currentPage) }
     HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { i ->
-        if (i == 0) ChatListPage(vm, onOpen, onNewChat) else ChannelsScreen(vm, onOpenWeekend, onOpenCategory)
+        when (i) {
+            0 -> ChatListPage(vm, onOpen, onNewChat)
+            1 -> ChannelsScreen(vm, onOpenWeekend, onOpenCategory)
+            else -> VolunteersScreen(vm, onOpen, onManageVolunteers)
+        }
     }
 }
 
@@ -844,7 +859,7 @@ fun ChatScreen(
         val groupNow = d?.group
         if (groupNow != null && !groupNow.canSend) {
             Text(
-                "Only the group's admins can send here.",
+                groupNow.sendNote ?: "Only the group's admins can send here.",
                 style = MaterialTheme.typography.bodySmall,
                 color = SnowFaint,
                 textAlign = TextAlign.Center,

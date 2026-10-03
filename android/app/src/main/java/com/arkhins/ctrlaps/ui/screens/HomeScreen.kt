@@ -62,6 +62,7 @@ import com.arkhins.ctrlaps.ui.components.Loading
 import com.arkhins.ctrlaps.ui.components.MessageCard
 import com.arkhins.ctrlaps.ui.components.photoRuns
 import com.arkhins.ctrlaps.ui.components.Panel
+import com.arkhins.ctrlaps.ui.components.DashboardCard
 import com.arkhins.ctrlaps.ui.localDateTime
 import com.arkhins.ctrlaps.ui.theme.Gold
 import com.arkhins.ctrlaps.ui.theme.Night
@@ -129,6 +130,9 @@ fun HomeScreen(
     var channels by remember { mutableStateOf<List<ChannelSummary>>(emptyList()) }
     var next by remember { mutableStateOf<NextRace?>(null) }
     var events by remember { mutableStateOf<List<UpcomingEvent>>(emptyList()) }
+    // Admins and coordinators: today's sessions and the people to nudge.
+    var board by remember { mutableStateOf<com.arkhins.ctrlaps.data.Dashboard?>(null) }
+    val openRoute = LocalOpen.current
     val scope = rememberCoroutineScope()
     var error by remember { mutableStateOf<String?>(null) }
     val list = rememberLazyListState()
@@ -151,6 +155,12 @@ fun HomeScreen(
                 }
             }
         }
+    }
+    LaunchedEffect(vm.refreshTick, vm.me?.user?.role) {
+        if (vm.me?.user?.role == "admin" || vm.me?.user?.role == "coordinator") {
+            runCatching { app.store.get("/api/me/dashboard", com.arkhins.ctrlaps.data.DashboardResponse.serializer()) { c -> if (board == null) board = c.dashboard } }
+                .onSuccess { board = it.dashboard }
+        } else board = null
     }
     LaunchedEffect(vm.refreshTick) {
         try {
@@ -200,6 +210,13 @@ fun HomeScreen(
 
     LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
+            // The admin's or coordinator's card rides in this first row, so the rows counted below stay where they are.
+            board?.let { b ->
+                Column {
+                    DashboardCard(b, onWeekend = onOpenWeekend, onPerson = { openRoute("person/$it") })
+                    Spacer(Modifier.height(10.dp))
+                }
+            }
             val n = next
             if (n != null && n.state != "none" && n.weekend != null && n.session != null) {
                 Panel(Modifier.clickable { onOpenWeekend(n.weekend.id) }) {

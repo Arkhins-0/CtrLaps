@@ -55,6 +55,13 @@ export async function vote(user: SessionUser, pollId: string, optionIds: string[
     [pollId, user.id],
   );
   if (!poll) throw new AuthError(404, "No such poll.");
+  // In a group: someone kept to reading, or a closed volunteer chat, can't answer.
+  const blocked = await one<{ blocked: boolean }>(
+    `SELECT (gm.permission = 'read_only' OR EXISTS (SELECT 1 FROM volunteer_groups vg WHERE vg.conversation_id = gm.conversation_id AND NOT vg.open)) AS blocked
+     FROM messages m JOIN group_members gm ON gm.conversation_id = m.conversation_id AND gm.user_id = $2 WHERE m.id = $1`,
+    [poll.message_id, user.id],
+  );
+  if (blocked?.blocked) throw new AuthError(403, "You can read this chat, but not take part.");
   const valid = (await q<{ id: string }>("SELECT id FROM poll_options WHERE poll_id = $1", [poll.id])).map((o) => o.id);
   const picked = Array.from(new Set(optionIds)).filter((id) => valid.includes(id));
   if (!poll.multiple && picked.length > 1) throw new AuthError(400, "This poll takes one answer.");

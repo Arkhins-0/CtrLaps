@@ -230,7 +230,16 @@ data class MessageRecipient(
 data class InviteResult(val id: String? = null, val added: Int = 0, val requested: Int = 0, val skipped: List<String> = emptyList())
 
 @Serializable
-data class GroupMember(val id: String, val name: String, val roleLabel: String = "", val photoUrl: String? = null, val groupRole: String = "member")
+data class GroupMember(
+    val id: String,
+    val name: String,
+    val roleLabel: String = "",
+    val photoUrl: String? = null,
+    val groupRole: String = "member",
+    /** In a volunteer group's chat: "full", "no_messages" or "read_only". */
+    val permission: String = "full",
+    val userRole: String = "",
+)
 
 @Serializable
 data class GroupInfo(
@@ -243,6 +252,14 @@ data class GroupInfo(
     val myRole: String? = null,
     val canSend: Boolean = true,
     val createdBy: String? = null,
+    /** A volunteer group's chat: its members follow the group (nobody is added, removed or leaves by hand). */
+    val volunteerGroupId: String? = null,
+    val closed: Boolean = false,
+    val myPermission: String = "full",
+    /** Why the box to write in is not shown. */
+    val sendNote: String? = null,
+    /** May set volunteers' permissions (its coordinator or an admin). */
+    val canLimit: Boolean = false,
 ) {
     /** The group where a chat's other side would be: name, photo, and "Group · n members" for the designation. */
     fun asOther(): OtherUser = OtherUser(id, name, "group", "Group · ${members.size} member${if (members.size == 1) "" else "s"}", photoUrl)
@@ -753,3 +770,68 @@ data class ActivityActor(val id: String, val name: String, val roleLabel: String
 /** Who or what it was done to: a person or a race weekend. */
 @Serializable
 data class ActivityTarget(val id: String, val name: String, val kind: String)
+
+/** The Chats tab's Volunteers page. */
+@Serializable
+data class VolunteerGroupsResponse(
+    val groups: List<VolunteerGroupRow> = emptyList(),
+    val canCreate: Boolean = false,
+    /** For an admin making a group: who can lead it. */
+    val coordinators: List<NamedRef> = emptyList(),
+)
+
+@Serializable
+data class NamedRef(val id: String, val name: String)
+
+@Serializable
+data class VolunteerGroupRow(
+    val id: String,
+    val name: String,
+    val open: Boolean = true,
+    val conversationId: String,
+    val coordinator: NamedRef? = null,
+    val volunteers: Int = 0,
+    val unread: Int = 0,
+    val lastMessage: String? = null,
+    val lastMessageAt: String? = null,
+    val canManage: Boolean = false,
+)
+
+@Serializable
+data class VolunteerGroupDetailResponse(val group: VolunteerGroupDetail? = null)
+
+@Serializable
+data class VolunteerGroupDetail(
+    val id: String,
+    val name: String,
+    val open: Boolean = true,
+    val conversationId: String,
+    val coordinator: NamedRef? = null,
+    val volunteers: List<VolunteerInGroup> = emptyList(),
+    val unassigned: List<NamedRef> = emptyList(),
+    val otherGroups: List<OtherVolunteerGroup> = emptyList(),
+    val coordinators: List<NamedRef> = emptyList(),
+)
+
+@Serializable
+data class VolunteerInGroup(val id: String, val name: String, val photoUrl: String? = null, val permission: String = "full", val status: String = "active")
+
+@Serializable
+data class OtherVolunteerGroup(val id: String, val name: String, val coordinator: String? = null)
+
+/** The admin's and coordinator's card on Home (null for anyone else). */
+@Serializable
+data class DashboardResponse(val dashboard: Dashboard? = null)
+
+@Serializable
+data class Dashboard(
+    val sessions: List<DashboardSession> = emptyList(),
+    val changes: List<String> = emptyList(),
+    val pending: List<NamedRef> = emptyList(),
+    val unfinished: List<NamedRef> = emptyList(),
+    val suspended: List<NamedRef> = emptyList(),
+)
+
+@Serializable
+data class DashboardSession(val id: String, val name: String, val weekendId: String, val weekendName: String, val startsAt: String, val track: String)
+

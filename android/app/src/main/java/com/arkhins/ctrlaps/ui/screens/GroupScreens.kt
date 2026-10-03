@@ -188,6 +188,7 @@ fun PeoplePicker(people: List<PublicUser>, picked: Set<String>, filter: String, 
 @Composable
 fun GroupScreen(vm: AppViewModel, groupId: String, onOpenChat: (String) -> Unit, onLeft: () -> Unit, onTitle: (String) -> Unit) {
     val app = LocalApp.current
+    val openRoute = LocalOpen.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var group by remember { mutableStateOf<GroupInfo?>(null) }
@@ -256,13 +257,13 @@ fun GroupScreen(vm: AppViewModel, groupId: String, onOpenChat: (String) -> Unit,
                     Column(Modifier.weight(1f)) {
                         Text(g.name, style = MaterialTheme.typography.titleLarge, color = Snow)
                         Text(
-                            "${g.members.size} member${if (g.members.size == 1) "" else "s"} · ${if (g.sendPolicy == "admins") "admins send" else "everyone sends"}",
+                            "${g.members.size} member${if (g.members.size == 1) "" else "s"} · ${if (g.closed) "chat closed" else if (g.sendPolicy == "admins") "admins send" else "everyone sends"}",
                             style = MaterialTheme.typography.bodySmall,
                             color = SnowSoft,
                         )
                         if (admin) Text("Tap the picture to change it", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                     }
-                    if (admin) IconAction(Icons.Outlined.MoreVert, "More", SnowSoft) { renaming = g.name }
+                    if (admin && g.volunteerGroupId == null) IconAction(Icons.Outlined.MoreVert, "More", SnowSoft) { renaming = g.name }
                 }
             }
         }
@@ -292,7 +293,7 @@ fun GroupScreen(vm: AppViewModel, groupId: String, onOpenChat: (String) -> Unit,
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 SectionTitle("MEMBERS · ${g.members.size}", Modifier.weight(1f))
-                if (admin) GhostButton("Add people", enabled = !busy) { adding = true }
+                if (admin && g.volunteerGroupId == null) GhostButton("Add people", enabled = !busy) { adding = true }
             }
         }
         item {
@@ -300,8 +301,9 @@ fun GroupScreen(vm: AppViewModel, groupId: String, onOpenChat: (String) -> Unit,
                 Column {
                     g.members.forEachIndexed { i, m ->
                         if (i > 0) Divider()
-                        MemberRow(m, isMe = m.id == vm.me?.user?.id, admin = admin, busy = busy) { action ->
+                        MemberRow(m, isMe = m.id == vm.me?.user?.id, admin = admin && g.volunteerGroupId == null, limit = g.canLimit && m.userRole == "volunteer", busy = busy) { action ->
                             when (action) {
+                                "full", "no_messages", "read_only" -> run { app.api.patch("/api/groups/$groupId/members/${m.id}", GroupResponse.serializer()) { put("permission", action) } }
                                 "admin" -> run { app.api.patch("/api/groups/$groupId/members/${m.id}", GroupResponse.serializer()) { put("role", "admin") } }
                                 "member" -> run { app.api.patch("/api/groups/$groupId/members/${m.id}", GroupResponse.serializer()) { put("role", "member") } }
                                 "remove" -> run { app.api.delete("/api/groups/$groupId/members/${m.id}") }
@@ -344,7 +346,9 @@ fun GroupScreen(vm: AppViewModel, groupId: String, onOpenChat: (String) -> Unit,
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GoldButton("Open chat", enabled = !busy) { onOpenChat(g.id) }
-                GhostButton("Leave group", enabled = !busy, danger = true) { confirmLeave = true }
+                // A volunteer group's chat: nobody leaves it while in the group; its coordinator or an admin manages it.
+                if (g.volunteerGroupId == null) GhostButton("Leave group", enabled = !busy, danger = true) { confirmLeave = true }
+                else if (g.canLimit) GhostButton("Manage volunteer group", enabled = !busy) { openRoute("volunteer-group/${g.volunteerGroupId}") }
             }
         }
     }
@@ -403,7 +407,7 @@ fun GroupScreen(vm: AppViewModel, groupId: String, onOpenChat: (String) -> Unit,
 
 /** One member; an admin gets a menu to make or unmake an admin, or remove them. */
 @Composable
-private fun MemberRow(m: GroupMember, isMe: Boolean, admin: Boolean, busy: Boolean, onAction: (String) -> Unit) {
+private fun MemberRow(m: GroupMember, isMe: Boolean, admin: Boolean, limit: Boolean = false, busy: Boolean, onAction: (String) -> Unit) {
     val app = LocalApp.current
     var menu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -416,8 +420,22 @@ private fun MemberRow(m: GroupMember, isMe: Boolean, admin: Boolean, busy: Boole
                     Spacer(Modifier.width(6.dp))
                     Chip("Admin", Gold)
                 }
+                if (m.permission != "full") {
+                    Spacer(Modifier.width(6.dp))
+                    Chip(if (m.permission == "read_only") "Read only" else "Can't send", Danger)
+                }
             }
             Text(m.roleLabel, style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+        }
+        if (limit && !isMe) {
+            Box {
+                IconAction(Icons.Outlined.MoreVert, "More", SnowSoft, enabled = !busy) { menu = true }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = NightPanel) {
+                    listOf("full" to "Can chat", "no_messages" to "Can't send messages", "read_only" to "Read only (no actions)").forEach { (key, label) ->
+                        DropdownMenuItem(text = { Text(label, color = if (m.permission == key) Gold else Snow) }, onClick = { menu = false; if (m.permission != key) onAction(key) })
+                    }
+                }
+            }
         }
         if (admin && !isMe) {
             Box {

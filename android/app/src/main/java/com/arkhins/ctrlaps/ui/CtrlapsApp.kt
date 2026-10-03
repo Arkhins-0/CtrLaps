@@ -83,6 +83,8 @@ import com.arkhins.ctrlaps.ui.screens.PermissionsScreen
 import com.arkhins.ctrlaps.ui.screens.ThemeScreen
 import com.arkhins.ctrlaps.ui.screens.AboutScreen
 import com.arkhins.ctrlaps.ui.screens.ActivityScreen
+import com.arkhins.ctrlaps.ui.screens.VolunteerGroupScreen
+import com.arkhins.ctrlaps.ui.screens.VolunteersScreen
 import com.arkhins.ctrlaps.ui.screens.ChannelsScreen
 import com.arkhins.ctrlaps.ui.screens.DeleteAccountScreen
 import com.arkhins.ctrlaps.ui.screens.EmailSettingsScreen
@@ -348,7 +350,7 @@ private fun MainNav(vm: AppViewModel) {
             composable("home") { Tab("home", "CTR[L]APS") { HomeScreen(vm, highlight = null, onOpenWeekend = openWeekend, onOpenChat = openChat, onAllChats = { nav.navigate("chats") { popUpTo("home"); launchSingleTop = true } }, onCompose = { nav.open("compose") }, onView = view) } }
             composable("home?m={m}") { e -> Tab("home", "CTR[L]APS") { HomeScreen(vm, highlight = e.arguments?.getString("m"), onOpenWeekend = openWeekend, onOpenChat = openChat, onAllChats = { nav.navigate("chats") { popUpTo("home"); launchSingleTop = true } }, onCompose = { nav.open("compose") }, onView = view) } }
             composable("schedule") { Tab("schedule", "Schedule") { ScheduleScreen(isAdmin = vm.me?.isAdmin == true, onOpenWeekend = openWeekend, onArchive = { nav.open("archive") }, mine = vm.me?.categoryIds, onStandings = { nav.open("standings") }, editTimes = vm.me?.user?.role == "coordinator") } }
-            composable("chats") { Tab("chats", "Chats", center = { ChatsHeader(chatsPage) { chatsPage = it } }) { ChatsScreen(vm, page = chatsPage, onPage = { chatsPage = it }, onOpen = openChat, onNewChat = { nav.open("newchat") }, onOpenWeekend = openWeekend, onOpenCategory = { nav.open("category/$it") }) } }
+            composable("chats") { Tab("chats", "Chats", center = { ChatsHeader(chatsPage, volunteers = vm.me?.user?.role in setOf("admin", "coordinator", "volunteer")) { chatsPage = it } }) { ChatsScreen(vm, page = chatsPage, onPage = { chatsPage = it }, onOpen = openChat, onNewChat = { nav.open("newchat") }, onOpenWeekend = openWeekend, onOpenCategory = { nav.open("category/$it") }, onManageVolunteers = { nav.open("volunteer-group/$it") }) } }
             composable("people") {
                 val pages = peoplePages(vm.me?.user?.role)
                 Tab("people", "People", center = if (pages.size > 1) ({ HeaderTabs(pages, peoplePage) { peoplePage = it } }) else null) {
@@ -430,6 +432,12 @@ private fun MainNav(vm: AppViewModel) {
             composable("settings") { Pushed("Settings") { SettingsScreen(onPermissions = { nav.open("permissions") }, onTheme = { nav.open("theme") }, onEmail = { nav.open("email-settings") }, onDelete = { nav.open("delete-account") }) } }
             composable("email-settings") { Pushed("Email") { EmailSettingsScreen() } }
             composable("activity") { Pushed("Activity log") { ActivityScreen() } }
+            // The Volunteers page on its own (also what a link or a debug route to "volunteers" opens).
+            composable("volunteers") { Pushed("Volunteers") { VolunteersScreen(vm, onOpenChat = { openChat(it) }, onManage = { nav.open("volunteer-group/$it") }) } }
+            composable("volunteer-group/{id}") { e ->
+                var t by remember { mutableStateOf("Volunteer group") }
+                Pushed(t) { VolunteerGroupScreen(e.arguments?.getString("id") ?: "", onOpenChat = { openChat(it) }, onGone = { nav.popBackStack() }) { t = it } }
+            }
             // The Channels page on its own (also what a link or a debug route to "channels" opens).
             composable("channels") { Pushed("Channels") { ChannelsScreen(vm, openWeekend) { nav.open("category/$it") } } }
             composable("delete-account") { Pushed("Delete account") { DeleteAccountScreen(onDeleted = { vm.accountDeleted() }) } }
