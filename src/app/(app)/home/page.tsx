@@ -1,3 +1,5 @@
+import { DashboardCard } from "@/components/DashboardCard";
+import { dashboard } from "@/lib/dashboard";
 import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
 import { Inbox } from "@/components/Inbox";
@@ -34,6 +36,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
     }),
   );
   const canSend = canAnnounce(user.role);
+  // Admins and coordinators: today's sessions and the people to nudge.
+  const board = await dashboard(user);
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -50,6 +54,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
       </section>
 
       <aside className="space-y-5 lg:order-none order-first">
+        {board && <DashboardCard data={board} />}
         {next.state !== "none" && (
           <Link href={`/w/${next.weekend.id}`} className="card block border-gold/30 hover:border-gold/60">
             <p className="section-title text-gold">{next.state === "live" ? "Live now" : "Next up"}</p>

@@ -66,6 +66,13 @@ export async function reply(user: SessionUser, eventId: string, answer: "going" 
     [eventId, user.id],
   );
   if (!ev) throw new AuthError(404, "No such event.");
+  // In a group: someone kept to reading, or a closed volunteer chat, can't answer.
+  const blocked = await one<{ blocked: boolean }>(
+    `SELECT (gm.permission = 'read_only' OR EXISTS (SELECT 1 FROM volunteer_groups vg WHERE vg.conversation_id = gm.conversation_id AND NOT vg.open)) AS blocked
+     FROM messages m JOIN group_members gm ON gm.conversation_id = m.conversation_id AND gm.user_id = $2 WHERE m.id = $1`,
+    [ev.message_id, user.id],
+  );
+  if (blocked?.blocked) throw new AuthError(403, "You can read this chat, but not take part.");
   await tx(async (c) => {
     if (answer) {
       await c.query(

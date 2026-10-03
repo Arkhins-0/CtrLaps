@@ -1,7 +1,8 @@
+import { placeNewVolunteer, syncAllVolunteerGroups } from "@/lib/volunteers";
 import { body, handle, str } from "@/lib/api";
 import { issueToken, requireUser, USER_COLUMNS, type SessionUser } from "@/lib/auth";
 import { APP_NAME, SITE_URL } from "@/lib/config";
-import { one } from "@/lib/db";
+import { one, run } from "@/lib/db";
 import { sendInvite, sendNotice } from "@/lib/email";
 import { announceCandidates, canCreateRole, canPromote, chatCandidates, descendants, groupCandidates } from "@/lib/hierarchy";
 import { fail, json } from "@/lib/http";
@@ -66,6 +67,10 @@ export const POST = handle(async (request) => {
       [existing.id, role, creator.id, teamFor(existing.team_name)],
     );
     await syncTeamIds([existing.id]);
+    // Volunteer groups: a volunteer joins their coordinator's group; anyone leaving the role leaves theirs; a new admin joins every chat.
+    if (existing.role === "volunteer" && role !== "volunteer") await run("UPDATE users SET volunteer_group_id = NULL WHERE id = $1", [existing.id]);
+    if (role === "volunteer" && creator.role === "coordinator") await placeNewVolunteer(existing.id, creator.id);
+    await syncAllVolunteerGroups();
     await audit(creator.id, existing.id, "user.promoted", { from: existing.role, to: role });
     await sendNotice(
       [{ email: existing.email, name: existing.name }],
@@ -81,6 +86,8 @@ export const POST = handle(async (request) => {
 
   const user = await createUser({ email, role, parentId: creator.id, createdBy: creator.id, teamName: teamFor(null) });
   await syncTeamIds([user.id]);
+  if (role === "volunteer" && creator.role === "coordinator") await placeNewVolunteer(user.id, creator.id);
+  if (role === "admin") await syncAllVolunteerGroups();
   const token = await issueToken(user.id, "invite", 24 * 7);
   await sendInvite({ email: user.email }, token, creator.name || creator.email, ROLE_LABEL[role]).catch((error) =>
     console.error("[invite]", error),

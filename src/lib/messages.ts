@@ -759,8 +759,14 @@ export async function prepareDraft(sender: SessionUser, conversationId: string, 
 export async function postGroup(sender: SessionUser, conversationId: string, draft: Draft): Promise<string> {
   const conv = await conversationById(conversationId);
   if (!conv || conv.kind !== "group") throw new AuthError(404, "No such group.");
-  const me = await one<{ role: string }>("SELECT role FROM group_members WHERE conversation_id = $1 AND user_id = $2", [conv.id, sender.id]);
+  const me = await one<{ role: string; permission: string; closed: boolean }>(
+    `SELECT gm.role, gm.permission, EXISTS (SELECT 1 FROM volunteer_groups vg WHERE vg.conversation_id = gm.conversation_id AND NOT vg.open) AS closed
+     FROM group_members gm WHERE gm.conversation_id = $1 AND gm.user_id = $2`,
+    [conv.id, sender.id],
+  );
   if (!me) throw new AuthError(403, "You are not in this group.");
+  if (me.closed) throw new AuthError(403, "This chat is closed.");
+  if (me.permission !== "full") throw new AuthError(403, "You can read this chat, but not send messages.");
   if (conv.send_policy === "admins" && me.role !== "admin") throw new AuthError(403, "Only the group's admins can send here.");
   const { draft: ready, files } = await prepareDraft(sender, conv.id, draft);
   draft = ready;
@@ -893,6 +899,15 @@ async function ownRecent(user: SessionUser, messageId: string) {
   if (m.deleted_at) throw new AuthError(400, "This message was deleted.");
   if (Date.now() - new Date(m.created_at).getTime() > EDIT_WINDOW_MS)
     throw new AuthError(403, "Messages can only be changed within 2 hours of sending.");
+  // In a group: someone kept to reading, or a closed volunteer chat, changes nothing.
+  if (m.kind === "group" && m.conversation_id) {
+    const limit = await one<{ blocked: boolean }>(
+      `SELECT (gm.permission = 'read_only' OR EXISTS (SELECT 1 FROM volunteer_groups vg WHERE vg.conversation_id = gm.conversation_id AND NOT vg.open)) AS blocked
+       FROM group_members gm WHERE gm.conversation_id = $1 AND gm.user_id = $2`,
+      [m.conversation_id, user.id],
+    );
+    if (!limit || limit.blocked) throw new AuthError(403, "You can read this chat, but not take part.");
+  }
   return m;
 }
 
@@ -1024,7 +1039,7 @@ export async function myConversations(user: SessionUser): Promise<ConversationOu
             (SELECT max(m.created_at) FROM messages m WHERE m.conversation_id = c.id AND ${LIVE_SEASON("m")}) AS live_last_at,
             (SELECT count(*) FROM messages m WHERE m.conversation_id = c.id AND ${LIVE_SEASON("m")})::text AS total
      FROM conversations c JOIN group_members gm ON gm.conversation_id = c.id AND gm.user_id = $1
-     WHERE c.kind = 'group'`,
+     WHERE c.kind = 'group' AND NOT EXISTS (SELECT 1 FROM volunteer_groups vg WHERE vg.conversation_id = c.id)`,
     [user.id],
   );
   const out: ConversationOut[] = [

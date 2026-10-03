@@ -37,6 +37,12 @@ export function GroupSettings({ initial, meId }: { initial: GroupInfo; meId: str
   const [leaving, setLeaving] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const admin = g.myRole === "admin";
+  // A volunteer group's chat: members follow the group; its coordinator or an admin limits volunteers instead.
+  const vol = Boolean(g.volunteerGroupId);
+  const limit = async (m: GroupMember, permission: GroupMember["permission"]) => {
+    setMenu(null);
+    await act(() => api<{ group: GroupInfo | null }>(`/api/groups/${g.id}/members/${m.id}`, { method: "PATCH", json: { permission } }));
+  };
   const n = g.members.length;
 
   /** Run a change; the server answers with the group as it now is. */
@@ -156,7 +162,7 @@ export function GroupSettings({ initial, meId }: { initial: GroupInfo; meId: str
           ) : (
             <div className="flex items-center gap-1">
               <p className="truncate text-lg font-semibold">{g.name}</p>
-              {admin && (
+              {admin && !vol && (
                 <button className="btn-icon h-8 w-8 shrink-0" onClick={() => setRenaming(g.name)} disabled={busy} title="Rename" aria-label="Rename the group">
                   <Icon name="edit" className="h-4 w-4" />
                 </button>
@@ -164,8 +170,9 @@ export function GroupSettings({ initial, meId }: { initial: GroupInfo; meId: str
             </div>
           )}
           <p className="text-sm text-snow-soft">
-            {n} member{n === 1 ? "" : "s"} · {g.sendPolicy === "admins" ? "admins send" : "everyone sends"}
+            {n} member{n === 1 ? "" : "s"} · {g.closed ? "chat closed" : g.sendPolicy === "admins" ? "admins send" : "everyone sends"}
           </p>
+          {vol && <p className="text-[11px] text-snow-faint">Volunteer group: its members follow the group.</p>}
           {admin && <p className="text-[11px] text-snow-faint">Tap the picture to change it</p>}
         </div>
       </section>
@@ -195,7 +202,7 @@ export function GroupSettings({ initial, meId }: { initial: GroupInfo; meId: str
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <p className="section-title">Members · {n}</p>
-          {admin && (
+          {admin && !vol && (
             <button className="btn-ghost px-3.5 py-1.5 text-xs" onClick={() => setAdding(true)} disabled={busy}>
               <Icon name="plus" className="h-4 w-4" />
               Add people
@@ -212,10 +219,43 @@ export function GroupSettings({ initial, meId }: { initial: GroupInfo; meId: str
                   <span className="flex items-center gap-1.5">
                     <span className="truncate text-sm font-medium">{isMe ? "You" : m.name}</span>
                     {m.groupRole === "admin" && <span className="chip shrink-0 border-gold/50 px-2 py-0 text-[10px] text-gold">Admin</span>}
+                    {m.permission !== "full" && (
+                      <span className="chip shrink-0 border-danger/50 px-2 py-0 text-[10px] text-danger">{m.permission === "read_only" ? "Read only" : "Can't send"}</span>
+                    )}
                   </span>
                   <span className="block truncate text-xs text-snow-faint">{m.roleLabel}</span>
                 </span>
-                {admin && !isMe && (
+                {vol && g.canLimit && !isMe && m.userRole === "volunteer" && (
+                  <>
+                    <button className="btn-icon shrink-0 text-lg leading-none" onClick={() => setMenu(menu === m.id ? null : m.id)} disabled={busy} aria-label={`More for ${m.name}`} aria-expanded={menu === m.id}>
+                      ⋮
+                    </button>
+                    {menu === m.id && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} aria-hidden />
+                        <div className="absolute right-2 top-12 z-50 w-56 overflow-hidden rounded-xl border border-night-line bg-night-panel py-1 shadow-card" role="menu">
+                          {(
+                            [
+                              ["full", "Can chat"],
+                              ["no_messages", "Can't send messages"],
+                              ["read_only", "Read only (no actions)"],
+                            ] as const
+                          ).map(([key, label]) => (
+                            <button
+                              key={key}
+                              className={`block w-full px-4 py-2.5 text-left text-sm hover:bg-snow/5 ${m.permission === key ? "text-gold" : ""}`}
+                              role="menuitem"
+                              onClick={() => m.permission !== key && limit(m, key)}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+                {admin && !vol && !isMe && (
                   <>
                     <button className="btn-icon shrink-0 text-lg leading-none" onClick={() => setMenu(menu === m.id ? null : m.id)} disabled={busy} aria-label={`More for ${m.name}`} aria-expanded={menu === m.id}>
                       ⋮
@@ -277,9 +317,17 @@ export function GroupSettings({ initial, meId }: { initial: GroupInfo; meId: str
         <Link href={`/chats/${g.id}`} className="btn-gold">
           Open chat
         </Link>
-        <button className="btn-danger" onClick={() => setLeaving(true)} disabled={busy}>
-          Leave group
-        </button>
+        {vol ? (
+          g.canLimit && (
+            <Link href={`/chats/volunteers/${g.volunteerGroupId}`} className="btn-ghost">
+              Manage volunteer group
+            </Link>
+          )
+        ) : (
+          <button className="btn-danger" onClick={() => setLeaving(true)} disabled={busy}>
+            Leave group
+          </button>
+        )}
       </div>
 
       {adding && <AddPeople exclude={new Set([...g.members, ...g.invited].map((m) => m.id))} onClose={() => setAdding(false)} onAdd={add} />}

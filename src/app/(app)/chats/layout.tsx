@@ -11,5 +11,10 @@ import { requireProfile } from "@/lib/session";
 export default async function ChatsLayout({ children }: { children: React.ReactNode }) {
   const user = await requireProfile();
   const conversations = (await myConversations(user)).filter((c) => c.lastMessageAt);
-  return <ChatList conversations={conversations} canOpen={hasChats(user.role)}>{children}</ChatList>;
+  const volunteers = user.role === "admin" || user.role === "coordinator" || user.role === "volunteer";
+  return (
+    <ChatList conversations={conversations} canOpen={hasChats(user.role)} volunteers={volunteers}>
+      {children}
+    </ChatList>
+  );
 }

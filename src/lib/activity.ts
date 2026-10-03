@@ -25,7 +25,7 @@ export const ACTIVITY_KINDS = {
   messages: ["announcement.", "email.sent", "channel.", "category.posted"],
   schedule: ["session.created", "session.updated", "session.deleted", "weekend.", "season."],
   results: ["session.results", "category.scoring", "categories."],
-  people: ["user.", "invite.", "developer.", "account.", "team.", "profile.", "password.", "email.changed"],
+  people: ["user.", "invite.", "developer.", "account.", "team.", "profile.", "password.", "email.changed", "volunteers."],
 } as const;
 export type ActivityKind = keyof typeof ACTIVITY_KINDS;
 export const isActivityKind = (v: unknown): v is ActivityKind => typeof v === "string" && v in ACTIVITY_KINDS;
@@ -72,6 +72,10 @@ const TITLE: Record<string, string> = {
   "account.deletion_requested": "Asked to delete an account",
   "account.deletion_cancelled": "Cancelled an account deletion",
   "account.deleted": "An account was deleted",
+  "category.managers": "Set a category channel's managers",
+  "volunteers.group_created": "Made a volunteer group",
+  "volunteers.group_updated": "Changed a volunteer group",
+  "volunteers.moved": "Moved a volunteer",
 };
 
 type Row = {
@@ -137,6 +141,14 @@ function describe(r: Row): string | null {
       const parts = Object.keys(c).map((k) => (k === "status" ? `status: ${text(c.status)}` : k === "team_name" ? "team" : k === "parent_id" ? "coordinator" : k));
       return parts.length ? `Changed ${parts.join(", ")}` : null;
     }
+    case "volunteers.group_created":
+      return text(d.name) || null;
+    case "volunteers.group_updated": {
+      const parts = [d.name ? `renamed to "${text(d.name)}"` : "", d.coordinatorId ? "handed to another coordinator" : "", d.open === true ? "chat opened" : d.open === false ? "chat closed" : ""].filter(Boolean);
+      return parts.length ? parts.join(", ") : null;
+    }
+    case "volunteers.moved":
+      return d.to ? "Into another group" : "Out of their group";
     case "account.deletion_requested":
       return d.self ? "By themselves" : "On their request";
     default:

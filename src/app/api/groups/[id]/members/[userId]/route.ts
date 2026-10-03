@@ -1,16 +1,26 @@
 import { body, handle, isUuid, str, type Params } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { groupInfo, removeMember, setMemberRole } from "@/lib/groups";
+import { isPermission, setPermission } from "@/lib/volunteers";
 import { fail, json } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
-/** Admin: make someone an admin, or a plain member again (`role: "admin" | "member"`). */
+/**
+ * Admin: make someone an admin, or a plain member again (`role: "admin" | "member"`). In a volunteer group's chat, its
+ * coordinator or an admin limits a volunteer instead (`permission: "full" | "no_messages" | "read_only"`).
+ */
 export const PATCH = handle<Params<"id" | "userId">>(async (request, { params }) => {
   const user = await requireUser();
   const { id, userId } = await params;
   if (!isUuid(id) || !isUuid(userId)) return fail("No such member.", 404);
-  const role = str((await body(request)).role, 16);
+  const b = await body(request);
+  if (b.permission !== undefined) {
+    if (!isPermission(b.permission)) return fail("Pick what they may do.");
+    await setPermission(user, id, userId, b.permission);
+    return json({ group: await groupInfo(user, id) });
+  }
+  const role = str(b.role, 16);
   if (role !== "admin" && role !== "member") return fail("Pick a role.");
   await setMemberRole(user, id, userId, role);
   return json({ group: await groupInfo(user, id) });

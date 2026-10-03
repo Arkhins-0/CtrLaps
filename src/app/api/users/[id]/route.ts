@@ -8,6 +8,7 @@ import { categoriesOf } from "@/lib/categories";
 import { currentSeason } from "@/lib/seasons";
 import { assignedCategories, syncTeamIds, teamCategories } from "@/lib/teams";
 import { one } from "@/lib/db";
+import { placeNewVolunteer, syncAllVolunteerGroups } from "@/lib/volunteers";
 import { audit, qrUrl, toPublic, userById } from "@/lib/users";
 import { deletionDue } from "@/lib/accountDeletion";
 
@@ -82,7 +83,8 @@ export const PATCH = handle<Params<"id">>(async (request, { params }) => {
     changes.status = b.status;
   }
   if (typeof b.parentId === "string") {
-    if (me.role !== "admin" || user.role !== "volunteer") return fail("Only an admin can move a volunteer.", 403);
+    // Coordinators move volunteers between their groups (Volunteers page); this is the admin's shortcut.
+    if (me.role !== "admin" || user.role !== "volunteer") return fail("Only an admin can move a volunteer here.", 403);
     const parent = await userById(b.parentId);
     if (!parent || parent.role !== "coordinator") return fail("Volunteers belong to a coordinator.");
     changes.parent_id = parent.id;
@@ -104,6 +106,11 @@ export const PATCH = handle<Params<"id">>(async (request, { params }) => {
     await syncTeamIds(people.map((p) => p.id));
   }
   if (changes.team_name !== undefined) await syncTeamIds([user.id]);
+  // A volunteer moved to another coordinator joins that coordinator's group (its chat follows).
+  if (changes.parent_id) {
+    await placeNewVolunteer(user.id, String(changes.parent_id));
+    await syncAllVolunteerGroups();
+  }
   await audit(me.id, user.id, "user.updated", { changes, before: toPublic(user) });
   return json({ user: toPublic((await userById(user.id))!) });
 });

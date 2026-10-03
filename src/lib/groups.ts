@@ -9,6 +9,7 @@ import { storeImage } from "./profile";
 import { pushSync, pushTo } from "./push";
 import { hasChats } from "./roles";
 import { userById, usersByIds } from "./users";
+import { volunteerGroupOfChat, type Permission } from "./volunteers";
 
 /*
  * Groups. Anyone may make one and add people at their own level and those
@@ -25,7 +26,7 @@ const who = (u: { name: string | null; email: string }) => u.name || u.email;
 
 export type GroupRole = "admin" | "member";
 
-export type GroupMember = PersonCard & { groupRole: GroupRole };
+export type GroupMember = PersonCard & { groupRole: GroupRole; permission: Permission; userRole: string };
 
 export type GroupInfo = {
   id: string;
@@ -38,12 +39,27 @@ export type GroupInfo = {
   myRole: GroupRole | null;
   canSend: boolean;
   createdBy: string | null;
+  /** A volunteer group's chat: its members follow the group (nobody is added, removed or leaves by hand). */
+  volunteerGroupId: string | null;
+  /** A volunteer group's chat that its coordinator or an admin closed: read-only for everyone. */
+  closed: boolean;
+  /** What I may do here: everything, everything but sending, or only read. */
+  myPermission: Permission;
+  /** Why the box to write in is not shown, when it isn't. */
+  sendNote: string | null;
+  /** I may set volunteers' permissions here (its coordinator or an admin, in a volunteer group's chat). */
+  canLimit: boolean;
 };
 
 type GroupRow = { id: string; name: string | null; photo_key: string | null; send_policy: "everyone" | "admins"; created_by: string | null };
-type MemberRow = PersonRow & { group_role: GroupRole };
+type MemberRow = PersonRow & { group_role: GroupRole; permission: Permission | null };
 
-const person = (r: MemberRow): GroupMember => ({ ...personCard(r), groupRole: r.group_role });
+const person = (r: MemberRow): GroupMember => ({ ...personCard(r), groupRole: r.group_role, permission: r.permission ?? "full", userRole: r.role });
+
+/** A volunteer group's chat follows its group: refuse adding, removing, leaving and roles by hand. */
+async function refuseVolunteerChat(groupId: string, what: string): Promise<void> {
+  if (await volunteerGroupOfChat(groupId)) throw new AuthError(403, `${what} follows the volunteer group: move volunteers between groups instead.`);
+}
 
 async function groupRow(id: string): Promise<GroupRow | undefined> {
   return one<GroupRow>("SELECT id, name, photo_key, send_policy, created_by FROM conversations WHERE id = $1 AND kind = 'group'", [id]);
@@ -68,18 +84,31 @@ export async function groupInfo(user: SessionUser, id: string): Promise<GroupInf
   if (!myRole) return null;
   const [members, invited] = await Promise.all([
     q<MemberRow>(
-      `SELECT u.id, u.name, u.email, u.role, u.photo_key, u.is_dev, gm.role AS group_role
+      `SELECT u.id, u.name, u.email, u.role, u.photo_key, u.is_dev, gm.role AS group_role, gm.permission
        FROM group_members gm JOIN users u ON u.id = gm.user_id
        WHERE gm.conversation_id = $1 ORDER BY gm.role, gm.joined_at`,
       [id],
     ),
     q<MemberRow>(
-      `SELECT u.id, u.name, u.email, u.role, u.photo_key, u.is_dev, 'member' AS group_role
+      `SELECT u.id, u.name, u.email, u.role, u.photo_key, u.is_dev, 'member' AS group_role, NULL AS permission
        FROM group_invites gi JOIN users u ON u.id = gi.user_id
        WHERE gi.conversation_id = $1 AND gi.status = 'pending' AND gi.expires_at > now() ORDER BY gi.created_at`,
       [id],
     ),
   ]);
+  const vg = await volunteerGroupOfChat(id);
+  const myPermission: Permission = members.find((m) => m.id === user.id)?.permission ?? "full";
+  const closed = Boolean(vg && !vg.open);
+  const policyOk = g.send_policy === "everyone" || myRole === "admin";
+  const sendNote = closed
+    ? "This chat is closed."
+    : myPermission !== "full"
+      ? myPermission === "read_only"
+        ? "You can read this chat, but not take part."
+        : "You can read this chat, but not send messages."
+      : !policyOk
+        ? "Only the group's admins can send here."
+        : null;
   return {
     id: g.id,
     name: g.name ?? "Group",
@@ -88,8 +117,13 @@ export async function groupInfo(user: SessionUser, id: string): Promise<GroupInf
     members: members.map(person),
     invited: invited.map(person),
     myRole,
-    canSend: g.send_policy === "everyone" || myRole === "admin",
+    canSend: sendNote === null,
     createdBy: g.created_by,
+    volunteerGroupId: vg?.id ?? null,
+    closed,
+    myPermission,
+    sendNote,
+    canLimit: Boolean(vg && (user.role === "admin" || (user.role === "coordinator" && vg.coordinator_id === user.id))),
   };
 }
 
@@ -117,6 +151,7 @@ export type InviteResult = { added: number; requested: number; skipped: string[]
  */
 export async function inviteMembers(actor: SessionUser, groupId: string, userIds: string[]): Promise<InviteResult> {
   const g = await requireAdmin(actor, groupId);
+  await refuseVolunteerChat(groupId, "Who is in this chat");
   const people = await usersByIds(Array.from(new Set(userIds)));
   const result: InviteResult = { added: 0, requested: 0, skipped: [] };
   // Everyone added in one go shares one line in the chat: "X added A, B, C".
@@ -222,6 +257,7 @@ export async function memberIds(groupId: string): Promise<string[]> {
 
 export async function updateGroup(actor: SessionUser, groupId: string, changes: { name?: string; sendPolicy?: "everyone" | "admins" }): Promise<void> {
   const g = await requireAdmin(actor, groupId);
+  if (changes.name !== undefined && (await volunteerGroupOfChat(groupId))) throw new AuthError(403, "Rename the volunteer group itself (its coordinator or an admin).");
   if (changes.name !== undefined) {
     const clean = changes.name.trim().slice(0, 80);
     if (clean.length < 2) throw new AuthError(400, "Give the group a name.");
@@ -249,6 +285,7 @@ export async function setGroupPhoto(actor: SessionUser, groupId: string, photo: 
 
 export async function setMemberRole(actor: SessionUser, groupId: string, userId: string, role: GroupRole): Promise<void> {
   await requireAdmin(actor, groupId);
+  await refuseVolunteerChat(groupId, "Who runs this chat");
   if (userId === actor.id && role !== "admin") throw new AuthError(400, "Make someone else an admin first, then step down by leaving.");
   const before = await memberRole(groupId, userId);
   if (!before) throw new AuthError(404, "Not a member.");
@@ -261,6 +298,7 @@ export async function setMemberRole(actor: SessionUser, groupId: string, userId:
 
 export async function removeMember(actor: SessionUser, groupId: string, userId: string): Promise<void> {
   await requireAdmin(actor, groupId);
+  await refuseVolunteerChat(groupId, "Who is in this chat");
   if (userId === actor.id) throw new AuthError(400, "Leave the group instead.");
   const wasMember = await memberRole(groupId, userId);
   await run("DELETE FROM group_members WHERE conversation_id = $1 AND user_id = $2", [groupId, userId]);
@@ -272,6 +310,7 @@ export async function removeMember(actor: SessionUser, groupId: string, userId: 
 
 /** Leave. If the last admin goes, the longest-standing member takes over; if nobody is left, the group goes. */
 export async function leaveGroup(user: SessionUser, groupId: string): Promise<void> {
+  await refuseVolunteerChat(groupId, "Who is in this chat");
   // Only a member leaves: anyone else would be writing "left" into a chat that is not theirs.
   const n = await run("DELETE FROM group_members WHERE conversation_id = $1 AND user_id = $2", [groupId, user.id]);
   if (n === 0) throw new AuthError(404, "No such group.");

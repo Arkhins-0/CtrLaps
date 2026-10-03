@@ -20,16 +20,16 @@ const FILTERS: { key: Filter; label: string }[] = [
  * beside it. The channels page takes the whole width instead: it is the
  * other half of the same section, one tab over.
  */
-export function ChatList({ conversations, canOpen, children }: { conversations: ConversationOut[]; canOpen: boolean; children: React.ReactNode }) {
+export function ChatList({ conversations, canOpen, volunteers = false, children }: { conversations: ConversationOut[]; canOpen: boolean; volunteers?: boolean; children: React.ReactNode }) {
   const pathname = usePathname();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const onList = pathname === "/chats";
 
-  if (pathname === "/chats/channels") {
+  if (pathname === "/chats/channels" || pathname.startsWith("/chats/volunteers")) {
     return (
       <div className="flex h-full min-h-0 flex-col">
-        <ChatsTabs />
+        <ChatsTabs volunteers={volunteers} />
         <section className="flex min-h-0 flex-1 flex-col">{children}</section>
       </div>
     );
@@ -45,7 +45,7 @@ export function ChatList({ conversations, canOpen, children }: { conversations: 
     <div className="grid grid-cols-1 h-full min-h-0 gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
       <aside className={`${onList ? "flex" : "hidden lg:flex"} -mx-4 h-full min-h-0 flex-col sm:-mx-6 lg:mx-0 lg:border-r lg:border-night-line lg:pr-2`}>
         <div className="px-4 sm:px-6 lg:px-0">
-          <ChatsTabs />
+          <ChatsTabs volunteers={volunteers} />
         </div>
         <div className="flex items-center gap-2 px-4 pb-2 sm:px-6 lg:px-0">
           <div className="relative flex-1">
@@ -127,15 +127,16 @@ function ChatRow({ c, active, divider }: { c: ConversationOut; active: boolean; 
   );
 }
 
-/** The "Chats | Channels" switch at the top of the section. */
-export function ChatsTabs() {
+/** The "Chats | Channels | Volunteers" switch at the top of the section (Volunteers for admins, coordinators and volunteers). */
+export function ChatsTabs({ volunteers = false }: { volunteers?: boolean }) {
   const pathname = usePathname();
   const channels = pathname.startsWith("/chats/channels");
+  const vols = pathname.startsWith("/chats/volunteers");
   const tab = (on: boolean) =>
     `relative pb-2 text-lg font-semibold tracking-tight transition-colors ${on ? "text-snow after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full after:bg-gold" : "text-snow-faint hover:text-snow-soft"}`;
   return (
     <nav className="mb-3 flex items-center gap-3" aria-label="Chats or channels">
-      <Link href="/chats" className={tab(!channels)} aria-current={!channels ? "page" : undefined}>
+      <Link href="/chats" className={tab(!channels && !vols)} aria-current={!channels && !vols ? "page" : undefined}>
         Chats
       </Link>
       <span className="pb-2 text-lg text-night-line" aria-hidden>
@@ -144,6 +145,16 @@ export function ChatsTabs() {
       <Link href="/chats/channels" className={tab(channels)} aria-current={channels ? "page" : undefined}>
         Channels
       </Link>
+      {volunteers && (
+        <>
+          <span className="pb-2 text-lg text-night-line" aria-hidden>
+            |
+          </span>
+          <Link href="/chats/volunteers" className={tab(vols)} aria-current={vols ? "page" : undefined}>
+            Volunteers
+          </Link>
+        </>
+      )}
     </nav>
   );
 }
