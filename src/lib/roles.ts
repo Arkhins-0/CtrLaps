@@ -22,7 +22,8 @@ export type Status = (typeof STATUSES)[number];
 export const ROLE_LABEL: Record<Role, string> = {
   admin: "Admin",
   coordinator: "Coordinator",
-  race_official: "Race official",
+  // Partners, delegates and guests (JK Tyre, FMSCI…): the key stays race_official.
+  race_official: "Delegate",
   team_manager: "Team manager",
   racer: "Racer",
   crew: "Crew",

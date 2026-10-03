@@ -4,23 +4,29 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/client";
-import type { VolunteerGroup } from "@/lib/volunteers";
+import type { GroupKind, VolunteerGroup } from "@/lib/volunteers";
 import { WhenLabel } from "../ChatList";
 import { Dialog } from "../groups/Dialog";
 
 /** The Volunteers page: each volunteer group's chat this person sees, and (admins, coordinators) a new group. */
 export function VolunteerGroups({
+  kind = "volunteer",
   groups,
-  canCreate,
+  canCreate = true,
   isAdmin,
   coordinators,
 }: {
+  kind?: GroupKind;
   groups: VolunteerGroup[];
-  canCreate: boolean;
+  canCreate?: boolean;
   isAdmin: boolean;
   coordinators: { id: string; name: string }[];
 }) {
   const router = useRouter();
+  const del = kind === "delegation";
+  const one = del ? "delegate" : "volunteer";
+  // A volunteer group needs its coordinator named by an admin; a delegation has no lead.
+  const needsLead = isAdmin && !del;
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [lead, setLead] = useState("");
@@ -32,7 +38,7 @@ export function VolunteerGroups({
     setBusy(true);
     setError(null);
     try {
-      const r = await api<{ id: string }>("/api/volunteer-groups", { method: "POST", json: { name, coordinatorId: isAdmin ? lead : undefined } });
+      const r = await api<{ id: string }>("/api/volunteer-groups", { method: "POST", json: { name, kind, coordinatorId: needsLead ? lead : undefined } });
       router.push(`/chats/volunteers/${r.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not make the group.");
@@ -43,15 +49,15 @@ export function VolunteerGroups({
   return (
     <div className="-mx-4 min-h-0 flex-1 overflow-y-auto pb-4 sm:-mx-6 lg:mx-0">
       <div className="flex items-center gap-2 px-4 py-2 sm:px-6 lg:px-3">
-        <p className="section-title flex-1">Volunteer groups</p>
+        <p className="section-title flex-1">{del ? "Delegations" : "Volunteer groups"}</p>
         {canCreate && (
           <button className="btn-gold px-3.5 py-1.5 text-xs" onClick={() => setCreating(true)}>
-            New group
+            {del ? "New delegation" : "New group"}
           </button>
         )}
       </div>
       {groups.length === 0 && (
-        <p className="px-4 py-3 text-sm text-snow-faint sm:px-6 lg:px-3">{canCreate ? "No volunteer groups yet. Make the first one." : "You're not in a volunteer group yet."}</p>
+        <p className="px-4 py-3 text-sm text-snow-faint sm:px-6 lg:px-3">{del ? "No delegations yet. Make the first one, then put delegates in it." : "No volunteer groups yet. Make the first one."}</p>
       )}
       {groups.map((g, i) => (
         <div key={g.id}>
@@ -59,15 +65,17 @@ export function VolunteerGroups({
           <div className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-snow/5 sm:px-6 lg:rounded-xl lg:px-3">
             <Link href={`/chats/${g.conversationId}`} className="flex min-w-0 flex-1 items-center gap-3">
               <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] text-xl ${g.open ? "bg-gold/15" : "border border-night-line bg-night-panel"}`} aria-hidden>
-                🦺
+                {del ? "🤝" : "🦺"}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-medium">{g.name}</span>
                 <span className={`block truncate text-[13px] ${g.unread > 0 ? "text-snow" : "text-snow-faint"}`}>
-                  {g.lastMessage ?? `${g.volunteers} volunteer${g.volunteers === 1 ? "" : "s"}${g.open ? "" : " · closed"}`}
+                  {g.lastMessage ?? `${g.volunteers} ${one}${g.volunteers === 1 ? "" : "s"}${g.open ? "" : " · closed"}`}
                 </span>
                 <span className="block truncate text-[11px] text-snow-faint">
-                  {g.coordinator ? `Led by ${g.coordinator.name}` : "No coordinator"} · {g.volunteers} volunteer{g.volunteers === 1 ? "" : "s"}
+                  {del ? "" : `${g.coordinator ? `Led by ${g.coordinator.name}` : "No coordinator"} · `}
+                  {g.volunteers} {one}
+                  {g.volunteers === 1 ? "" : "s"}
                   {g.open ? "" : " · chat closed"}
                 </span>
               </span>
@@ -89,14 +97,14 @@ export function VolunteerGroups({
         </div>
       ))}
       {creating && (
-        <Dialog title="New volunteer group" onClose={() => setCreating(false)}>
+        <Dialog title={del ? "New delegation" : "New volunteer group"} onClose={() => setCreating(false)}>
           <form onSubmit={create} className="space-y-3">
             {error && <p className="error">{error}</p>}
             <label className="block">
               <span className="label">Name</span>
-              <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Marshals" maxLength={80} required autoFocus />
+              <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={del ? "JK Tyre" : "Marshals"} maxLength={80} required autoFocus />
             </label>
-            {isAdmin && (
+            {needsLead && (
               <label className="block">
                 <span className="label">Led by</span>
                 <select className="input" value={lead} onChange={(e) => setLead(e.target.value)} required>
@@ -113,8 +121,8 @@ export function VolunteerGroups({
               <button type="button" className="btn-ghost" onClick={() => setCreating(false)} disabled={busy}>
                 Cancel
               </button>
-              <button className="btn-gold" disabled={busy || name.trim().length < 2 || (isAdmin && !lead)}>
-                {busy ? "Making…" : "Make group"}
+              <button className="btn-gold" disabled={busy || name.trim().length < 2 || (needsLead && !lead)}>
+                {busy ? "Making…" : del ? "Make delegation" : "Make group"}
               </button>
             </div>
           </form>

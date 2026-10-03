@@ -306,7 +306,7 @@ fun GroupScreen(vm: AppViewModel, groupId: String, onOpenChat: (String) -> Unit,
                 Column {
                     g.members.forEachIndexed { i, m ->
                         if (i > 0) Divider()
-                        MemberRow(m, isMe = m.id == vm.me?.user?.id, admin = admin && g.volunteerGroupId == null, limit = g.canLimit && m.userRole == "volunteer", busy = busy) { action ->
+                        MemberRow(m, isMe = m.id == vm.me?.user?.id, admin = admin && g.volunteerGroupId == null, limit = g.canLimit && (m.userRole == "volunteer" || m.userRole == "race_official"), busy = busy) { action ->
                             when (action) {
                                 "full", "no_messages", "read_only" -> run { app.api.patch("/api/groups/$groupId/members/${m.id}", GroupResponse.serializer()) { put("permission", action) } }
                                 "admin" -> run { app.api.patch("/api/groups/$groupId/members/${m.id}", GroupResponse.serializer()) { put("role", "admin") } }

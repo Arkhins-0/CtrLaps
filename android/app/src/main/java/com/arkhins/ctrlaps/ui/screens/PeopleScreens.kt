@@ -118,7 +118,7 @@ val ROLE_ORDER = listOf("admin", "coordinator", "race_official", "team_manager",
 /** The People list's groups: developers first, apart from other admins, then each role. */
 private val PEOPLE_GROUPS = listOf("developer") + ROLE_ORDER
 val ROLE_LABELS = mapOf(
-    "developer" to "Developer", "admin" to "Admin", "coordinator" to "Coordinator", "race_official" to "Race official", "team_manager" to "Team manager",
+    "developer" to "Developer", "admin" to "Admin", "coordinator" to "Coordinator", "race_official" to "Delegate", "team_manager" to "Team manager",
     "racer" to "Racer", "crew" to "Crew", "security_head" to "Security head", "security" to "Security", "volunteer" to "Volunteer", "user" to "User",
 )
 
@@ -860,7 +860,7 @@ private fun RaceCategoriesPanel(d: UserResponse) {
     val scope = rememberCoroutineScope()
     val u = d.user
     val all = d.raceCategories
-    val assignable = u.role == "racer" || u.role == "race_official"
+    val assignable = u.role == "racer"
     var ids by remember(u.id, d.categoryIds) { mutableStateOf(d.categoryIds) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }

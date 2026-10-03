@@ -46,7 +46,7 @@ export const PUT = handle<Params<"id">>(async (request, { params }) => {
   if (!isUuid(id)) return fail("No such session.", 404);
   const session = await resultSession(id);
   if (!session) return fail("No such session.", 404);
-  if (!(await canEnterResults(user, session.categoryId))) throw new AuthError(403, "Only admins, coordinators and this category's race officials enter results.");
+  if (!(await canEnterResults(user, session.categoryId))) throw new AuthError(403, "Only admins and coordinators enter results.");
   const b = await body(request);
   const raw = b.results;
   if (!Array.isArray(raw)) return fail("Send the results as a list.");

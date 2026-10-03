@@ -6,16 +6,16 @@ import { listVolunteerGroups, syncAllVolunteerGroups } from "@/lib/volunteers";
 
 export const metadata = { title: "Volunteers" };
 
-/** The volunteer groups' chats: admins see all, a coordinator the groups they lead, a volunteer their own. */
+/** The volunteer groups, for admins (all) and coordinators (those they lead). A volunteer's own group is pinned on their Chats page. */
 export default async function Volunteers() {
   const user = await requireProfile();
-  if (!["admin", "coordinator", "volunteer"].includes(user.role)) notFound();
+  if (user.role !== "admin" && user.role !== "coordinator") notFound();
   await syncAllVolunteerGroups();
   const [groups, coordinators] = await Promise.all([
-    listVolunteerGroups(user),
+    listVolunteerGroups(user, "volunteer"),
     user.role === "admin"
       ? q<{ id: string; name: string }>("SELECT id, COALESCE(NULLIF(name, ''), email) AS name FROM users WHERE role = 'coordinator' AND status = 'active' ORDER BY 2")
       : Promise.resolve([]),
   ]);
-  return <VolunteerGroups groups={groups} canCreate={user.role === "admin" || user.role === "coordinator"} isAdmin={user.role === "admin"} coordinators={coordinators} />;
+  return <VolunteerGroups kind="volunteer" groups={groups} isAdmin={user.role === "admin"} coordinators={coordinators} />;
 }

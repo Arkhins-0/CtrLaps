@@ -29,7 +29,7 @@ export function RaceCategories({
   const [ids, setIds] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const assignable = role === "racer" || role === "race_official";
+  const assignable = role === "racer";
   if (categories.length === 0) return null;
   if (!assignable && teamIds.length === 0) return null;
 

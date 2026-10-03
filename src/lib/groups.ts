@@ -9,7 +9,7 @@ import { storeImage } from "./profile";
 import { pushSync, pushTo } from "./push";
 import { hasChats } from "./roles";
 import { userById, usersByIds } from "./users";
-import { volunteerGroupOfChat, type Permission } from "./volunteers";
+import { managesGroup, volunteerGroupOfChat, type Permission } from "./volunteers";
 
 /*
  * Groups. Anyone may make one and add people at their own level and those
@@ -56,9 +56,9 @@ type MemberRow = PersonRow & { group_role: GroupRole; permission: Permission | n
 
 const person = (r: MemberRow): GroupMember => ({ ...personCard(r), groupRole: r.group_role, permission: r.permission ?? "full", userRole: r.role });
 
-/** A volunteer group's chat follows its group: refuse adding, removing, leaving and roles by hand. */
+/** A volunteer group's or a delegation's chat follows its group: refuse adding, removing, leaving and roles by hand. */
 async function refuseVolunteerChat(groupId: string, what: string): Promise<void> {
-  if (await volunteerGroupOfChat(groupId)) throw new AuthError(403, `${what} follows the volunteer group: move volunteers between groups instead.`);
+  if (await volunteerGroupOfChat(groupId)) throw new AuthError(403, `${what} follows its group: move people between groups instead.`);
 }
 
 async function groupRow(id: string): Promise<GroupRow | undefined> {
@@ -123,13 +123,14 @@ export async function groupInfo(user: SessionUser, id: string): Promise<GroupInf
     closed,
     myPermission,
     sendNote,
-    canLimit: Boolean(vg && (user.role === "admin" || (user.role === "coordinator" && vg.coordinator_id === user.id))),
+    canLimit: Boolean(vg && managesGroup(user, vg)),
   };
 }
 
 /** A new group with its maker as admin; everyone named is invited. */
 export async function createGroup(user: SessionUser, name: string, memberIds: string[]): Promise<{ id: string; skipped: string[] }> {
   if (!hasChats(user.role)) throw new AuthError(403, "Your account does not have chats.");
+  if (user.role === "race_official") throw new AuthError(403, "Delegates chat in their delegation's group.");
   const clean = name.trim().slice(0, 80);
   if (clean.length < 2) throw new AuthError(400, "Give the group a name.");
   const row = await one<{ id: string }>(
@@ -257,7 +258,7 @@ export async function memberIds(groupId: string): Promise<string[]> {
 
 export async function updateGroup(actor: SessionUser, groupId: string, changes: { name?: string; sendPolicy?: "everyone" | "admins" }): Promise<void> {
   const g = await requireAdmin(actor, groupId);
-  if (changes.name !== undefined && (await volunteerGroupOfChat(groupId))) throw new AuthError(403, "Rename the volunteer group itself (its coordinator or an admin).");
+  if (changes.name !== undefined && (await volunteerGroupOfChat(groupId))) throw new AuthError(403, "Rename the group itself, from its page.");
   if (changes.name !== undefined) {
     const clean = changes.name.trim().slice(0, 80);
     if (clean.length < 2) throw new AuthError(400, "Give the group a name.");

@@ -31,7 +31,7 @@ const ROLES = [
   { key: "developer", label: "Developer" },
   { key: "admin", label: "Admin" },
   { key: "coordinator", label: "Coordinator" },
-  { key: "race_official", label: "Race official" },
+  { key: "race_official", label: "Delegate" },
   { key: "team_manager", label: "Team manager" },
   { key: "racer", label: "Racer" },
   { key: "crew", label: "Crew" },

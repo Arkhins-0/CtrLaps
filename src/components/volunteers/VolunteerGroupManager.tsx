@@ -16,6 +16,9 @@ const PERMISSIONS: { key: Permission; label: string }[] = [
 /** Manage one volunteer group (its coordinator or an admin): name, coordinator, open or closed, its volunteers. */
 export function VolunteerGroupManager({ initial }: { initial: GroupDetail }) {
   const [g, setG] = useState(initial);
+  const del = g.kind === "delegation";
+  const one = del ? "delegate" : "volunteer";
+  const home = del ? "/chats/delegations" : "/chats/volunteers";
   const [name, setName] = useState(initial.name);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +36,7 @@ export function VolunteerGroupManager({ initial }: { initial: GroupDetail }) {
     try {
       const r = await fn();
       if (r.group) setG(r.group);
-      else window.location.href = "/chats/volunteers"; // Handed to someone else: no longer ours to manage.
+      else window.location.href = home; // Handed to someone else: no longer ours to manage.
       if (done) setNote(done);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save.");
@@ -51,7 +54,7 @@ export function VolunteerGroupManager({ initial }: { initial: GroupDetail }) {
     const ids = Array.from(picked);
     const target = to === "out" ? null : to;
     const name = target ? g.otherGroups.find((o) => o.id === target)?.name ?? "another group" : "no group";
-    if (!confirm(`Move ${ids.length} volunteer${ids.length === 1 ? "" : "s"} to ${name}?`)) return;
+    if (!confirm(`Move ${ids.length} ${one}${ids.length === 1 ? "" : "s"} to ${name}?`)) return;
     run(() => api(`/api/volunteer-groups/${g.id}/volunteers/move`, { method: "POST", json: { userIds: ids, toGroupId: target } }), `Moved ${ids.length} to ${name}.`).then(() => setPicked(new Set()));
   };
   const bringIn = (userId: string) => run(() => api(`/api/volunteer-groups/${g.id}/volunteers`, { method: "POST", json: { userId } }), "Added.");
@@ -62,7 +65,7 @@ export function VolunteerGroupManager({ initial }: { initial: GroupDetail }) {
   return (
     <div className="h-full min-h-0 space-y-4 overflow-y-auto pb-4">
       <div className="flex items-center gap-2">
-        <Link href="/chats/volunteers" className="btn-icon" aria-label="Back to volunteer groups">
+        <Link href={home} className="btn-icon" aria-label="Back">
           <Icon name="back" className="h-5 w-5" />
         </Link>
         <h1 className="flex-1 truncate text-lg font-semibold">{g.name}</h1>
@@ -89,22 +92,24 @@ export function VolunteerGroupManager({ initial }: { initial: GroupDetail }) {
             Save
           </button>
         </form>
-        <label className="block">
-          <span className="label">Led by</span>
-          <select
-            className="input"
-            value={g.coordinator?.id ?? ""}
-            onChange={(e) => e.target.value && confirm("Hand the group to this coordinator? Its volunteers and chat go with it.") && patch({ coordinatorId: e.target.value }, "Handed over.")}
-            disabled={busy}
-          >
-            {!g.coordinator && <option value="">Pick a coordinator</option>}
-            {g.coordinators.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {!del && (
+          <label className="block">
+            <span className="label">Led by</span>
+            <select
+              className="input"
+              value={g.coordinator?.id ?? ""}
+              onChange={(e) => e.target.value && confirm("Hand the group to this coordinator? Its volunteers and chat go with it.") && patch({ coordinatorId: e.target.value }, "Handed over.")}
+              disabled={busy}
+            >
+              {!g.coordinator && <option value="">Pick a coordinator</option>}
+              {g.coordinators.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm text-snow-soft">{g.open ? "The chat is open." : "The chat is closed: everyone can read it, nobody can send."}</p>
           <button className={g.open ? "btn-ghost px-3.5 py-1.5 text-xs" : "btn-gold px-3.5 py-1.5 text-xs"} onClick={() => patch({ open: !g.open }, g.open ? "Chat closed." : "Chat opened.")} disabled={busy}>
@@ -115,8 +120,8 @@ export function VolunteerGroupManager({ initial }: { initial: GroupDetail }) {
 
       <section className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="section-title flex-1">Volunteers · {g.volunteers.length}</p>
-          {g.volunteers.length > 3 && <input className="input w-48 py-1 text-xs" placeholder="Search volunteers" value={search} onChange={(e) => setSearch(e.target.value)} />}
+          <p className="section-title flex-1">{del ? "Delegates" : "Volunteers"} · {g.volunteers.length}</p>
+          {g.volunteers.length > 3 && <input className="input w-48 py-1 text-xs" placeholder={`Search ${one}s`} value={search} onChange={(e) => setSearch(e.target.value)} />}
           {shown.length > 0 && (
             <button className="btn-ghost px-3 py-1 text-xs" onClick={() => setPicked(allPicked ? new Set() : new Set(shown.map((v) => v.id)))}>
               {allPicked ? "None" : "Select all"}
@@ -144,7 +149,7 @@ export function VolunteerGroupManager({ initial }: { initial: GroupDetail }) {
           </div>
         )}
         <div className="card divide-y divide-night-line p-1.5">
-          {g.volunteers.length === 0 && <p className="p-3 text-sm text-snow-faint">No volunteers in this group yet.</p>}
+          {g.volunteers.length === 0 && <p className="p-3 text-sm text-snow-faint">No {one}s in this group yet.</p>}
           {shown.map((v) => (
             <div key={v.id} className="flex flex-wrap items-center gap-3 px-2.5 py-2.5">
               <input
@@ -180,10 +185,10 @@ export function VolunteerGroupManager({ initial }: { initial: GroupDetail }) {
 
       {g.unassigned.length > 0 && (
         <section className="card space-y-2">
-          <p className="section-title">Volunteers in no group · {g.unassigned.length}</p>
+          <p className="section-title">{del ? "Delegates in no delegation" : "Volunteers in no group"} · {g.unassigned.length}</p>
           <div className="flex gap-2">
             <select className="input flex-1" value={adding} onChange={(e) => setAdding(e.target.value)} disabled={busy}>
-              <option value="">Pick a volunteer</option>
+              <option value="">Pick a {one}</option>
               {g.unassigned.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name}

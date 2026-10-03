@@ -73,9 +73,9 @@ const TITLE: Record<string, string> = {
   "account.deletion_cancelled": "Cancelled an account deletion",
   "account.deleted": "An account was deleted",
   "category.managers": "Set a category channel's managers",
-  "volunteers.group_created": "Made a volunteer group",
-  "volunteers.group_updated": "Changed a volunteer group",
-  "volunteers.moved": "Moved a volunteer",
+  "volunteers.group_created": "Made a group",
+  "volunteers.group_updated": "Changed a group",
+  "volunteers.moved": "Moved people between groups",
 };
 
 type Row = {
@@ -142,13 +142,13 @@ function describe(r: Row): string | null {
       return parts.length ? `Changed ${parts.join(", ")}` : null;
     }
     case "volunteers.group_created":
-      return text(d.name) || null;
+      return `${d.kind === "delegation" ? "Delegation" : "Volunteer group"}: ${text(d.name)}`;
     case "volunteers.group_updated": {
       const parts = [d.name ? `renamed to "${text(d.name)}"` : "", d.coordinatorId ? "handed to another coordinator" : "", d.open === true ? "chat opened" : d.open === false ? "chat closed" : ""].filter(Boolean);
       return parts.length ? parts.join(", ") : null;
     }
     case "volunteers.moved": {
-      const n = typeof d.count === "number" ? `${d.count} volunteer${d.count === 1 ? "" : "s"} ` : "";
+      const n = typeof d.count === "number" ? `${d.count} ${d.count === 1 ? "person" : "people"} ` : "";
       return d.to ? `${n}into another group` : `${n}out of their group`;
     }
     case "account.deletion_requested":
