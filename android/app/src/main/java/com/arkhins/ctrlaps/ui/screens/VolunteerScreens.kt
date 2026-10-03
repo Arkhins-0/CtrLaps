@@ -5,8 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,9 +16,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,18 +38,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.arkhins.ctrlaps.LocalApp
+import com.arkhins.ctrlaps.data.GroupResponse
 import com.arkhins.ctrlaps.data.IdResponse
+import com.arkhins.ctrlaps.data.NamedRef
 import com.arkhins.ctrlaps.data.VolunteerGroupDetail
 import com.arkhins.ctrlaps.data.VolunteerGroupDetailResponse
 import com.arkhins.ctrlaps.data.VolunteerGroupsResponse
 import com.arkhins.ctrlaps.ui.AppViewModel
 import com.arkhins.ctrlaps.ui.components.Avatar
-import com.arkhins.ctrlaps.ui.components.Chip
 import com.arkhins.ctrlaps.ui.components.Empty
 import com.arkhins.ctrlaps.ui.components.ErrorText
 import com.arkhins.ctrlaps.ui.components.Field
-import com.arkhins.ctrlaps.ui.components.GhostButton
 import com.arkhins.ctrlaps.ui.components.GoldButton
+import com.arkhins.ctrlaps.ui.components.IconAction
 import com.arkhins.ctrlaps.ui.components.Loading
 import com.arkhins.ctrlaps.ui.components.Panel
 import com.arkhins.ctrlaps.ui.components.SectionTitle
@@ -62,9 +65,18 @@ import com.arkhins.ctrlaps.ui.whenLabel
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
 
+/*
+ * Volunteer groups in the app. Both screens read the phone's copy first (the background download keeps
+ * /api/volunteer-groups and each managed group's page) and refresh from the server behind it, like every other page.
+ */
+
+/** What a volunteer may do in the chat, as the menu names it. */
+private val PERMISSIONS = listOf("full" to "Can chat", "no_messages" to "Can't send messages", "read_only" to "Read only")
+private fun permissionLabel(p: String) = when (p) { "no_messages" -> "Can't send"; "read_only" -> "Read only"; else -> null }
+
 /**
  * The Chats tab's Volunteers page: each volunteer group's chat this person sees (admins all, a coordinator the groups
- * they lead, a volunteer their own), and for admins and coordinators a new group and Manage.
+ * they lead, a volunteer their own). Admins and coordinators get a + to make a group and Manage on the ones they lead.
  */
 @Composable
 fun VolunteersScreen(vm: AppViewModel, onOpenChat: (String) -> Unit, onManage: (String) -> Unit) {
@@ -87,15 +99,15 @@ fun VolunteersScreen(vm: AppViewModel, onOpenChat: (String) -> Unit, onManage: (
     val d = data
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)) {
         item {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 SectionTitle("VOLUNTEER GROUPS", Modifier.weight(1f))
-                if (d?.canCreate == true) GoldButton("New group") { creating = true }
+                if (d?.canCreate == true) IconAction(Icons.Outlined.Add, "New volunteer group", Gold) { creating = true }
             }
         }
         when {
             error != null && d == null -> item { Box(Modifier.padding(16.dp)) { ErrorText(error) } }
             d == null -> item { Loading() }
-            d.groups.isEmpty() -> item { Box(Modifier.padding(16.dp)) { Empty(if (d.canCreate) "No volunteer groups yet. Make the first one." else "You're not in a volunteer group yet.") } }
+            d.groups.isEmpty() -> item { Box(Modifier.padding(16.dp)) { Empty(if (d.canCreate) "No volunteer groups yet. Tap + to make the first one." else "You're not in a volunteer group yet.") } }
             else -> items(d.groups, key = { it.id }) { g ->
                 Row(
                     Modifier.fillMaxWidth().clickable { onOpenChat(g.conversationId) }.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -109,14 +121,18 @@ fun VolunteersScreen(vm: AppViewModel, onOpenChat: (String) -> Unit, onManage: (
                     Column(Modifier.weight(1f)) {
                         Text(g.name, style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
-                            g.lastMessage ?: "${g.volunteers} volunteer${if (g.volunteers == 1) "" else "s"}",
+                            g.lastMessage ?: "No messages yet",
                             style = MaterialTheme.typography.bodySmall,
                             color = if (g.unread > 0) Snow else SnowFaint,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            (g.coordinator?.let { "Led by ${it.name}" } ?: "No coordinator") + " · ${g.volunteers} volunteer${if (g.volunteers == 1) "" else "s"}" + if (g.open) "" else " · chat closed",
+                            listOfNotNull(
+                                g.coordinator?.name ?: "No coordinator",
+                                "${g.volunteers} volunteer${if (g.volunteers == 1) "" else "s"}",
+                                if (g.open) null else "chat closed",
+                            ).joinToString(" · "),
                             style = MaterialTheme.typography.labelSmall,
                             color = SnowFaint,
                             maxLines = 1,
@@ -135,13 +151,14 @@ fun VolunteersScreen(vm: AppViewModel, onOpenChat: (String) -> Unit, onManage: (
                         }
                     }
                 }
+                Box(Modifier.padding(start = 76.dp)) { HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f)) }
             }
         }
     }
 
     if (creating) {
         var name by remember { mutableStateOf("") }
-        var lead by remember { mutableStateOf<String?>(null) }
+        var lead by remember { mutableStateOf<NamedRef?>(null) }
         var busy by remember { mutableStateOf(false) }
         var err by remember { mutableStateOf<String?>(null) }
         var leadMenu by remember { mutableStateOf(false) }
@@ -153,12 +170,21 @@ fun VolunteersScreen(vm: AppViewModel, onOpenChat: (String) -> Unit, onManage: (
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     ErrorText(err)
-                    Field(name, { name = it }, "Name", placeholder = "Marshals")
+                    Field(name, { name = it }, "Name", placeholder = "Marshals", enabled = !busy)
                     if (isAdmin) {
                         Box {
-                            GhostButton(coordinators.firstOrNull { it.id == lead }?.name ?: "Led by…", Modifier.fillMaxWidth()) { leadMenu = true }
+                            Row(
+                                Modifier.fillMaxWidth().clickable(enabled = !busy) { leadMenu = true }.padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("Led by", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                                    Text(lead?.name ?: "Pick a coordinator", style = MaterialTheme.typography.bodyMedium, color = if (lead == null) SnowFaint else Snow)
+                                }
+                                Text("▾", color = Gold)
+                            }
                             DropdownMenu(expanded = leadMenu, onDismissRequest = { leadMenu = false }, containerColor = NightPanel) {
-                                coordinators.forEach { c -> DropdownMenuItem(text = { Text(c.name, color = if (c.id == lead) Gold else Snow) }, onClick = { lead = c.id; leadMenu = false }) }
+                                coordinators.forEach { c -> DropdownMenuItem(text = { Text(c.name, color = if (c.id == lead?.id) Gold else Snow) }, onClick = { lead = c; leadMenu = false }) }
                             }
                         }
                     }
@@ -172,7 +198,7 @@ fun VolunteersScreen(vm: AppViewModel, onOpenChat: (String) -> Unit, onManage: (
                         try {
                             val r = app.api.post("/api/volunteer-groups", IdResponse.serializer()) {
                                 put("name", name.trim())
-                                lead?.let { put("coordinatorId", it) }
+                                lead?.let { put("coordinatorId", it.id) }
                             }
                             creating = false
                             onManage(r.id)
@@ -188,34 +214,44 @@ fun VolunteersScreen(vm: AppViewModel, onOpenChat: (String) -> Unit, onManage: (
     }
 }
 
-private val PERMISSIONS = listOf("full" to "Can chat", "no_messages" to "Can't send", "read_only" to "Read only")
-
-/** Manage one volunteer group (its coordinator or an admin): name, coordinator, open or closed, and its volunteers. */
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * Manage one volunteer group (its coordinator or an admin). One card for the group — name, who leads it, how many,
+ * whether the chat is open, with Open chat and a ⋮ menu (rename, close or reopen, hand over) — then the volunteers as
+ * one list, each with a ⋮ menu for what they may do and where they go.
+ */
 @Composable
 fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: () -> Unit, onTitle: (String) -> Unit) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
+    val path = "/api/volunteer-groups/$groupId"
     var g by remember { mutableStateOf<VolunteerGroupDetail?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    var note by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<String?>(null) }
-    var handing by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var handing by remember { mutableStateOf(false) }
+    var confirmHand by remember { mutableStateOf<NamedRef?>(null) }
+    var adding by remember { mutableStateOf(false) }
 
-    suspend fun reload() {
-        g = app.api.get("/api/volunteer-groups/$groupId", VolunteerGroupDetailResponse.serializer()).group ?: throw IllegalStateException("No longer yours to manage.")
-        g?.let { onTitle(it.name) }
+    fun show(r: VolunteerGroupDetailResponse) {
+        g = r.group ?: throw IllegalStateException("No longer yours to manage.")
+        onTitle(r.group.name)
     }
-    fun run(done: String? = null, block: suspend () -> Unit) {
+    LaunchedEffect(groupId) {
+        try {
+            show(app.store.get(path, VolunteerGroupDetailResponse.serializer()) { if (g == null) runCatching { show(it) } })
+            error = null
+        } catch (e: Exception) {
+            if (g == null) error = e.message
+        }
+    }
+    fun run(block: suspend () -> Unit) {
         busy = true
         error = null
-        note = null
         scope.launch {
             try {
                 block()
-                runCatching { reload() }.onFailure { onGone() }
-                note = done
+                runCatching { show(app.store.fetch(path, VolunteerGroupDetailResponse.serializer())) }.onFailure { onGone() }
             } catch (e: Exception) {
                 error = e.message ?: "Could not save."
             } finally {
@@ -223,7 +259,7 @@ fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: 
             }
         }
     }
-    LaunchedEffect(groupId) { runCatching { reload() }.onFailure { error = it.message } }
+    fun patch(vararg fields: Pair<String, Any>) = run { app.api.patch(path, VolunteerGroupDetailResponse.serializer()) { fields.forEach { (k, v) -> if (v is Boolean) put(k, v) else put(k, v.toString()) } } }
 
     val d = g
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -233,93 +269,84 @@ fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: 
         }
         item {
             Panel {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(d.name, style = MaterialTheme.typography.titleLarge, color = Snow)
-                            Text(d.coordinator?.let { "Led by ${it.name}" } ?: "No coordinator", style = MaterialTheme.typography.bodySmall, color = SnowSoft)
-                        }
-                        GhostButton("Rename", enabled = !busy) { renaming = d.name }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(d.name, style = MaterialTheme.typography.titleLarge, color = Snow)
+                        Text(
+                            listOf(
+                                d.coordinator?.let { "Led by ${it.name}" } ?: "No coordinator",
+                                "${d.volunteers.size} volunteer${if (d.volunteers.size == 1) "" else "s"}",
+                                if (d.open) "chat open" else "chat closed",
+                            ).joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (d.open) SnowSoft else Danger,
+                        )
                     }
-                    Text(
-                        if (d.open) "The chat is open." else "The chat is closed: everyone can read it, nobody can send.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SnowFaint,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GoldButton("Open chat", enabled = !busy) { onOpenChat(d.conversationId) }
-                        GhostButton(if (d.open) "Close chat" else "Reopen chat", enabled = !busy) {
-                            run(if (d.open) "Chat closed." else "Chat opened.") { app.api.patch("/api/volunteer-groups/$groupId", VolunteerGroupDetailResponse.serializer()) { put("open", !d.open) } }
+                    GoldButton("Open chat", enabled = !busy) { onOpenChat(d.conversationId) }
+                    Box {
+                        IconAction(Icons.Outlined.MoreVert, "More", SnowSoft, enabled = !busy) { menu = true }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = NightPanel) {
+                            DropdownMenuItem(text = { Text("Rename", color = Snow) }, onClick = { menu = false; renaming = d.name })
+                            DropdownMenuItem(text = { Text(if (d.open) "Close the chat" else "Reopen the chat", color = Snow) }, onClick = { menu = false; patch("open" to !d.open) })
+                            DropdownMenuItem(text = { Text("Hand over to another coordinator", color = Snow) }, onClick = { menu = false; handing = true })
                         }
                     }
                 }
             }
         }
         item { ErrorText(error) }
-        if (note != null) item { Text(note!!, style = MaterialTheme.typography.bodySmall, color = Gold) }
         item {
-            Panel {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SectionTitle("HAND OVER")
-                    Text("Give the group to another coordinator: its volunteers and chat go with it.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        d.coordinators.forEach { c ->
-                            Chip(c.name, Gold, filled = c.id == d.coordinator?.id) { if (c.id != d.coordinator?.id && !busy) handing = c.id to c.name }
-                        }
-                    }
-                }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SectionTitle("VOLUNTEERS · ${d.volunteers.size}", Modifier.weight(1f))
+                if (d.unassigned.isNotEmpty()) IconAction(Icons.Outlined.Add, "Add a volunteer", Gold, enabled = !busy) { adding = true }
             }
         }
-        item { SectionTitle("VOLUNTEERS · ${d.volunteers.size}") }
-        if (d.volunteers.isEmpty()) item { Text("No volunteers in this group yet.", style = MaterialTheme.typography.bodySmall, color = SnowFaint) }
-        items(d.volunteers, key = { it.id }) { v ->
-            var moveMenu by remember { mutableStateOf(false) }
-            Panel {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Avatar(app.api.absolute(v.photoUrl), v.name, 36)
-                        Spacer(Modifier.width(10.dp))
-                        Text(v.name + if (v.status != "active") " · ${v.status}" else "", style = MaterialTheme.typography.titleSmall, color = Snow, modifier = Modifier.weight(1f))
-                        Box {
-                            Text("Move", style = MaterialTheme.typography.labelMedium, color = Gold, modifier = Modifier.clickable(enabled = !busy) { moveMenu = true }.padding(6.dp))
-                            DropdownMenu(expanded = moveMenu, onDismissRequest = { moveMenu = false }, containerColor = NightPanel) {
-                                d.otherGroups.forEach { o ->
-                                    DropdownMenuItem(
-                                        text = { Text(o.name + (o.coordinator?.let { " ($it)" } ?: ""), color = Snow) },
-                                        onClick = {
-                                            moveMenu = false
-                                            run("Moved.") { app.api.post("/api/volunteer-groups/${o.id}/volunteers", VolunteerGroupDetailResponse.serializer()) { put("userId", v.id) } }
-                                        },
-                                    )
-                                }
-                                DropdownMenuItem(
-                                    text = { Text("No group", color = Danger) },
-                                    onClick = {
-                                        moveMenu = false
-                                        run("Taken out of the group.") { app.api.delete("/api/volunteer-groups/$groupId/volunteers?userId=${v.id}") }
-                                    },
+        item {
+            Panel(padding = PaddingValues(6.dp)) {
+                Column {
+                    if (d.volunteers.isEmpty()) Text("No volunteers in this group yet.", style = MaterialTheme.typography.bodySmall, color = SnowFaint, modifier = Modifier.padding(10.dp))
+                    d.volunteers.forEachIndexed { i, v ->
+                        if (i > 0) HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
+                        var rowMenu by remember(v.id) { mutableStateOf(false) }
+                        Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Avatar(app.api.absolute(v.photoUrl), v.name, 40)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(v.name, style = MaterialTheme.typography.titleSmall, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                val limit = permissionLabel(v.permission)
+                                Text(
+                                    listOfNotNull(if (v.status != "active") v.status.replaceFirstChar { it.uppercase() } else null, limit).joinToString(" · ").ifEmpty { "Can chat" },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (limit != null) Danger else SnowFaint,
                                 )
                             }
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        PERMISSIONS.forEach { (key, label) ->
-                            Chip(label, if (key == "full") Gold else Danger, filled = v.permission == key) {
-                                if (v.permission != key && !busy) run { app.api.patch("/api/groups/${d.conversationId}/members/${v.id}", com.arkhins.ctrlaps.data.GroupResponse.serializer()) { put("permission", key) } }
+                            Box {
+                                IconAction(Icons.Outlined.MoreVert, "More for ${v.name}", SnowSoft, enabled = !busy) { rowMenu = true }
+                                DropdownMenu(expanded = rowMenu, onDismissRequest = { rowMenu = false }, containerColor = NightPanel) {
+                                    PERMISSIONS.forEach { (key, label) ->
+                                        DropdownMenuItem(
+                                            text = { Text(label, color = if (v.permission == key) Gold else Snow) },
+                                            onClick = {
+                                                rowMenu = false
+                                                if (v.permission != key) run { app.api.patch("/api/groups/${d.conversationId}/members/${v.id}", GroupResponse.serializer()) { put("permission", key) } }
+                                            },
+                                        )
+                                    }
+                                    HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f), modifier = Modifier.padding(vertical = 4.dp))
+                                    d.otherGroups.forEach { o ->
+                                        DropdownMenuItem(
+                                            text = { Text("Move to ${o.name}", color = Snow) },
+                                            onClick = { rowMenu = false; run { app.api.post("/api/volunteer-groups/${o.id}/volunteers", VolunteerGroupDetailResponse.serializer()) { put("userId", v.id) } } },
+                                        )
+                                    }
+                                    DropdownMenuItem(
+                                        text = { Text("Remove from the group", color = Danger) },
+                                        onClick = { rowMenu = false; run { app.api.delete("/api/volunteer-groups/$groupId/volunteers?userId=${v.id}") } },
+                                    )
+                                }
                             }
                         }
                     }
-                }
-            }
-        }
-        if (d.unassigned.isNotEmpty()) {
-            item { SectionTitle("IN NO GROUP · ${d.unassigned.size}") }
-            items(d.unassigned, key = { "u-" + it.id }) { u ->
-                Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(u.name, style = MaterialTheme.typography.bodyMedium, color = SnowSoft, modifier = Modifier.weight(1f))
-                    Text("Add", style = MaterialTheme.typography.labelMedium, color = Gold, modifier = Modifier.clickable(enabled = !busy) {
-                        run("Added.") { app.api.post("/api/volunteer-groups/$groupId/volunteers", VolunteerGroupDetailResponse.serializer()) { put("userId", u.id) } }
-                    }.padding(8.dp))
                 }
             }
         }
@@ -332,28 +359,67 @@ fun VolunteerGroupScreen(groupId: String, onOpenChat: (String) -> Unit, onGone: 
             containerColor = NightPanel,
             title = { Text("Group name", color = Snow) },
             text = { Field(value, { value = it }, "Name") },
-            confirmButton = {
-                TextButton(onClick = {
-                    renaming = null
-                    run("Renamed.") { app.api.patch("/api/volunteer-groups/$groupId", VolunteerGroupDetailResponse.serializer()) { put("name", value.trim()) } }
-                }) { Text("Save", color = Gold) }
-            },
+            confirmButton = { TextButton(enabled = value.trim().length >= 2, onClick = { renaming = null; patch("name" to value.trim()) }) { Text("Save", color = Gold) } },
             dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel", color = SnowFaint) } },
         )
     }
-    handing?.let { (id, name) ->
+    if (handing && d != null) {
         AlertDialog(
-            onDismissRequest = { handing = null },
+            onDismissRequest = { handing = false },
             containerColor = NightPanel,
-            title = { Text("Hand the group to $name?", color = Snow) },
-            text = { Text("Its volunteers and its chat go with it.", color = SnowSoft) },
-            confirmButton = {
-                TextButton(onClick = {
-                    handing = null
-                    run("Handed over.") { app.api.patch("/api/volunteer-groups/$groupId", VolunteerGroupDetailResponse.serializer()) { put("coordinatorId", id) } }
-                }) { Text("Hand over", color = Gold) }
+            title = { Text("Hand over to", color = Snow) },
+            text = {
+                Column {
+                    Text("The group's volunteers and chat go with it.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                    Spacer(Modifier.height(8.dp))
+                    d.coordinators.filter { it.id != d.coordinator?.id }.forEach { c ->
+                        Text(
+                            c.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Snow,
+                            modifier = Modifier.fillMaxWidth().clickable { handing = false; confirmHand = c }.padding(vertical = 10.dp),
+                        )
+                    }
+                }
             },
-            dismissButton = { TextButton(onClick = { handing = null }) { Text("Cancel", color = SnowFaint) } },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { handing = false }) { Text("Cancel", color = SnowFaint) } },
+        )
+    }
+    confirmHand?.let { c ->
+        AlertDialog(
+            onDismissRequest = { confirmHand = null },
+            containerColor = NightPanel,
+            title = { Text("Hand the group to ${c.name}?", color = Snow) },
+            text = { Text("You will no longer see this group or its chat.", color = SnowSoft) },
+            confirmButton = { TextButton(onClick = { confirmHand = null; patch("coordinatorId" to c.id) }) { Text("Hand over", color = Gold) } },
+            dismissButton = { TextButton(onClick = { confirmHand = null }) { Text("Cancel", color = SnowFaint) } },
+        )
+    }
+    if (adding && d != null) {
+        AlertDialog(
+            onDismissRequest = { adding = false },
+            containerColor = NightPanel,
+            title = { Text("Add a volunteer", color = Snow) },
+            text = {
+                Column {
+                    Text("Volunteers in no group yet.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                    Spacer(Modifier.height(8.dp))
+                    d.unassigned.forEach { u ->
+                        Text(
+                            u.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Snow,
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                adding = false
+                                run { app.api.post("/api/volunteer-groups/$groupId/volunteers", VolunteerGroupDetailResponse.serializer()) { put("userId", u.id) } }
+                            }.padding(vertical = 10.dp),
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { adding = false }) { Text("Cancel", color = SnowFaint) } },
         )
     }
 }

@@ -107,6 +107,17 @@ class Prefetch(private val app: CtrlapsApplication) {
             async { keep("/api/support/tickets/${t.id}?read=0", TicketViewResponse.serializer(), key = "/api/support/tickets/${t.id}") }
         }?.awaitAll()
 
+        // Volunteer groups (admins, coordinators, volunteers): the list, each managed group's page, and each chat; and
+        // the admin's or coordinator's Today card.
+        keep("/api/me/dashboard", DashboardResponse.serializer())
+        keep("/api/volunteer-groups", VolunteerGroupsResponse.serializer())?.groups?.map { g ->
+            async {
+                if (g.canManage) keep("/api/volunteer-groups/${g.id}", VolunteerGroupDetailResponse.serializer())
+                runCatching { app.chatCache.sync(g.conversationId, markRead = false) }.getOrNull()?.messages?.forEach { photos += it.sender?.photoUrl }
+                keep("/api/groups/${g.conversationId}", GroupResponse.serializer())?.group?.members?.forEach { photos += it.photoUrl }
+            }
+        }?.awaitAll()
+
         // Race weekends and their channels (asked with read=0, kept where the weekend page looks for them).
         keep("/api/weekends", WeekendsResponse.serializer())?.weekends?.map { w ->
             async {
