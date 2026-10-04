@@ -330,8 +330,8 @@ data class ChannelWeekend(
 @Serializable
 data class ManagersResponse(
     val managers: List<GroupMember> = emptyList(),
-    /** For admins: who may be picked (active coordinators). */
-    val candidates: List<PublicUser> = emptyList(),
+    /** For admins: who may be picked (active coordinators), as short cards like [managers]. */
+    val candidates: List<GroupMember> = emptyList(),
 )
 
 @Serializable

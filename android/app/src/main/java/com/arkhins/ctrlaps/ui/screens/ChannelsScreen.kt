@@ -44,6 +44,7 @@ import com.arkhins.ctrlaps.LocalApp
 import com.arkhins.ctrlaps.data.ChannelWeekend
 import com.arkhins.ctrlaps.data.ChannelsResponse
 import com.arkhins.ctrlaps.data.ManagersResponse
+import com.arkhins.ctrlaps.data.GroupMember
 import com.arkhins.ctrlaps.data.PublicUser
 import com.arkhins.ctrlaps.data.UsersResponse
 import com.arkhins.ctrlaps.ui.AppViewModel
@@ -240,14 +241,17 @@ private fun ManagersSheet(name: String, url: String, onDismiss: () -> Unit, onSa
     var people by remember { mutableStateOf<List<PublicUser>?>(null) }
     var picked by remember { mutableStateOf(emptySet<String>()) }
     var filter by remember { mutableStateOf("") }
-    // The server gives the current managers and who may be picked (active coordinators).
+    var error by remember { mutableStateOf<String?>(null) }
+    // The server gives the current managers and who may be picked (active coordinators), both as short cards.
     LaunchedEffect(url) {
         runCatching { app.api.get(url, ManagersResponse.serializer()) }
             .onSuccess { r ->
+                // Someone already managing but no longer a coordinator stays tickable, so saving does not drop them unseen.
+                val extra = r.managers.filter { m -> r.candidates.none { it.id == m.id } }
                 picked = r.managers.map { it.id }.toSet()
-                people = r.candidates
+                people = (extra + r.candidates).map { it.asPickRow() }
             }
-            .onFailure { people = emptyList() }
+            .onFailure { error = it.message ?: "Could not load people." }
     }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = NightPanel) {
         Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
@@ -258,10 +262,20 @@ private fun ManagersSheet(name: String, url: String, onDismiss: () -> Unit, onSa
             Spacer(Modifier.height(6.dp))
             val p = people
             Box(Modifier.weight(1f, fill = false)) {
-                if (p == null) Loading() else PeoplePicker(p, picked, filter, avatar = 40) { picked = it }
+                when {
+                    error != null -> ErrorText(error)
+                    p == null -> Loading()
+                    p.isEmpty() -> Empty("There are no coordinators to pick.")
+                    else -> PeoplePicker(p, picked, filter, avatar = 40) { picked = it }
+                }
             }
             Spacer(Modifier.height(12.dp))
-            GoldButton("Save", Modifier.fillMaxWidth()) { onSave(picked.toList()) }
+            GoldButton("Save", Modifier.fillMaxWidth(), enabled = p != null) { onSave(picked.toList()) }
         }
     }
 }
+
+/** A manager's short card as a picker row: the picker shows only the name, role and photo. */
+private fun GroupMember.asPickRow() = PublicUser(
+    id = id, email = "", role = userRole, roleLabel = roleLabel, status = "active", statusLabel = "", name = name, photoUrl = photoUrl, verifyCode = "",
+)
