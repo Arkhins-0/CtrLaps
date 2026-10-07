@@ -34,7 +34,7 @@ export function SignInForm({ next }: { next?: string }) {
         <label className="label" htmlFor="email">
           Email
         </label>
-        <input id="email" className="input" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input id="email" className="input" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
       </div>
       <div>
         <label className="label" htmlFor="password">
