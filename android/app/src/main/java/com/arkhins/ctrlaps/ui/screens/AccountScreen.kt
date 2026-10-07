@@ -1,5 +1,15 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.runtime.collectAsState
+import com.arkhins.ctrlaps.ui.theme.NightHighest
+import com.arkhins.ctrlaps.ui.theme.NightHigh
+import coil.compose.AsyncImage
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.ui.unit.sp
 import com.arkhins.ctrlaps.ui.theme.NightLine
@@ -105,6 +115,12 @@ fun AccountScreen(
     val u = me.user
     val qr = rememberQr(me.qrUrl)
     var confirmOut by remember { mutableStateOf(false) }
+    var showQr by remember { mutableStateOf(false) }
+    // Debug builds: `--es sheet qr` opens the QR sheet over adb (see DebugHooks).
+    if (BuildConfig.DEBUG) {
+        val asked by com.arkhins.ctrlaps.ui.DebugHooks.sheet.collectAsState()
+        androidx.compose.runtime.LaunchedEffect(asked) { if (asked == "qr") { showQr = true; com.arkhins.ctrlaps.ui.DebugHooks.sheet.value = null } }
+    }
     // Settings and Storage look things up on the phone; done now, in the background, they open already filled.
     val context = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -137,40 +153,16 @@ fun AccountScreen(
             }
             return@Column
         }
-        Panel {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Avatar(app.api.absolute(u.photoUrl), u.displayName, 64)
-                Spacer(Modifier.width(14.dp))
-                Column {
-                    Text(u.displayName, style = MaterialTheme.typography.titleLarge, color = Snow)
-                    Text(u.roleLabel + (u.teamName?.let { " · $it" } ?: ""), style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
-                    Spacer(Modifier.height(4.dp))
-                    StatusChip(u.status, u.statusLabel)
-                }
-            }
-        }
-
-        Panel {
-            Box(Modifier.fillMaxWidth()) {
-                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    // The white square is there from the first frame; the code fills it a moment later if it wasn't ready.
-                    Box(Modifier.background(Color.White, RoundedCornerShape(12.dp)).padding(8.dp).size(180.dp)) {
-                        if (qr != null) Image(qr.asImageBitmap(), contentDescription = "Your QR code", modifier = Modifier.size(180.dp))
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    KeyValue("Account code", u.verifyCode, mono = true, copyable = true)
-                }
-                Box(Modifier.align(Alignment.BottomEnd)) {
-                    IconAction(painterResource(R.drawable.ic_scan), "Scan a QR code", Gold, onClick = onScan)
-                }
-            }
-        }
+        ProfileBanner(app.api.absolute(u.photoUrl), u.displayName, u.roleLabel + (u.teamName?.let { " · $it" } ?: "")) { StatusChip(u.status, u.statusLabel) }
 
         // Users (no role yet) follow race categories as fans; everyone else has theirs by role.
         if (u.role == "user") FollowCategoriesPanel(vm)
 
         // Arkhime-style settings list: flat rows with an accent icon, a bold title, a quieter line and an arrow.
         Column {
+            // The QR in a sheet, a tap away at the gate; the list stays on the first screen.
+            MenuRow("My QR code", "Show it to be checked · ${u.verifyCode}", icon = painterResource(R.drawable.ic_scan), arrow = false) { showQr = true }
+            MenuRow("Verify someone", "Scan a QR code or type an account code", icon = rememberVectorPainter(Icons.Outlined.Search), onClick = onScan)
             MenuRow("Account", "Email, date of birth and password", icon = rememberVectorPainter(Icons.Outlined.Person), onClick = onDetails)
             MenuRow("Notifications", "Everything this phone has shown you", icon = painterResource(R.drawable.ic_bell)) { open("notifications") }
             MenuRow("Archive", "Past seasons: their weekends, channels and messages", icon = painterResource(R.drawable.ic_archive), onClick = onArchive)
@@ -205,6 +197,20 @@ fun AccountScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
         )
+    }
+
+    if (showQr) {
+        AboutSheet("My QR code", onClose = { showQr = false }) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                // The white square is there from the first frame; the code fills it a moment later if it wasn't ready.
+                Box(Modifier.background(Color.White, RoundedCornerShape(16.dp)).padding(12.dp).size(240.dp)) {
+                    if (qr != null) Image(qr.asImageBitmap(), contentDescription = "Your QR code", modifier = Modifier.size(240.dp))
+                }
+                Spacer(Modifier.height(14.dp))
+                KeyValue("Account code", u.verifyCode, mono = true, copyable = true)
+                Spacer(Modifier.height(8.dp))
+            }
+        }
     }
 
     if (confirmOut) {
@@ -397,6 +403,48 @@ private fun FollowCategoriesPanel(vm: AppViewModel) {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The profile at the top of the Account tab, after Arkhime's account card: the photo blurred behind, the name in the
+ * accent, the role and status, and the photo itself on the right.
+ */
+@Composable
+private fun ProfileBanner(photo: String?, name: String, role: String, status: @Composable () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(120.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(NightHigh)
+            .border(1.dp, NightLine, RoundedCornerShape(18.dp)),
+    ) {
+        if (photo != null) {
+            AsyncImage(
+                model = photo,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize().blur(28.dp),
+            )
+        }
+        // Darker on the left, where the words are, so they read on any photo.
+        Box(Modifier.matchParentSize().background(Brush.horizontalGradient(listOf(Color.Black.copy(alpha = 0.78f), Color.Black.copy(alpha = 0.35f)))))
+        Row(Modifier.fillMaxSize().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Gold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(role, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(4.dp))
+                status()
+            }
+            Spacer(Modifier.width(12.dp))
+            Box(Modifier.size(80.dp).clip(RoundedCornerShape(16.dp)).border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp))) {
+                if (photo != null) AsyncImage(model = photo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+                else Box(Modifier.matchParentSize().background(NightHighest), contentAlignment = Alignment.Center) {
+                    Text(name.take(1).uppercase(), style = MaterialTheme.typography.headlineMedium, color = Snow)
                 }
             }
         }

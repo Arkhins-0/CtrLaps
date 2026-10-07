@@ -1,5 +1,17 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Face
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.AccountBox
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -67,7 +79,7 @@ import kotlinx.serialization.json.put
 fun AccountDetailsScreen(vm: AppViewModel) {
     val me = vm.me ?: return
     val u = me.user
-    var showPassword by remember { mutableStateOf(false) }
+    var sheet by remember { mutableStateOf<String?>(null) }
     // Users (no role yet) and admins, who have no manager above them, edit their own details: the pencil opens the form.
     // Users (no role yet), admins and coordinators change their own details; everyone else asks their manager.
     val canEdit = u.role == "user" || u.role == "admin" || u.role == "coordinator"
@@ -78,38 +90,52 @@ fun AccountDetailsScreen(vm: AppViewModel) {
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (editing) EditProfilePanel(vm) { editing = false }
-        else Panel {
-            Box(Modifier.fillMaxWidth()) {
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    KeyValue("Name", u.displayName)
-                    KeyValue("Email", u.email)
-                    KeyValue("Contact", u.phone ?: "—")
-                    KeyValue("Date of birth", u.dob ?: "—")
-                    KeyValue("Role", u.roleLabel + (u.teamName?.let { " · $it" } ?: ""))
-                    me.parent?.let { KeyValue("Reports to", "${it.name} · ${it.roleLabel}") }
-                    if (!canEdit) {
-                        Spacer(Modifier.height(4.dp))
-                        Text("Profile details are locked. Your manager or an admin can change them.", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
-                    }
-                }
-                if (canEdit) Box(Modifier.align(Alignment.TopEnd)) { IconAction(Icons.Outlined.Edit, "Edit profile", Gold) { editing = true } }
-            }
+        else {
+            // The details as rows: an icon, the value, and what it is in small letters above.
+            DetailRow(Icons.Outlined.Person, "Name", u.displayName)
+            DetailRow(Icons.Outlined.Email, "Email", u.email)
+            DetailRow(Icons.Outlined.Phone, "Contact", u.phone ?: "—")
+            DetailRow(Icons.Outlined.DateRange, "Date of birth", u.dob ?: "—")
+            DetailRow(Icons.Outlined.AccountBox, "Role", u.roleLabel + (u.teamName?.let { " · $it" } ?: ""))
+            me.parent?.let { DetailRow(Icons.Outlined.Face, "Reports to", "${it.name} · ${it.roleLabel}") }
+            if (!canEdit) Text("Profile details are locked. Your manager or an admin can change them.", style = MaterialTheme.typography.bodySmall, color = SnowFaint, modifier = Modifier.padding(top = 4.dp))
         }
 
-        if (canEdit) ChangeEmailPanel()
-
-        Panel {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Password", style = MaterialTheme.typography.titleMedium, color = Snow)
-                if (showPassword) ChangePasswordForm { showPassword = false }
-                else GhostButton("Change password") { showPassword = true }
-            }
+        if (!editing) {
+            Spacer(Modifier.height(8.dp))
+            if (canEdit) MenuRow("Edit details", "Name, photo, date of birth and contact", icon = rememberVectorPainter(Icons.Outlined.Edit)) { editing = true }
+            if (canEdit) MenuRow("Change email", "A link goes to the new address", icon = rememberVectorPainter(Icons.Outlined.Email), arrow = false) { sheet = "email" }
+            MenuRow("Change password", "Other devices are signed out", icon = rememberVectorPainter(Icons.Outlined.Lock), arrow = false) { sheet = "password" }
+            MenuRow("Forgot password", "Get a link at ${u.email}", icon = rememberVectorPainter(Icons.Outlined.Refresh), arrow = false) { sheet = "forgot" }
         }
+    }
 
-        ForgotPasswordPanel(u.email)
+    when (sheet) {
+        "email" -> AboutSheet("Change email", onClose = { sheet = null }) { SheetBody { ChangeEmailForm() } }
+        "password" -> AboutSheet("Change password", onClose = { sheet = null }) { SheetBody { ChangePasswordForm { sheet = null } } }
+        "forgot" -> AboutSheet("Forgot password", onClose = { sheet = null }) { SheetBody { ForgotPasswordForm(u.email) } }
+        else -> Unit
+    }
+}
+
+/** A form inside a sheet: the page's side margins. */
+@Composable
+private fun SheetBody(content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) { content() }
+}
+
+/** One detail: an accent icon, the value, and what it is in small letters above it. */
+@Composable
+private fun DetailRow(icon: ImageVector, label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, tint = Gold, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(20.dp))
+        Column {
+            Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+            Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = Snow)
+        }
     }
 }
 
@@ -160,34 +186,31 @@ private fun ChangePasswordForm(onDone: () -> Unit) {
 
 /** Forgot the current password: the same reset link the sign-in page sends, to this account's email. */
 @Composable
-private fun ForgotPasswordPanel(email: String) {
+private fun ForgotPasswordForm(email: String) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var sent by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    Panel {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Forgot password", style = MaterialTheme.typography.titleMedium, color = Snow)
-            Text(
-                if (sent) "A link to choose a new password is on its way to $email. It works for 2 hours."
-                else "Don't know your current password? Get a link at $email to choose a new one.",
-                style = MaterialTheme.typography.bodySmall,
-                color = SnowFaint,
-            )
-            ErrorText(error)
-            if (!sent) GhostButton(if (busy) "Sending…" else "Email me a link", enabled = !busy) {
-                busy = true
-                error = null
-                scope.launch {
-                    try {
-                        app.api.post("/api/auth/forgot", Ok.serializer()) { put("email", email) }
-                        sent = true
-                    } catch (e: Exception) {
-                        error = e.message ?: "Could not send."
-                    } finally {
-                        busy = false
-                    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            if (sent) "A link to choose a new password is on its way to $email. It works for 2 hours."
+            else "Don't know your current password? Get a link at $email to choose a new one.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = SnowSoft,
+        )
+        ErrorText(error)
+        if (!sent) GoldButton(if (busy) "Sending…" else "Email me a link", Modifier.fillMaxWidth(), enabled = !busy) {
+            busy = true
+            error = null
+            scope.launch {
+                try {
+                    app.api.post("/api/auth/forgot", Ok.serializer()) { put("email", email) }
+                    sent = true
+                } catch (e: Exception) {
+                    error = e.message ?: "Could not send."
+                } finally {
+                    busy = false
                 }
             }
         }
@@ -262,35 +285,32 @@ private fun EditProfilePanel(vm: AppViewModel, onDone: () -> Unit) {
     }
 }
 
-/** A new email for someone with no role yet: a link goes to it, and the change happens when it is opened. */
+/** A new email: a link goes to it, and the change happens when it is opened. */
 @Composable
-private fun ChangeEmailPanel() {
+private fun ChangeEmailForm() {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
     var sentTo by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
-    Panel {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Change email", style = MaterialTheme.typography.titleMedium, color = Snow)
-            Text("We send a link to the new address. Your email changes only when you open it.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
-            sentTo?.let { Text("A link is on its way to $it. It works for 24 hours.", style = MaterialTheme.typography.bodySmall, color = SnowSoft) }
-            ErrorText(error)
-            Field(email, { email = it }, "New email", keyboard = KeyboardType.Email, enabled = !busy)
-            GoldButton(if (busy) "Sending…" else "Send link", Modifier.fillMaxWidth(), enabled = !busy && email.isNotBlank()) {
-                busy = true
-                error = null
-                scope.launch {
-                    try {
-                        app.api.post("/api/me/email", Ok.serializer()) { put("email", email.trim()) }
-                        sentTo = email.trim().lowercase()
-                        email = ""
-                    } catch (e: Exception) {
-                        error = e.message ?: "Could not send the link."
-                    } finally {
-                        busy = false
-                    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("We send a link to the new address. Your email changes only when you open it.", style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
+        sentTo?.let { Text("A link is on its way to $it. It works for 24 hours.", style = MaterialTheme.typography.bodyMedium, color = Gold) }
+        ErrorText(error)
+        Field(email, { email = it }, "New email", keyboard = KeyboardType.Email, enabled = !busy)
+        GoldButton(if (busy) "Sending…" else "Send link", Modifier.fillMaxWidth(), enabled = !busy && email.isNotBlank()) {
+            busy = true
+            error = null
+            scope.launch {
+                try {
+                    app.api.post("/api/me/email", Ok.serializer()) { put("email", email.trim()) }
+                    sentTo = email.trim().lowercase()
+                    email = ""
+                } catch (e: Exception) {
+                    error = e.message ?: "Could not send the link."
+                } finally {
+                    busy = false
                 }
             }
         }

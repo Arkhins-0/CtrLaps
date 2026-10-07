@@ -160,7 +160,7 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
 /** A sheet from About: its title, what it holds, and Close. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AboutSheet(title: String, onClose: () -> Unit, tall: Boolean = false, content: @Composable () -> Unit) {
+fun AboutSheet(title: String, onClose: () -> Unit, tall: Boolean = false, content: @Composable () -> Unit) {
     // A long one opens halfway and, scrolled, rises all the way to the top before its text scrolls.
     ModalBottomSheet(onDismissRequest = onClose, containerColor = Night, sheetState = rememberModalBottomSheetState()) {
         Column(Modifier.fillMaxWidth().then(if (tall) Modifier.fillMaxHeight() else Modifier).navigationBarsPadding().padding(bottom = 12.dp)) {
