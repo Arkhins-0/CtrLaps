@@ -22,6 +22,7 @@ import com.arkhins.ctrlaps.Config
 import com.arkhins.ctrlaps.CtrlapsApplication
 import com.arkhins.ctrlaps.MainActivity
 import com.arkhins.ctrlaps.R
+import com.arkhins.ctrlaps.data.LoggedNotification
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -49,6 +50,8 @@ data class SyncSignal(val scope: String, val id: String)
 
 /** A push as the server sends it: data only, so the app builds the notification itself. */
 data class Incoming(
+    /** Firebase's id for the message: the Notifications page keeps each one once. */
+    val key: String,
     val title: String,
     val body: String,
     val link: String,
@@ -64,7 +67,8 @@ data class Incoming(
     val image: String,
 ) {
     companion object {
-        fun from(data: Map<String, String>, title: String, body: String) = Incoming(
+        fun from(data: Map<String, String>, title: String, body: String, key: String) = Incoming(
+            key = key,
             title = title,
             body = body,
             link = data["link"] ?: "/home",
@@ -135,16 +139,18 @@ object Notifications {
 
     /** A push from the server. Runs on Firebase's own thread, so fetching photos may wait a moment. */
     fun show(context: Context, n: Incoming) {
+        log(context, n.key, kindOf(n.kind, n.link, n.tag), n.title, n.text.ifBlank { n.body }, n.link, n.senderPhoto)
         val chat = n.link.removePrefix("/chats/").takeIf { n.link.startsWith("/chats/") && it.isNotBlank() && !it.contains('/') }
         when {
             chat != null -> showChat(context, n, chat)
             n.kind == "announcement" || n.kind == "channel" -> showPost(context, n)
-            else -> show(context, n.title, n.body, n.link, n.tag.ifBlank { null })
+            else -> show(context, n.title, n.body, n.link, n.tag.ifBlank { null }, logged = true)
         }
     }
 
     /** A plain notification: results, reminders, support. Results also get a Standings button. */
-    fun show(context: Context, title: String, body: String, link: String, tag: String?) {
+    fun show(context: Context, title: String, body: String, link: String, tag: String?, logged: Boolean = false) {
+        if (!logged) log(context, "${tag ?: link}@${System.currentTimeMillis()}", kindOf("", link, tag), title, body, link, "")
         val builder = base(context, CHANNEL_OTHER, link, tag ?: link)
             .setContentTitle(title)
             .setContentText(body)
@@ -231,6 +237,22 @@ object Notifications {
     }
 
     /* ─────────────────────────────── Pieces ─────────────────────────────── */
+
+    /** What the Notifications page files it under. */
+    private fun kindOf(kind: String, link: String, tag: String?) = when {
+        link.startsWith("/chats/") -> "chats"
+        kind == "announcement" -> "announcements"
+        kind == "channel" -> "channels"
+        link.startsWith("/results/") -> "results"
+        link.startsWith("/support") -> "support"
+        tag?.startsWith("event:") == true -> "reminders"
+        else -> "other"
+    }
+
+    private fun log(context: Context, key: String, kind: String, title: String, body: String, link: String, photo: String) {
+        val app = context.applicationContext as? CtrlapsApplication ?: return
+        runCatching { app.notificationLog.add(LoggedNotification(key, kind, title, body, link, System.currentTimeMillis(), photo)) }
+    }
 
     private fun me() = Person.Builder().setKey("me").setName("You").build()
 

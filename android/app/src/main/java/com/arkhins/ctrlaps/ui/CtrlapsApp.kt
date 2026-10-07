@@ -5,6 +5,8 @@ import com.arkhins.ctrlaps.ui.screens.PeopleTab
 import com.arkhins.ctrlaps.ui.screens.peoplePages
 import androidx.compose.runtime.CompositionLocalProvider
 import com.arkhins.ctrlaps.ui.screens.LocalOpen
+import com.arkhins.ctrlaps.ui.screens.NotificationsScreen
+import com.arkhins.ctrlaps.ui.components.NotificationBell
 import com.arkhins.ctrlaps.ui.components.PhotoViewerActions
 import com.arkhins.ctrlaps.ui.screens.StandingsScreen
 import com.arkhins.ctrlaps.ui.screens.ResultsScreen
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.animation.core.tween
@@ -306,10 +309,16 @@ private fun MainNav(vm: AppViewModel) {
         }
     }
 
+    // Home's bell: the Notifications page, with a badge for those not looked at yet.
+    val bell: @Composable () -> Unit = {
+        val unread by app.notificationLog.unread.collectAsState()
+        NotificationBell(unread) { nav.open("notifications") }
+    }
+
     /** A tab: its header, its page, and the footer. */
     @Composable
-    fun Tab(current: String, title: String, center: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) =
-        Screen(title, onBack = null, onOpenWeekend = openWeekend, center = center, footer = {
+    fun Tab(current: String, title: String, center: (@Composable () -> Unit)? = null, action: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) =
+        Screen(title, onBack = null, onOpenWeekend = openWeekend, center = center, action = action, footer = {
             // A tab always shows its own page: everything above Home is
             // dropped first, nothing is restored (a chat opened from a popup
             // would otherwise come back on top of Home).
@@ -347,8 +356,8 @@ private fun MainNav(vm: AppViewModel) {
             popEnterTransition = { EnterTransition.None },
             popExitTransition = { if (initialState.isTab()) ExitTransition.None else slideOutHorizontally(tween(200)) { it } },
         ) {
-            composable("home") { Tab("home", "CTR[L]APS") { HomeScreen(vm, highlight = null, onOpenWeekend = openWeekend, onOpenChat = openChat, onAllChats = { nav.navigate("chats") { popUpTo("home"); launchSingleTop = true } }, onCompose = { nav.open("compose") }, onView = view) } }
-            composable("home?m={m}") { e -> Tab("home", "CTR[L]APS") { HomeScreen(vm, highlight = e.arguments?.getString("m"), onOpenWeekend = openWeekend, onOpenChat = openChat, onAllChats = { nav.navigate("chats") { popUpTo("home"); launchSingleTop = true } }, onCompose = { nav.open("compose") }, onView = view) } }
+            composable("home") { Tab("home", "CTR[L]APS", action = bell) { HomeScreen(vm, highlight = null, onOpenWeekend = openWeekend, onOpenChat = openChat, onAllChats = { nav.navigate("chats") { popUpTo("home"); launchSingleTop = true } }, onCompose = { nav.open("compose") }, onView = view) } }
+            composable("home?m={m}") { e -> Tab("home", "CTR[L]APS", action = bell) { HomeScreen(vm, highlight = e.arguments?.getString("m"), onOpenWeekend = openWeekend, onOpenChat = openChat, onAllChats = { nav.navigate("chats") { popUpTo("home"); launchSingleTop = true } }, onCompose = { nav.open("compose") }, onView = view) } }
             composable("schedule") { Tab("schedule", "Schedule") { ScheduleScreen(isAdmin = vm.me?.isAdmin == true, onOpenWeekend = openWeekend, onArchive = { nav.open("archive") }, mine = vm.me?.categoryIds, onStandings = { nav.open("standings") }, editTimes = vm.me?.user?.role == "coordinator") } }
             composable("chats") { Tab("chats", "Chats", center = { ChatsHeader(chatsPage, volunteers = vm.me?.user?.role in setOf("admin", "coordinator")) { chatsPage = it } }) { ChatsScreen(vm, page = chatsPage, onPage = { chatsPage = it }, onOpen = openChat, onNewChat = { nav.open("newchat") }, onOpenWeekend = openWeekend, onOpenCategory = { nav.open("category/$it") }, onManageVolunteers = { nav.open("group/$it") }, onVolunteerGroupMade = { nav.open("volunteer-group/$it") }) } }
             composable("people") {
@@ -445,6 +454,7 @@ private fun MainNav(vm: AppViewModel) {
             composable("delete-account") { Pushed("Delete account") { DeleteAccountScreen(onDeleted = { vm.accountDeleted() }) } }
             composable("theme") { Pushed("Theme") { ThemeScreen() } }
             composable("permissions") { Pushed("Permissions") { PermissionsScreen() } }
+            composable("notifications") { Pushed("Notifications") { NotificationsScreen() } }
             composable("about") { Pushed("About") { AboutScreen(vm, onChangelog = { nav.open("changelog") }, onLegal = { nav.open("legal/$it") }, onSupport = { nav.open("support") }, onLicense = { nav.open("license") }) } }
             composable("license") { Pushed("License") { LicenseScreen() } }
             composable("support") { Pushed("Support") { SupportScreen(vm, onFaqs = { nav.open("support/faqs") }, onForm = { nav.open("support/new") }, onTickets = { nav.open("support/tickets") }) } }

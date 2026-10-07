@@ -80,3 +80,20 @@ fun toggleMute(
     }
 }
 
+
+/** Home's bell for the Notifications page, with a small gold count of those not looked at yet. */
+@Composable
+fun NotificationBell(unread: Int, onClick: () -> Unit) {
+    Box {
+        IconAction(androidx.compose.ui.res.painterResource(com.arkhins.ctrlaps.R.drawable.ic_bell), "Notifications", com.arkhins.ctrlaps.ui.theme.Snow, onClick = onClick)
+        if (unread > 0) {
+            Box(
+                Modifier
+                    .align(androidx.compose.ui.Alignment.TopEnd)
+                    .padding(top = 6.dp, end = 6.dp)
+                    .background(Gold, RoundedCornerShape(999.dp))
+                    .padding(horizontal = 5.dp, vertical = 1.dp),
+            ) { Text(if (unread > 99) "99+" else "$unread", style = MaterialTheme.typography.labelSmall, color = OnGold) }
+        }
+    }
+}

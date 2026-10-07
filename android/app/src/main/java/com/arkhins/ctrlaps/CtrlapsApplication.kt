@@ -50,6 +50,9 @@ class CtrlapsApplication : Application(), ImageLoaderFactory {
     /** Messages written offline (or not yet answered), and files still going up, sent the moment the network is back. */
     val outbox: Outbox by lazy { Outbox(this, api, chatCache, chatMedia, documents, appScope) }
 
+    /** Every notification shown, for the Notifications page. */
+    val notificationLog: com.arkhins.ctrlaps.data.NotificationLog by lazy { com.arkhins.ctrlaps.data.NotificationLog(this) }
+
     /** Everything the app shows, brought onto the phone in the background. */
     val prefetch: Prefetch by lazy { Prefetch(this) }
 

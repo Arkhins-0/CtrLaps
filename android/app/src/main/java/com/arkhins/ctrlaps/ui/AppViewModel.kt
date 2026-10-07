@@ -106,6 +106,7 @@ class AppViewModel(private val app: CtrlapsApplication) : ViewModel() {
                 // Someone else signed in on this phone: the last person's copy is not theirs to see.
                 if (app.chatCache.claim(m.user.id)) {
                     app.outbox.wipe()
+                    app.notificationLog.clear()
                     app.chatCache.wipe()
                     app.chatMedia.wipe()
                     app.store.wipe()
@@ -155,6 +156,7 @@ class AppViewModel(private val app: CtrlapsApplication) : ViewModel() {
         app.store.remove("/api/me")
         if (wipe) {
             app.outbox.wipe()
+            app.notificationLog.clear()
             app.chatCache.wipe()
             app.chatMedia.wipe()
             app.store.wipe()

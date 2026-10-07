@@ -37,7 +37,7 @@ class CtrlapsMessagingService : FirebaseMessagingService() {
         val link = data["link"] ?: "/home"
         // The chat on screen shows the message itself: no notification, no popup, only the fetch.
         val onScreen = Notifications.isOpenChat(link)
-        if (!onScreen) Notifications.show(this, Incoming.from(data, title, body))
+        if (!onScreen) Notifications.show(this, Incoming.from(data, title, body, message.messageId ?: "$link@${System.currentTimeMillis()}"))
         val app = application as CtrlapsApplication
         link.removePrefix("/chats/").takeIf { link.startsWith("/chats/") && it.isNotBlank() }?.let { id ->
             app.appScope.launch { runCatching { app.chatCache.sync(id, markRead = onScreen) } }
