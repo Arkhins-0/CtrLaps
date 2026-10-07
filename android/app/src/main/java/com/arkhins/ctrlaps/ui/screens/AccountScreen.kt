@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.material.icons.outlined.Call
 import androidx.compose.ui.unit.sp
 import com.arkhins.ctrlaps.ui.theme.NightLine
 import androidx.compose.ui.text.style.TextAlign
@@ -177,17 +178,20 @@ fun AccountScreen(
             MenuRow("Settings", "Permissions, theme and email", icon = rememberVectorPainter(Icons.Outlined.Settings), onClick = onSettings)
             // The support team only: who did what, and when.
             if (me.isDev) MenuRow("Activity log", "Who did what, and when", icon = rememberVectorPainter(Icons.AutoMirrored.Outlined.List), onClick = onActivity)
-            val update = vm.updateInfo
+            // Help in one place: the FAQs, the support form and your tickets.
             val support = vm.me?.unreadSupport ?: 0
             MenuRow(
+                "Help & support",
+                if (support > 0) "$support new ${if (support == 1) "reply" else "replies"} from support" else "FAQs, the support form and your tickets",
+                icon = rememberVectorPainter(Icons.Outlined.Call),
+                highlight = support > 0,
+            ) { open("support") }
+            val update = vm.updateInfo
+            MenuRow(
                 "About",
-                when {
-                    update != null -> "v${update.version} is available"
-                    support > 0 -> "$support new support ${if (support == 1) "reply" else "replies"}"
-                    else -> "Version, updates, terms, privacy and support"
-                },
+                if (update != null) "v${update.version} is available" else "Version, updates, the team, terms and privacy",
                 icon = rememberVectorPainter(Icons.Outlined.Info),
-                highlight = update != null || support > 0,
+                highlight = update != null,
                 onClick = onAbout,
             )
             MenuRow("Sign out", "Your messages and files stay on this phone", icon = rememberVectorPainter(Icons.AutoMirrored.Outlined.ExitToApp), danger = true, arrow = false) { confirmOut = true }
@@ -297,9 +301,9 @@ private val FINDABLE = listOf(
     Findable("About", "About", "about", "version"),
     Findable("Check for updates", "About", "about", "update version new"),
     Findable("What's new", "About › What's new", "changelog", "changelog release notes changes"),
-    Findable("Support", "About › Support", "support", "help contact"),
-    Findable("FAQs", "About › Support › FAQs", "support/faqs", "questions help"),
-    Findable("Tickets", "About › Support › Tickets", "support/tickets", "requests help"),
+    Findable("Help & support", "Help & support", "support", "help contact support ticket form"),
+    Findable("FAQs", "Help & support › FAQs", "support/faqs", "questions help faq"),
+    Findable("Tickets", "Help & support › Tickets", "support/tickets", "requests help"),
     Findable("Terms and conditions", "About", "legal/terms", "rules legal"),
     Findable("Privacy Policy", "About", "legal/privacy", "data privacy legal"),
     Findable("License", "About › License", "license", "apache open source"),

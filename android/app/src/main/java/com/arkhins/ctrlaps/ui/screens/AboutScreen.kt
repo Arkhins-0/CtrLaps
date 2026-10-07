@@ -35,7 +35,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.background
@@ -90,8 +90,9 @@ fun BackOnlyBar(onBack: () -> Unit) {
 }
 
 /**
- * About, after Arkhime's: a big title, then FAQ, the update check, what's new, the people behind the app, the Terms,
- * the Privacy Policy, the License and Support. The people, the Terms and the Privacy Policy open in sheets.
+ * About, after Arkhime's: a big title, then the update check, what's new, the people behind the app, the Terms, the
+ * Privacy Policy and the License (all but the first two in sheets). Help (FAQs, support) is its own row on the
+ * Account tab.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,7 +102,7 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
     if (BuildConfig.DEBUG) {
         val asked by com.arkhins.ctrlaps.ui.DebugHooks.sheet.collectAsState()
         LaunchedEffect(asked) {
-            if (asked in setOf("people", "terms", "privacy")) { sheet = asked; com.arkhins.ctrlaps.ui.DebugHooks.sheet.value = null }
+            if (asked in setOf("people", "terms", "privacy", "license")) { sheet = asked; com.arkhins.ctrlaps.ui.DebugHooks.sheet.value = null }
         }
     }
     Column(
@@ -110,13 +111,6 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp),
     ) {
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 28.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("About", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold, color = Snow, modifier = Modifier.weight(1f))
-            Box(Modifier.size(56.dp).background(Snow, CircleShape), contentAlignment = Alignment.Center) {
-                Icon(Icons.Outlined.Info, contentDescription = null, tint = Night, modifier = Modifier.size(34.dp))
-            }
-        }
-        MenuRow("FAQ", "Common questions about CTR[L]APS", icon = rememberVectorPainter(Icons.Outlined.Search), onClick = onFaqs)
         val info = vm.updateInfo
         MenuRow(
             "Check for updates",
@@ -140,16 +134,8 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
             "License",
             listOfNotNull("Apache License 2.0", Config.POWERED_BY_NAME.takeIf { it.isNotBlank() }?.let { "© 2026 $it" }).joinToString(" · "),
             icon = rememberVectorPainter(Icons.Outlined.Info),
-            onClick = onLicense,
-        )
-        val unread = vm.me?.unreadSupport ?: 0
-        MenuRow(
-            "Support",
-            if (unread > 0) "$unread new ${if (unread == 1) "reply" else "replies"}" else if (vm.me?.isDev == true) "Tickets and FAQs" else "The support form and your tickets",
-            highlight = unread > 0,
-            icon = rememberVectorPainter(Icons.Outlined.Call),
-            onClick = onSupport,
-        )
+            arrow = false,
+        ) { sheet = "license" }
         // A debug build says so, so it can't be mistaken for the release (same name, icon and version).
         Text(
             "CTR[L]APS v${BuildConfig.VERSION_NAME}${if (BuildConfig.DEBUG) " · Debug" else ""}",
@@ -166,6 +152,7 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
             // A link inside one opens the other here, in the same sheet.
             LegalScreen(s, onOpen = { doc -> sheet = doc })
         }
+        "license" -> AboutSheet("License", onClose = { sheet = null }, tall = true) { LicenseScreen() }
         else -> Unit
     }
 }
@@ -174,10 +161,11 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AboutSheet(title: String, onClose: () -> Unit, tall: Boolean = false, content: @Composable () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onClose, containerColor = Night, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = tall)) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 12.dp)) {
+    // A long one opens halfway and, scrolled, rises all the way to the top before its text scrolls.
+    ModalBottomSheet(onDismissRequest = onClose, containerColor = Night, sheetState = rememberModalBottomSheetState()) {
+        Column(Modifier.fillMaxWidth().then(if (tall) Modifier.fillMaxHeight() else Modifier).navigationBarsPadding().padding(bottom = 12.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Snow, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp))
-            Box(Modifier.fillMaxWidth().weight(1f, fill = false).then(if (tall) Modifier.heightIn(max = 620.dp) else Modifier)) { content() }
+            Box(Modifier.fillMaxWidth().weight(1f, fill = tall)) { content() }
             OutlinedButton(
                 onClick = onClose,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(52.dp),

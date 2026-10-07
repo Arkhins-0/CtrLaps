@@ -1,5 +1,9 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.outlined.Create
+import androidx.compose.material.icons.outlined.Search
 import com.arkhins.ctrlaps.ui.theme.Night
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.OutlinedButton
@@ -109,10 +113,8 @@ fun SupportScreen(vm: AppViewModel, onFaqs: () -> Unit, onForm: () -> Unit, onTi
         )
         Panel {
             Column {
-                MenuRow("FAQs", if (dev) "Common questions; you can add and edit them" else "Answers to common questions", onClick = onFaqs)
-                HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                MenuRow("Support form", "Raise a ticket", onClick = onForm)
-                HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
+                MenuRow("FAQs", if (dev) "Common questions; you can add and edit them" else "Answers to common questions", icon = rememberVectorPainter(Icons.Outlined.Search), onClick = onFaqs)
+                MenuRow("Support form", "Raise a ticket", icon = rememberVectorPainter(Icons.Outlined.Create), onClick = onForm)
                 MenuRow(
                     "Tickets",
                     when {
@@ -120,6 +122,7 @@ fun SupportScreen(vm: AppViewModel, onFaqs: () -> Unit, onForm: () -> Unit, onTi
                         dev -> "Everyone's tickets: open, closed and all"
                         else -> "Your tickets: open, closed and all"
                     },
+                    icon = rememberVectorPainter(Icons.AutoMirrored.Outlined.List),
                     highlight = unread > 0,
                     onClick = onTickets,
                 )

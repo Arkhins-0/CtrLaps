@@ -1,5 +1,32 @@
 package com.arkhins.ctrlaps.ui
 
+import androidx.compose.ui.unit.dp
+import com.arkhins.ctrlaps.ui.theme.Snow
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.Icons
 import com.arkhins.ctrlaps.ui.screens.BackOnlyBar
 import com.arkhins.ctrlaps.ui.components.FlatPage
 import com.arkhins.ctrlaps.ui.components.HeaderTabs
@@ -320,8 +347,8 @@ private fun MainNav(vm: AppViewModel) {
 
     /** A tab: its header, its page, and the footer. */
     @Composable
-    fun Tab(current: String, title: String, center: (@Composable () -> Unit)? = null, action: (@Composable () -> Unit)? = null, flat: Boolean = false, content: @Composable () -> Unit) =
-        Screen(title, onBack = null, onOpenWeekend = openWeekend, center = center, action = action, flat = flat, footer = {
+    fun Tab(current: String, title: String, center: (@Composable () -> Unit)? = null, action: (@Composable () -> Unit)? = null, flat: Boolean = false, bigIcon: BigIcon? = null, content: @Composable () -> Unit) =
+        Screen(title, onBack = null, onOpenWeekend = openWeekend, center = center, action = action, flat = flat, bigIcon = bigIcon, footer = {
             // A tab always shows its own page: everything above Home is
             // dropped first, nothing is restored (a chat opened from a popup
             // would otherwise come back on top of Home).
@@ -342,8 +369,8 @@ private fun MainNav(vm: AppViewModel) {
 
     /** A screen opened on top: its own header with a back arrow, no footer. */
     @Composable
-    fun Pushed(title: String, showCountdown: Boolean = true, header: (@Composable () -> Unit)? = null, action: (@Composable () -> Unit)? = null, flat: Boolean = false, content: @Composable () -> Unit) =
-        Screen(title, onBack = headerBack, onOpenWeekend = openWeekend, showCountdown = showCountdown, header = header, action = action, flat = flat, content = {
+    fun Pushed(title: String, showCountdown: Boolean = true, header: (@Composable () -> Unit)? = null, action: (@Composable () -> Unit)? = null, flat: Boolean = false, bigIcon: BigIcon? = null, content: @Composable () -> Unit) =
+        Screen(title, onBack = headerBack, onOpenWeekend = openWeekend, showCountdown = showCountdown, header = header, action = action, flat = flat, bigIcon = bigIcon, content = {
             CompositionLocalProvider(LocalOpen provides openRoute) { content() }
         })
 
@@ -439,11 +466,11 @@ private fun MainNav(vm: AppViewModel) {
             composable("email") { Pushed("Email") { EmailScreen(null) { nav.popBackStack() } } }
             composable("email?group={group}") { e -> Pushed("Email") { EmailScreen(e.arguments?.getString("group")) { nav.popBackStack() } } }
 
-            composable("details") { Pushed("Account", flat = true) { AccountDetailsScreen(vm) } }
-            composable("storage") { Pushed("Storage", flat = true) { StorageScreen() } }
-            composable("settings") { Pushed("Settings", flat = true) { SettingsScreen(onPermissions = { nav.open("permissions") }, onTheme = { nav.open("theme") }, onEmail = { nav.open("email-settings") }, onDelete = { nav.open("delete-account") }) } }
-            composable("email-settings") { Pushed("Email", flat = true) { EmailSettingsScreen() } }
-            composable("activity") { Pushed("Activity log", flat = true) { ActivityScreen() } }
+            composable("details") { Pushed("Account", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Person)) { AccountDetailsScreen(vm) } }
+            composable("storage") { Pushed("Storage", flat = true, bigIcon = BigIcon(drawable = R.drawable.ic_download)) { StorageScreen() } }
+            composable("settings") { Pushed("Settings", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Settings)) { SettingsScreen(onPermissions = { nav.open("permissions") }, onTheme = { nav.open("theme") }, onEmail = { nav.open("email-settings") }, onDelete = { nav.open("delete-account") }) } }
+            composable("email-settings") { Pushed("Email", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Email)) { EmailSettingsScreen() } }
+            composable("activity") { Pushed("Activity log", flat = true, bigIcon = BigIcon(vector = Icons.AutoMirrored.Filled.List)) { ActivityScreen() } }
             // The Volunteers page on its own (also what a link or a debug route to "volunteers" opens).
             composable("volunteers") { Pushed("Volunteers") { VolunteersScreen(vm, onOpenChat = { openChat(it) }, onManage = { nav.open("group/$it") }, onMade = { nav.open("volunteer-group/$it") }) } }
             composable("delegations") { Pushed("Delegations") { VolunteersScreen(vm, onOpenChat = { openChat(it) }, onManage = { nav.open("group/$it") }, onMade = { nav.open("volunteer-group/$it") }, kind = "delegation") } }
@@ -454,26 +481,26 @@ private fun MainNav(vm: AppViewModel) {
             }
             // The Channels page on its own (also what a link or a debug route to "channels" opens).
             composable("channels") { Pushed("Channels") { ChannelsScreen(vm, openWeekend) { nav.open("category/$it") } } }
-            composable("delete-account") { Pushed("Delete account", flat = true) { DeleteAccountScreen(onDeleted = { vm.accountDeleted() }) } }
-            composable("theme") { Pushed("Theme", flat = true) { ThemeScreen() } }
-            composable("permissions") { Pushed("Permissions", flat = true) { PermissionsScreen() } }
-            composable("notifications") { Pushed("Notifications", flat = true) { NotificationsScreen() } }
-            composable("about") { Pushed("About", flat = true, header = { BackOnlyBar(headerBack) }) { AboutScreen(vm, onFaqs = { nav.open("support/faqs") }, onChangelog = { nav.open("changelog") }, onLegal = { nav.open("legal/$it") }, onSupport = { nav.open("support") }, onLicense = { nav.open("license") }) } }
-            composable("license") { Pushed("License", flat = true) { LicenseScreen() } }
-            composable("support") { Pushed("Support", flat = true) { SupportScreen(vm, onFaqs = { nav.open("support/faqs") }, onForm = { nav.open("support/new") }, onTickets = { nav.open("support/tickets") }) } }
-            composable("support/faqs") { Pushed("FAQs", flat = true) { FaqScreen(vm) } }
-            composable("support/new") { Pushed("Support form", flat = true) { TicketFormScreen(vm) { id -> nav.navigate("support/ticket/$id") { popUpTo("support") } } } }
-            composable("support/tickets") { Pushed("Tickets", flat = true) { TicketsScreen(vm) { nav.open("support/ticket/$it") } } }
+            composable("delete-account") { Pushed("Delete account", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Delete)) { DeleteAccountScreen(onDeleted = { vm.accountDeleted() }) } }
+            composable("theme") { Pushed("Theme", flat = true, bigIcon = BigIcon(drawable = R.drawable.ic_palette)) { ThemeScreen() } }
+            composable("permissions") { Pushed("Permissions", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Lock)) { PermissionsScreen() } }
+            composable("notifications") { Pushed("Notifications", flat = true, bigIcon = BigIcon(drawable = R.drawable.ic_bell)) { NotificationsScreen() } }
+            composable("about") { Pushed("About", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Info)) { AboutScreen(vm, onFaqs = { nav.open("support/faqs") }, onChangelog = { nav.open("changelog") }, onLegal = { nav.open("legal/$it") }, onSupport = { nav.open("support") }, onLicense = { nav.open("license") }) } }
+            composable("license") { Pushed("License", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Info)) { LicenseScreen() } }
+            composable("support") { Pushed("Help & support", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Call)) { SupportScreen(vm, onFaqs = { nav.open("support/faqs") }, onForm = { nav.open("support/new") }, onTickets = { nav.open("support/tickets") }) } }
+            composable("support/faqs") { Pushed("FAQs", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Search)) { FaqScreen(vm) } }
+            composable("support/new") { Pushed("Support form", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Create)) { TicketFormScreen(vm) { id -> nav.navigate("support/ticket/$id") { popUpTo("support") } } } }
+            composable("support/tickets") { Pushed("Tickets", flat = true, bigIcon = BigIcon(vector = Icons.AutoMirrored.Filled.List)) { TicketsScreen(vm) { nav.open("support/ticket/$it") } } }
             composable("support/ticket/{id}") { e ->
                 var t by remember { mutableStateOf("Ticket") }
                 Pushed(t) { TicketScreen(vm, e.arguments?.getString("id") ?: "", view) { t = it } }
             }
-            composable("changelog") { Pushed("What's new", flat = true) { ChangelogScreen(vm.me?.user?.role) } }
+            composable("changelog") { Pushed("What's new", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Star)) { ChangelogScreen(vm.me?.user?.role) } }
             composable("legal/{doc}") { e ->
                 var t by remember { mutableStateOf("") }
-                Pushed(t, flat = true) { LegalScreen(e.arguments?.getString("doc") ?: "privacy", onOpen = { nav.open("legal/$it") }, onTitle = { t = it }) }
+                Pushed(t, flat = true, bigIcon = BigIcon(drawable = R.drawable.ic_document)) { LegalScreen(e.arguments?.getString("doc") ?: "privacy", onOpen = { nav.open("legal/$it") }, onTitle = { t = it }) }
             }
-            composable("archive") { Pushed("Archive", flat = true) { ArchiveScreen { nav.open("archive/$it") } } }
+            composable("archive") { Pushed("Archive", flat = true, bigIcon = BigIcon(drawable = R.drawable.ic_archive)) { ArchiveScreen { nav.open("archive/$it") } } }
             composable("archive/{id}") { e ->
                 var t by remember { mutableStateOf("Season") }
                 Pushed(t) { SeasonArchiveScreen(vm, e.arguments?.getString("id") ?: "", onView = view, onDeleted = back) { t = it } }
@@ -589,12 +616,33 @@ private fun Screen(
     action: (@Composable () -> Unit)? = null,
     /** The Account tab's pages: sections, not cards (see FlatPage). */
     flat: Boolean = false,
+    /** Arkhime's page top: a back arrow alone, then the title large with this icon large beside it. */
+    bigIcon: BigIcon? = null,
     content: @Composable () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().background(Night)) {
-        if (header != null) header()
-        else TopBar(title = title, onBack = onBack, onOpenWeekend = onOpenWeekend, showCountdown = showCountdown, center = center, action = action)
+        when {
+            header != null -> header()
+            bigIcon != null -> {
+                if (onBack != null) BackOnlyBar(onBack) else Spacer(Modifier.statusBarsPadding().height(12.dp))
+                BigTitle(title, bigIcon)
+            }
+            else -> TopBar(title = title, onBack = onBack, onOpenWeekend = onOpenWeekend, showCountdown = showCountdown, center = center, action = action)
+        }
         Box(Modifier.weight(1f)) { if (flat) FlatPage(content) else content() }
         footer?.invoke()
+    }
+}
+
+/** A big page icon: a drawable, or one of Material's. */
+class BigIcon(val drawable: Int? = null, val vector: ImageVector? = null)
+
+/** The page's title large, with its icon large on the right (Arkhime's page top). */
+@Composable
+private fun BigTitle(title: String, icon: BigIcon) {
+    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 20.dp, top = 4.dp, bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = Snow, modifier = Modifier.weight(1f), maxLines = 2)
+        val painter = icon.drawable?.let { painterResource(it) } ?: rememberVectorPainter(icon.vector!!)
+        Icon(painter, contentDescription = null, tint = Snow, modifier = Modifier.size(44.dp))
     }
 }
