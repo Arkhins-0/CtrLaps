@@ -1,5 +1,20 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.theme.NightLine
+import com.arkhins.ctrlaps.ui.components.ColorPickerDialog
+import com.arkhins.ctrlaps.ui.components.ColorDot
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.layout.height
 import com.arkhins.ctrlaps.R
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -147,81 +162,137 @@ fun SettingsScreen(onPermissions: () -> Unit, onTheme: () -> Unit, onEmail: () -
     }
 }
 
-/** Follow the phone's theme, or always light, or always dark. The whole app changes at once. */
+/**
+ * How the app looks, after Arkhime's theme page: light, dark or the phone's (three buttons by the heading); a colour
+ * theme; then switches for pure black, the phone's own font, Material You (the wallpaper's colour) and a custom colour
+ * picked on a wheel. The whole app changes at once.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThemeScreen() {
     val mode by ThemeSetting.mode.collectAsState()
+    val black by ThemeSetting.black.collectAsState()
+    val accent by ThemeSetting.accent.collectAsState()
+    val deviceFont by ThemeSetting.deviceFont.collectAsState()
+    val materialYou by ThemeSetting.materialYou.collectAsState()
+    val custom by ThemeSetting.custom.collectAsState()
+    val customColor by ThemeSetting.customColor.collectAsState()
+    var picking by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
+    val canMaterialYou = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    // Debug builds: `--es sheet picker` opens the colour picker over adb (see DebugHooks).
+    if (com.arkhins.ctrlaps.BuildConfig.DEBUG) {
+        val asked by com.arkhins.ctrlaps.ui.DebugHooks.sheet.collectAsState()
+        LaunchedEffect(asked) {
+            if (asked == "picker") { picking = true; com.arkhins.ctrlaps.ui.DebugHooks.sheet.value = null }
+        }
+    }
+
     Column(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Panel(padding = PaddingValues(vertical = 4.dp)) {
-            Column {
-                ThemeMode.entries.forEachIndexed { i, m ->
-                    if (i > 0) HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                    Row(
-                        Modifier.fillMaxWidth().clickable { ThemeSetting.set(m) }.padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(m.label, style = MaterialTheme.typography.bodyLarge, color = Snow)
-                            Text(
-                                when (m) {
-                                    ThemeMode.System -> "Light or dark, as the phone is set"
-                                    ThemeMode.Light -> "Light pages, dark text"
-                                    ThemeMode.Dark -> "Dark pages, light text"
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = SnowFaint,
-                            )
-                        }
-                        RadioButton(selected = mode == m, onClick = { ThemeSetting.set(m) }, colors = RadioButtonDefaults.colors(selectedColor = Gold, unselectedColor = SnowFaint))
-                    }
+        // Light, dark, or as the phone is: the chosen one bright, the others dim.
+        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Mode", style = MaterialTheme.typography.titleMedium, color = Snow, modifier = Modifier.weight(1f))
+            listOf(
+                Triple(ThemeMode.Light, R.drawable.ic_light_mode, "Light"),
+                Triple(ThemeMode.Dark, R.drawable.ic_dark_mode, "Dark"),
+                Triple(ThemeMode.System, R.drawable.ic_brightness_auto, "As the phone is"),
+            ).forEach { (m, icon, label) ->
+                IconButton(onClick = { ThemeSetting.set(m) }) {
+                    Icon(
+                        painterResource(icon),
+                        contentDescription = label + if (mode == m) ", chosen" else "",
+                        tint = if (mode == m) Gold else SnowFaint.copy(alpha = 0.6f),
+                        modifier = Modifier.size(28.dp),
+                    )
                 }
             }
         }
-        val black by ThemeSetting.black.collectAsState()
-        Panel(padding = PaddingValues(vertical = 4.dp)) {
-            Row(
-                Modifier.fillMaxWidth().clickable { ThemeSetting.setBlack(!black) }.padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Pure black", style = MaterialTheme.typography.bodyLarge, color = Snow)
-                    Text("A black page in the dark theme, kinder to OLED screens and the battery", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+        Text(
+            when (mode) {
+                ThemeMode.Light -> "Light pages, dark text"
+                ThemeMode.Dark -> "Dark pages, light text"
+                ThemeMode.System -> "Light or dark, as the phone is set"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = SnowFaint,
+        )
+
+        // The colour theme: a preset; Material You or a custom colour take its place while on.
+        ExposedDropdownMenuBox(expanded = menu, onExpandedChange = { menu = it }, modifier = Modifier.padding(top = 12.dp)) {
+            OutlinedTextField(
+                value = when {
+                    materialYou && canMaterialYou -> "Material You"
+                    custom -> "Custom colour"
+                    else -> "CTR ${accent.label}".takeIf { accent == Accent.Gold } ?: accent.label
+                },
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Colour theme") },
+                leadingIcon = { Icon(painterResource(R.drawable.ic_palette), contentDescription = null, tint = Gold) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menu) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Gold, unfocusedBorderColor = NightLine, focusedLabelColor = Gold, unfocusedLabelColor = SnowFaint, focusedTextColor = Snow, unfocusedTextColor = Snow),
+            )
+            ExposedDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                Accent.entries.forEach { a ->
+                    DropdownMenuItem(
+                        text = { Text(if (a == Accent.Gold) "CTR Gold" else a.label, color = Snow) },
+                        leadingIcon = { Box(Modifier.size(20.dp).background(if (palette.dark) a.dark else a.light, CircleShape)) },
+                        onClick = { ThemeSetting.setAccent(a); menu = false },
+                    )
                 }
-                Switch(
-                    checked = black,
-                    onCheckedChange = { ThemeSetting.setBlack(it) },
-                    colors = SwitchDefaults.colors(checkedThumbColor = OnGold, checkedTrackColor = Gold),
-                )
             }
         }
-        val accent by ThemeSetting.accent.collectAsState()
-        Panel {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Accent", style = MaterialTheme.typography.bodyLarge, color = Snow)
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Accent.entries.forEach { a ->
-                        val shade = if (palette.dark) a.dark else a.light
-                        Box(
-                            Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(shade)
-                                .border(if (a == accent) 3.dp else 0.dp, if (a == accent) Snow else Color.Transparent, CircleShape)
-                                .clickable { ThemeSetting.setAccent(a) }
-                                .semantics { contentDescription = a.label + if (a == accent) ", chosen" else "" },
-                            contentAlignment = Alignment.Center,
-                        ) { if (a == accent) Icon(Icons.Filled.Check, contentDescription = null, tint = OnGold, modifier = Modifier.size(20.dp)) }
-                    }
-                }
-                Text("${accent.label}: buttons, chips and highlights. Gold is CTR's own.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
-            }
+
+        Spacer(Modifier.height(8.dp))
+        ThemeSwitch(R.drawable.ic_dark_mode, "Pure black", "As dark as it gets: a black page in the dark theme, kinder to OLED screens", black) { ThemeSetting.setBlack(it) }
+        ThemeSwitch(R.drawable.ic_text_fields, "Use device font", "The phone's own font instead of the app's", deviceFont) { ThemeSetting.setDeviceFont(it) }
+        if (canMaterialYou) {
+            ThemeSwitch(R.drawable.ic_palette, "Material You", "The same colour as your wallpaper", materialYou) { ThemeSetting.setMaterialYou(it) }
         }
+        ThemeSwitch(R.drawable.ic_palette, "Custom colour", "Your own colour for the accent", custom) { ThemeSetting.setCustom(it) }
+        Row(
+            Modifier.fillMaxWidth().clickable { picking = true }.padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(painterResource(R.drawable.ic_palette), contentDescription = null, tint = Gold, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(20.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Colour picker", style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp), fontWeight = FontWeight.Bold, color = Snow)
+                Text("Choose a colour: #%06X".format(customColor and 0xFFFFFF), style = MaterialTheme.typography.bodySmall, color = SnowSoft.copy(alpha = 0.8f))
+            }
+            ColorDot(Color(customColor))
+        }
+    }
+    if (picking) {
+        ColorPickerDialog(Color(customColor), onDismiss = { picking = false }) { c ->
+            ThemeSetting.setCustomColor(c.toArgb())
+            picking = false
+        }
+    }
+}
+
+/** A theme switch: an accent icon, a bold title, a quieter line, and the switch. */
+@Composable
+private fun ThemeSwitch(icon: Int, title: String, hint: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable { onChange(!on) }.padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(painterResource(icon), contentDescription = null, tint = Gold, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(20.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp), fontWeight = FontWeight.Bold, color = Snow)
+            Text(hint, style = MaterialTheme.typography.bodySmall, color = SnowSoft.copy(alpha = 0.8f))
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(checked = on, onCheckedChange = onChange, colors = SwitchDefaults.colors(checkedThumbColor = OnGold, checkedTrackColor = Gold))
     }
 }
 

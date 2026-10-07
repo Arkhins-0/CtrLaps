@@ -1,5 +1,13 @@
 package com.arkhins.ctrlaps.ui.theme
 
+import com.arkhins.ctrlaps.ui.contrastText
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.runtime.remember
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import android.os.Build
 import android.app.Activity
 import android.content.Context
 import android.content.SharedPreferences
@@ -56,6 +64,8 @@ data class Palette(
     val highest: Color,
     val dim: Color,
     val bright: Color,
+    /** Words and icons on the accent: near-black, or white on a dark custom colour. */
+    val onAccent: Color = Color(0xFF0B0B0C),
 )
 
 val DarkPalette = Palette(
@@ -93,10 +103,35 @@ enum class Accent(val label: String, val dark: Color, val darkDeep: Color, val l
     Violet("Violet", Color(0xFFB7A4FF), Color(0xFF9F86FF), Color(0xFF8B5CF6), Color(0xFF7C3AED)),
 }
 
-/** The palette for the chosen look: light or dark, pure black or not, and the accent. */
-fun paletteFor(dark: Boolean, black: Boolean, accent: Accent): Palette {
+/** The palette for the chosen look: light or dark, pure black or not, and the accent (with its deeper shade). */
+fun paletteFor(dark: Boolean, black: Boolean, accent: Color, deep: Color): Palette {
     val base = if (!dark) LightPalette else if (black) BlackPalette else DarkPalette
-    return if (dark) base.copy(gold = accent.dark, goldDeep = accent.darkDeep) else base.copy(gold = accent.light, goldDeep = accent.lightDeep)
+    return base.copy(gold = accent, goldDeep = deep, onAccent = accent.contrastText())
+}
+
+/** WCAG contrast between two colours, 1 to 21. */
+private fun contrast(a: Color, b: Color): Float {
+    val la = a.luminance() + 0.05f
+    val lb = b.luminance() + 0.05f
+    return if (la > lb) la / lb else lb / la
+}
+
+/**
+ * Any colour (a custom pick, the wallpaper's) made fit to be the accent on this page: lighter until it stands out on
+ * the dark theme's page, darker on the light one's, so gold-coloured words stay readable. Its deep shade is 15% darker.
+ */
+fun fitAccent(color: Color, page: Color, dark: Boolean): Pair<Color, Color> {
+    val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(color.toArgb(), it) }
+    var c = color
+    var steps = 0
+    while (contrast(c, page) < 3f && steps < 40) {
+        if (dark) { hsv[2] = (hsv[2] + 0.03f).coerceAtMost(1f); hsv[1] = (hsv[1] - if (hsv[2] >= 1f) 0.03f else 0f).coerceAtLeast(0f) }
+        else hsv[2] = (hsv[2] - 0.03f).coerceAtLeast(0f)
+        c = Color(android.graphics.Color.HSVToColor(hsv))
+        steps++
+    }
+    val deep = FloatArray(3).also { android.graphics.Color.colorToHSV(c.toArgb(), it) }.also { it[2] *= 0.85f }
+    return c to Color(android.graphics.Color.HSVToColor(deep))
 }
 
 /** The palette in use; set by [CtrlapsTheme] from the setting and the phone's own theme. */
@@ -115,8 +150,8 @@ val Danger: Color get() = palette.danger
 val NightHigh: Color get() = palette.high
 val NightHighest: Color get() = palette.highest
 
-/** Words and icons on gold (and dark shades over photos): near-black in either theme, so they always read. */
-val OnGold = Color(0xFF0B0B0C)
+/** Words and icons on the accent: near-black on gold and the presets, white on a dark custom colour. */
+val OnGold: Color get() = palette.onAccent
 
 /** Plus Jakarta Sans (SIL Open Font License, licenses/PlusJakartaSans-OFL.txt), the website's font too. */
 private val Jakarta = FontFamily(
@@ -124,21 +159,23 @@ private val Jakarta = FontFamily(
     Font(R.font.jakarta_semi_bold, FontWeight.SemiBold),
     Font(R.font.jakarta_bold, FontWeight.Bold),
 )
-val Display: FontFamily = Jakarta
-val Body: FontFamily = Jakarta
+/** The app's font, or the phone's own when "Use device font" is on. */
+private fun family(device: Boolean): FontFamily = if (device) FontFamily.Default else Jakarta
+val Display: FontFamily get() = family(ThemeSetting.deviceFont.value)
+val Body: FontFamily get() = family(ThemeSetting.deviceFont.value)
 
 private fun scheme(p: Palette) = if (p.dark) darkColorScheme(
-    primary = p.gold, onPrimary = OnGold, primaryContainer = p.goldDeep, onPrimaryContainer = OnGold,
-    secondary = p.snow, onSecondary = p.night, tertiary = p.goldDeep, onTertiary = OnGold,
+    primary = p.gold, onPrimary = p.onAccent, primaryContainer = p.goldDeep, onPrimaryContainer = p.onAccent,
+    secondary = p.snow, onSecondary = p.night, tertiary = p.goldDeep, onTertiary = p.onAccent,
     background = p.night, onBackground = p.snow, surface = p.panel, onSurface = p.snow,
     surfaceVariant = p.panel, onSurfaceVariant = p.snowSoft, outline = p.line, outlineVariant = p.line,
-    error = p.danger, onError = OnGold,
+    error = p.danger, onError = Color(0xFF0B0B0C),
     surfaceContainerLowest = p.lowest, surfaceContainerLow = p.low, surfaceContainer = p.panel,
     surfaceContainerHigh = p.high, surfaceContainerHighest = p.highest, surfaceDim = p.dim, surfaceBright = p.bright,
     inverseSurface = p.snow, inverseOnSurface = p.night, inversePrimary = p.goldDeep,
 ) else lightColorScheme(
-    primary = p.gold, onPrimary = OnGold, primaryContainer = p.goldDeep, onPrimaryContainer = OnGold,
-    secondary = p.snow, onSecondary = p.night, tertiary = p.goldDeep, onTertiary = OnGold,
+    primary = p.gold, onPrimary = p.onAccent, primaryContainer = p.goldDeep, onPrimaryContainer = p.onAccent,
+    secondary = p.snow, onSecondary = p.night, tertiary = p.goldDeep, onTertiary = p.onAccent,
     background = p.night, onBackground = p.snow, surface = p.panel, onSurface = p.snow,
     surfaceVariant = p.panel, onSurfaceVariant = p.snowSoft, outline = p.line, outlineVariant = p.line,
     error = p.danger, onError = Color.White,
@@ -159,7 +196,8 @@ val CtrlapsShapes = Shapes(
     extraLarge = RoundedCornerShape(32.dp),
 )
 
-val CtrlapsTypography = Typography(
+/** The type scale in [Display] and [Body]: rebuilt when "Use device font" changes. */
+fun ctrlapsTypography() = Typography(
     displayLarge = TextStyle(fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 44.sp, lineHeight = 46.sp, letterSpacing = (-0.5).sp),
     displayMedium = TextStyle(fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 34.sp, lineHeight = 38.sp, letterSpacing = (-0.5).sp),
     displaySmall = TextStyle(fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 30.sp, lineHeight = 34.sp),
@@ -180,7 +218,10 @@ val CtrlapsTypography = Typography(
 /** How the app looks: follow the phone, or always light, or always dark. */
 enum class ThemeMode(val label: String) { System("System default"), Light("Light"), Dark("Dark") }
 
-/** The chosen theme, kept on the phone: light or dark, pure black for the dark one, and the accent. */
+/**
+ * The chosen theme, kept on the phone: light or dark, pure black for the dark one, the accent (a preset, a custom
+ * colour, or the wallpaper's with Material You), and the app's font or the phone's.
+ */
 object ThemeSetting {
     private var prefs: SharedPreferences? = null
     // Dark until someone picks otherwise: the look the app was made in.
@@ -190,6 +231,14 @@ object ThemeSetting {
     val black: StateFlow<Boolean> = _black
     private val _accent = MutableStateFlow(Accent.Gold)
     val accent: StateFlow<Accent> = _accent
+    private val _deviceFont = MutableStateFlow(false)
+    val deviceFont: StateFlow<Boolean> = _deviceFont
+    private val _materialYou = MutableStateFlow(false)
+    val materialYou: StateFlow<Boolean> = _materialYou
+    private val _custom = MutableStateFlow(false)
+    val custom: StateFlow<Boolean> = _custom
+    private val _customColor = MutableStateFlow(0xFFFFD100.toInt())
+    val customColor: StateFlow<Int> = _customColor
 
     fun init(context: Context) {
         if (prefs != null) return
@@ -197,7 +246,36 @@ object ThemeSetting {
             _mode.value = runCatching { ThemeMode.valueOf(p.getString("mode", null) ?: "Dark") }.getOrDefault(ThemeMode.Dark)
             _black.value = p.getBoolean("black", false)
             _accent.value = runCatching { Accent.valueOf(p.getString("accent", null) ?: "Gold") }.getOrDefault(Accent.Gold)
+            _deviceFont.value = p.getBoolean("deviceFont", false)
+            _materialYou.value = p.getBoolean("materialYou", false)
+            _custom.value = p.getBoolean("custom", false)
+            _customColor.value = p.getInt("customColor", 0xFFFFD100.toInt())
         }
+    }
+
+    fun setDeviceFont(on: Boolean) {
+        _deviceFont.value = on
+        prefs?.edit()?.putBoolean("deviceFont", on)?.apply()
+    }
+
+    /** Material You and a custom colour exclude each other: turning one on turns the other off. */
+    fun setMaterialYou(on: Boolean) {
+        _materialYou.value = on
+        if (on) _custom.value = false
+        prefs?.edit()?.putBoolean("materialYou", on)?.putBoolean("custom", _custom.value)?.apply()
+    }
+
+    fun setCustom(on: Boolean) {
+        _custom.value = on
+        if (on) _materialYou.value = false
+        prefs?.edit()?.putBoolean("custom", on)?.putBoolean("materialYou", _materialYou.value)?.apply()
+    }
+
+    /** A colour from the picker: it becomes the accent at once. */
+    fun setCustomColor(argb: Int) {
+        _customColor.value = argb
+        setCustom(true)
+        prefs?.edit()?.putInt("customColor", argb)?.apply()
     }
 
     fun set(mode: ThemeMode) {
@@ -210,9 +288,12 @@ object ThemeSetting {
         prefs?.edit()?.putBoolean("black", on)?.apply()
     }
 
+    /** A preset: it is the accent again, so a custom colour and Material You go off. */
     fun setAccent(accent: Accent) {
         _accent.value = accent
-        prefs?.edit()?.putString("accent", accent.name)?.apply()
+        _custom.value = false
+        _materialYou.value = false
+        prefs?.edit()?.putString("accent", accent.name)?.putBoolean("custom", false)?.putBoolean("materialYou", false)?.apply()
     }
 }
 
@@ -226,8 +307,23 @@ fun CtrlapsTheme(content: @Composable () -> Unit) {
     }
     val black by ThemeSetting.black.collectAsState()
     val accent by ThemeSetting.accent.collectAsState()
-    val p = paletteFor(dark, black, accent)
+    val materialYou by ThemeSetting.materialYou.collectAsState()
+    val custom by ThemeSetting.custom.collectAsState()
+    val customColor by ThemeSetting.customColor.collectAsState()
+    val deviceFont by ThemeSetting.deviceFont.collectAsState()
+    val context = LocalContext.current
+    val page = if (!dark) LightPalette.night else if (black) BlackPalette.night else DarkPalette.night
+    // Material You (the wallpaper's colour, Android 12+) over a custom colour over the preset.
+    val (accentColor, deep) = when {
+        materialYou && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+            fitAccent((if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)).primary, page, dark)
+        custom -> fitAccent(Color(customColor), page, dark)
+        dark -> accent.dark to accent.darkDeep
+        else -> accent.light to accent.lightDeep
+    }
+    val p = paletteFor(dark, black, accentColor, deep)
     if (palette != p) palette = p
+    val typography = remember(deviceFont) { ctrlapsTypography() }
     // The status and navigation bar icons: dark on the light theme, light on the dark one.
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -240,5 +336,5 @@ fun CtrlapsTheme(content: @Composable () -> Unit) {
             }
         }
     }
-    MaterialTheme(colorScheme = scheme(p), typography = CtrlapsTypography, shapes = CtrlapsShapes, content = content)
+    MaterialTheme(colorScheme = scheme(p), typography = typography, shapes = CtrlapsShapes, content = content)
 }
