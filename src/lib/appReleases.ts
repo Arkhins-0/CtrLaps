@@ -12,6 +12,10 @@ import { env } from "./env";
  * through this site — /api/app-version/apk sends the phone on to a
  * short-lived download link — so neither the app nor a browser needs
  * access to GitHub.
+ *
+ * Only full releases count: GitHub's /releases/latest leaves out drafts and
+ * pre-releases (tags with a dash, v0.2.1.0-beta, which the release workflow
+ * publishes as such), so no phone is ever offered a beta.
  */
 
 const CHECK_INTERVAL_MS = 30 * 60 * 1000;
@@ -36,6 +40,12 @@ export type ReleaseInfo = {
   notes: string;
   /** The same changes by heading, each line with the roles it is for (the app shows a person only theirs). */
   sections: NoteSection[];
+  /**
+   * Each APK's SHA-256 (lowercase hex) from the release's SHA256SUMS, keyed "universal" (for [apkUrl]) or by
+   * processor type (as in [apks]). The app checks its download against it before installing. Empty for a
+   * release made before the workflow published the file; the app then installs without the check.
+   */
+  sha256: Record<string, string>;
 };
 
 let cache: { at: number; info: ReleaseInfo | null } | null = null;
@@ -48,6 +58,9 @@ let asset: { version: string; universal: Asset | null; abis: Record<string, Asse
 
 /** A per-processor APK is named "CTRLAPS-v1.2.3.4.arm64-v8a.apk" (after the universal "CTRLAPS-v1.2.3.4.apk" in a listing). */
 const ABI_APK = /\.(arm64-v8a|armeabi-v7a|x86_64|x86)\.apk$/i;
+
+/** The checksums file the release workflow attaches ("SHA256SUMS.txt" on releases up to v0.2.0.6). */
+const SUMS_FILE = /^SHA256SUMS(\.txt)?$/i;
 
 const headers = (accept = "application/vnd.github+json"): Record<string, string> => ({
   Accept: accept,
@@ -82,6 +95,33 @@ export function noteSections(body: string): NoteSection[] {
 /** Plain lines for older apps: every line, its role tag left out (they can't tell roles apart). */
 const plainItems = (sections: NoteSection[]): string[] => sections.flatMap((x) => x.items.map((i) => i.text));
 
+/**
+ * A release's SHA256SUMS ("<hex>  <file>" a line, as sha256sum writes it; "*<file>" in binary mode) by file name.
+ * Fetched like an APK: through the API with the token, so it works for a private repository, else the public link.
+ * Any failure gives an empty map — the app then installs without the check, as before checksums existed.
+ */
+async function fetchChecksums(file: Asset | null): Promise<Record<string, string>> {
+  if (!file) return {};
+  for (const [url, accept] of [
+    [file.apiUrl, "application/octet-stream"],
+    [file.publicUrl, "*/*"],
+  ] as const) {
+    try {
+      const response = await fetch(url, { headers: headers(accept), cache: "no-store" });
+      if (!response.ok) continue;
+      const sums: Record<string, string> = {};
+      for (const line of (await response.text()).split("\n")) {
+        const m = line.trim().match(/^([0-9a-f]{64})\s+\*?(.+)$/i);
+        if (m) sums[m[2].trim()] = m[1].toLowerCase();
+      }
+      return sums;
+    } catch {
+      // Try the next link.
+    }
+  }
+  return {};
+}
+
 /** The release body reduced to the list of changes, for older apps' update card. */
 const changesOnly = (body: string): string => plainItems(noteSections(body)).map((t) => `- ${t}`).join("\n").slice(0, 600);
 
@@ -95,8 +135,12 @@ async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
       html_url?: string;
       body?: string;
       assets?: { name: string; url: string; browser_download_url: string }[];
+      prerelease?: boolean;
+      draft?: boolean;
     };
     if (!data.tag_name || !data.html_url) return null;
+    // /releases/latest never answers with these; checked anyway, so a beta can't reach phones by another route.
+    if (data.prerelease || data.draft) return null;
     // A release carries both a signed release APK and a debug one. The debug
     // build has its own application id, so it would install beside the app
     // rather than update it — prefer the one that isn't debug.
@@ -109,6 +153,14 @@ async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
       if (abi) abis[abi] = { apiUrl: a.url, publicUrl: a.browser_download_url };
     }
     asset = { version, universal: apk ? { apiUrl: apk.url, publicUrl: apk.browser_download_url } : null, abis };
+    const sumsAsset = (data.assets ?? []).find((a) => SUMS_FILE.test(a.name));
+    const sums = await fetchChecksums(sumsAsset ? { apiUrl: sumsAsset.url, publicUrl: sumsAsset.browser_download_url } : null);
+    const sha256: Record<string, string> = {};
+    if (apk && sums[apk.name]) sha256.universal = sums[apk.name];
+    for (const a of apks) {
+      const abi = a.name.match(ABI_APK)?.[1]?.toLowerCase();
+      if (abi && sums[a.name]) sha256[abi] = sums[a.name];
+    }
     const link = (abi?: string) => `${SITE_URL}/api/app-version/apk?v=${encodeURIComponent(version)}${abi ? `&abi=${abi}` : ""}`;
     return {
       version,
@@ -117,6 +169,7 @@ async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
       apks: Object.fromEntries(Object.keys(abis).map((abi) => [abi, link(abi)])),
       notes: changesOnly(data.body ?? ""),
       sections: noteSections(data.body ?? ""),
+      sha256,
     };
   } catch {
     return null;

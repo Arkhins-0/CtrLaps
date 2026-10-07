@@ -15,6 +15,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.IOException
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 /**
@@ -32,9 +33,13 @@ import java.util.concurrent.TimeUnit
  * install outright. What the installer says comes back through
  * [UpdateInstallReceiver].
  *
- * The downloaded file is never checked against a hash here because
- * Android does something stronger: it refuses an update that is not
- * signed with the same certificate as the app already installed.
+ * Android itself refuses an update not signed with the same certificate
+ * as the app already installed, so a stranger's APK can't get in. The
+ * download is also checked against the SHA-256 the release lists
+ * ([UpdateChecker.expectedSha256]): a file cut short or damaged on the way
+ * is thrown away with a plain "try again" rather than handed to the
+ * installer, which would fail with something far less clear. A release
+ * from before the checksums has none, and installs unchecked as it did.
  */
 class AppUpdater(private val context: Context) {
 
@@ -86,6 +91,8 @@ class AppUpdater(private val context: Context) {
             val file = target()
             val total = body.contentLength()
             var reported = -1
+            // Hashed as it streams in, so checking it costs no second read of the file.
+            val digest = MessageDigest.getInstance("SHA-256")
             body.byteStream().use { input ->
                 file.outputStream().use { output ->
                     val buffer = ByteArray(64 * 1024)
@@ -94,6 +101,7 @@ class AppUpdater(private val context: Context) {
                         val read = input.read(buffer)
                         if (read == -1) break
                         output.write(buffer, 0, read)
+                        digest.update(buffer, 0, read)
                         written += read
                         // Whole percents only: a callback every 64 KB would
                         // recompose the progress bar hundreds of times.
@@ -111,6 +119,15 @@ class AppUpdater(private val context: Context) {
                 }
             }
             if (file.length() == 0L) throw IOException("The update came back empty.")
+            val expected = UpdateChecker.expectedSha256(url)
+            if (expected != null) {
+                val actual = digest.digest().joinToString("") { b -> "%02x".format(b) }
+                if (!actual.equals(expected, ignoreCase = true)) {
+                    Log.w(TAG, "update APK checksum mismatch: expected $expected, got $actual")
+                    file.delete()
+                    throw IOException("The download was damaged. Try again.")
+                }
+            }
             file
         }
     }

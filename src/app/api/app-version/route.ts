@@ -8,7 +8,11 @@ export const dynamic = "force-dynamic";
  * app's UpdateChecker calls. `?fresh=1` is a user asking in as many words,
  * from the app's version card, and looks past the half-hour cache.
  *
- * Shape: { version, releaseUrl, apkUrl | null, notes }
+ * Shape: { version, releaseUrl, apkUrl | null, apks, notes, sections, sha256 }.
+ * Fields are only ever added, so older apps keep reading what they know:
+ * `sha256` (each APK's hash, keyed "universal" or by processor type, empty
+ * for a release without a SHA256SUMS file) is ignored by apps before it.
+ * Pre-releases (beta tags) are never returned.
  * 404 when no release has been published yet (the app treats it as "none",
  * not as a failure).
  */
