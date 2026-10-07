@@ -255,9 +255,14 @@ fun GroupScreen(vm: AppViewModel, groupId: String, onOpenChat: (String) -> Unit,
         item {
             Panel {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.clickable(enabled = admin && !busy) { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
-                        Avatar(g.photoUrl?.let { app.api.absolute("$it?v=$photoVersion") }, g.name, 72, preview = false)
-                    }
+                    // The group picture: large on a tap; its admins change or remove it there (or add one).
+                    Avatar(
+                        g.photoUrl?.let { app.api.absolute("$it?v=$photoVersion") },
+                        g.name,
+                        72,
+                        onChange = if (admin && !busy) ({ pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) else null,
+                        onRemove = if (admin && !busy && g.photoUrl != null) ({ run { app.api.delete("/api/groups/$groupId/photo"); photoVersion++ } }) else null,
+                    )
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
                         Text(g.name, style = MaterialTheme.typography.titleLarge, color = Snow)

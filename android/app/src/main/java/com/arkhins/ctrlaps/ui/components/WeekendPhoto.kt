@@ -6,6 +6,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import com.arkhins.ctrlaps.ui.screens.loadShrunk
 import androidx.compose.material3.Text
+import com.arkhins.ctrlaps.ui.theme.SnowFaint
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
@@ -57,8 +58,8 @@ fun FadingPhoto(url: String, fadeTo: Color, height: Dp, modifier: Modifier = Mod
 }
 
 /**
- * The top of a weekend's page: its photo, fading into the page. Admins add, change or remove it here; with no photo,
- * everyone else sees nothing.
+ * The top of a weekend's page: its photo, fading into the page. A tap pulls it up large; admins change or remove it
+ * there, and add one with the button when there is none. With no photo, everyone else sees nothing.
  */
 @Composable
 fun WeekendPhotoHeader(weekendId: String, photoUrl: String?, isAdmin: Boolean, pageColor: Color, onChanged: () -> Unit) {
@@ -105,48 +106,31 @@ fun WeekendPhotoHeader(weekendId: String, photoUrl: String?, isAdmin: Boolean, p
             cropping = (result as? coil.request.SuccessResult)?.drawable?.toBitmap()
         }
     }
-    val label = if (busy) "Uploading…" else if (photoUrl == null) "Add a track photo" else "Change photo"
     val choose = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-    val controls: @Composable () -> Unit = {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Over the photo: white on a dark pill in either theme, so they read on any picture.
-            if (photoUrl != null) PhotoPill(label, Color.White, enabled = !busy) { choose() }
-            else GhostButton(label, enabled = !busy) { choose() }
-            if (photoUrl != null) {
-                PhotoPill("Remove", Color(0xFFFF8A8E), enabled = !busy) {
-                    busy = true
-                    scope.launch {
-                        runCatching { app.api.delete("/api/weekends/$weekendId/photo") }.onFailure { error = it.message }
-                        busy = false
-                        onChanged()
-                    }
-                }
-            }
+    val remove = {
+        busy = true
+        scope.launch {
+            runCatching { app.api.delete("/api/weekends/$weekendId/photo") }.onFailure { error = it.message }
+            busy = false
+            onChanged()
         }
+        Unit
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (photoUrl != null) {
-            BoxWithConstraints(Modifier.clip(MaterialTheme.shapes.large)) {
+            BoxWithConstraints(
+                Modifier.clip(MaterialTheme.shapes.large).clickable(enabled = !busy) {
+                    openPhoto(context, app.api.absolute(photoUrl), "Track photo", onChange = if (isAdmin) choose else null, onRemove = if (isAdmin) remove else null, wide = true)
+                },
+            ) {
                 // The header's shape is the crop frame's, 16:9, so it shows exactly what was framed.
                 FadingPhoto(photoUrl, pageColor, maxWidth * 9f / 16f)
-                if (isAdmin) Box(Modifier.align(Alignment.TopEnd).padding(10.dp)) { controls() }
             }
+            if (busy) Text("Saving…", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
         } else {
-            controls()
+            GhostButton(if (busy) "Uploading…" else "Add a track photo", enabled = !busy) { choose() }
         }
         ErrorText(error)
     }
 }
 
-/** A button laid over a photo: white words on a dark pill, the same in both themes. */
-@Composable
-private fun PhotoPill(text: String, color: Color, enabled: Boolean, onClick: () -> Unit) {
-    Box(
-        Modifier
-            .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.62f))
-            .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-    ) { Text(text, style = MaterialTheme.typography.labelLarge, color = if (enabled) color else color.copy(alpha = 0.5f)) }
-}

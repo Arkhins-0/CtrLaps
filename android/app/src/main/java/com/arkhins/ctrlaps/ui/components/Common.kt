@@ -289,7 +289,8 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun Avatar(url: String?, name: String, size: Int = 40, preview: Boolean = true) {
+fun Avatar(url: String?, name: String, size: Int = 40, preview: Boolean = true, onChange: (() -> Unit)? = null, onRemove: (() -> Unit)? = null) {
+    val context = LocalContext.current
     val initials = name.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }
     if (url != null) {
         AsyncImage(
@@ -300,15 +301,17 @@ fun Avatar(url: String?, name: String, size: Int = 40, preview: Boolean = true) 
                 .size(size.dp)
                 .clip(CircleShape)
                 .border(1.dp, NightLine, CircleShape)
-                // A tap pulls the photo up large (PhotoPreview); off where a tap picks or changes something.
-                .then(if (preview) Modifier.clickable { PhotoPreview.show(url, name) } else Modifier),
+                // A tap pulls the photo up large (PhotoPreview); off where a tap does something else.
+                .then(if (preview) Modifier.clickable { openPhoto(context, url, name, onChange, onRemove) } else Modifier),
         )
     } else {
         Box(
             Modifier
                 .size(size.dp)
                 .clip(CircleShape)
-                .background(Gold.copy(alpha = 0.14f)),
+                .background(Gold.copy(alpha = 0.14f))
+                // No photo: those who may add one tap to choose it.
+                .then(if (preview && onChange != null) Modifier.clickable { onChange() } else Modifier),
             contentAlignment = Alignment.Center,
         ) { Text(initials.ifBlank { "?" }, color = Gold, style = MaterialTheme.typography.labelLarge) }
     }
@@ -436,8 +439,27 @@ fun PreviewLine(text: String, color: Color, style: TextStyle, modifier: Modifier
     )
 }
 
-/** A profile photo pulled up large: set by a tap on an [Avatar], shown by [PhotoPreviewHost]. */
+/**
+ * A photo pulled up large, shown by [PhotoPreviewHost]. [onChange] and [onRemove] are there for those who may change
+ * it (they show as Change and Remove under the photo); [wide] for a 16:9 weekend photo.
+ */
+data class PhotoView(val url: String, val name: String, val onChange: (() -> Unit)? = null, val onRemove: (() -> Unit)? = null, val wide: Boolean = false)
+
 object PhotoPreview {
-    val shown = androidx.compose.runtime.mutableStateOf<Pair<String, String>?>(null)
-    fun show(url: String, name: String) { shown.value = url to name }
+    val shown = androidx.compose.runtime.mutableStateOf<PhotoView?>(null)
+    fun show(url: String, name: String, onChange: (() -> Unit)? = null, onRemove: (() -> Unit)? = null, wide: Boolean = false) {
+        shown.value = PhotoView(url, name, onChange, onRemove, wide)
+    }
+}
+
+/**
+ * What a tap on a photo does, everywhere in the app: a photo pulls up large (with Change and Remove for those who may);
+ * no photo opens the gallery for those who may add one, and tells everyone else there is none.
+ */
+fun openPhoto(context: android.content.Context, url: String?, name: String, onChange: (() -> Unit)? = null, onRemove: (() -> Unit)? = null, wide: Boolean = false) {
+    when {
+        url != null -> PhotoPreview.show(url, name, onChange, onRemove, wide)
+        onChange != null -> onChange()
+        else -> Toast.makeText(context, "No photo yet", Toast.LENGTH_SHORT).show()
+    }
 }

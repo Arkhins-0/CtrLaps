@@ -131,6 +131,16 @@ fun TeamScreen(teamId: String, onTitle: (String) -> Unit) {
         }
     }
     val changePhoto = rememberTeamPhotoPicker(onSaved = { _, _ -> reload++ }, onError = { error = it })
+    fun removePhoto() {
+        scope.launch {
+            try {
+                app.api.delete("/api/teams/$teamId/photo")
+                reload++
+            } catch (e: Exception) {
+                error = e.message ?: "Could not remove the photo."
+            }
+        }
+    }
 
     val d = data
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
@@ -145,29 +155,13 @@ fun TeamScreen(teamId: String, onTitle: (String) -> Unit) {
                 app.api.absolute(d.team.photoUrl),
                 d.team.name,
                 listOf(if (people == 1) "1 person" else "$people people", codes.takeIf { it.isNotBlank() }?.let { "races in $it" }).filterNotNull().joinToString(" · "),
+                onChange = if (d.canEdit) ({ changePhoto(d.team.id) }) else null,
+                onRemove = if (d.canEdit && d.team.photoUrl != null) ({ removePhoto() }) else null,
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { d.categories.take(5).forEach { CategoryTag(it) } }
             }
         }
         item { ErrorText(error) }
-        if (d.canEdit) item {
-            Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                QuickAction(painterResource(R.drawable.ic_gallery), if (d.team.photoUrl == null) "Add photo" else "Change photo", Modifier.weight(1f)) { changePhoto(d.team.id) }
-                if (d.team.photoUrl != null) {
-                    QuickAction(rememberVectorPainter(Icons.Outlined.Delete), "Remove photo", Modifier.weight(1f)) {
-                        scope.launch {
-                            try {
-                                app.api.delete("/api/teams/${d.team.id}/photo")
-                                reload++
-                            } catch (e: Exception) {
-                                error = e.message ?: "Could not remove the photo."
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         // Where it stands in each category.
         item { GroupTitle("Standings", modifier = Modifier.padding(top = 12.dp)) }
         if (d.standings.isEmpty()) item { Text("No results yet this season.", style = MaterialTheme.typography.bodyMedium, color = SnowFaint, modifier = Modifier.padding(vertical = 8.dp)) }

@@ -329,9 +329,14 @@ fun VolunteerGroupScreen(groupId: String, onGone: () -> Unit, onTitle: (String) 
         item {
             Panel {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.clickable(enabled = !busy) { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
-                        Avatar(info?.photoUrl?.let { app.api.absolute("$it?v=$photoVersion") }, d.name, 56, preview = false)
-                    }
+                    // The group's picture: large on a tap, changed or removed there (or added when there is none).
+                    Avatar(
+                        info?.photoUrl?.let { app.api.absolute("$it?v=$photoVersion") },
+                        d.name,
+                        56,
+                        onChange = if (!busy) ({ pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) else null,
+                        onRemove = if (!busy && info?.photoUrl != null) ({ d.conversationId?.let { conv -> run { app.api.delete("/api/groups/$conv/photo"); photoVersion++ } } }) else null,
+                    )
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(d.name, style = MaterialTheme.typography.titleLarge, color = Snow)

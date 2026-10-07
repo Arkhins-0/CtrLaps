@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.rememberPhotoChanger
 import com.arkhins.ctrlaps.ui.components.PhotoPreview
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.BorderStroke
@@ -86,6 +87,8 @@ import com.arkhins.ctrlaps.ui.components.Avatar
 import com.arkhins.ctrlaps.ui.components.GhostButton
 import com.arkhins.ctrlaps.ui.components.KeyValue
 import com.arkhins.ctrlaps.ui.components.Panel
+import androidx.compose.ui.platform.LocalContext
+import com.arkhins.ctrlaps.ui.components.openPhoto
 import com.arkhins.ctrlaps.ui.components.SearchPill
 import com.arkhins.ctrlaps.ui.components.StatusChip
 import com.arkhins.ctrlaps.ui.theme.Gold
@@ -120,6 +123,22 @@ fun AccountScreen(
     val qr = rememberQr(me.qrUrl)
     var confirmOut by remember { mutableStateOf(false) }
     var showQr by remember { mutableStateOf(false) }
+    // Your own photo, for those who change their own details (users, admins, coordinators); others' is their manager's.
+    val editsOwn = u.role == "user" || u.role == "admin" || u.role == "coordinator"
+    val context = LocalContext.current
+    val photoScope = rememberCoroutineScope()
+    val changeOwnPhoto = rememberPhotoChanger(
+        upload = { file -> app.api.postForm("/api/me/photo", emptyMap(), "photo" to file, "image/jpeg", com.arkhins.ctrlaps.data.Ok.serializer()); vm.refreshMe() },
+        onError = { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_SHORT).show() },
+    )
+    val removeOwnPhoto = {
+        photoScope.launch {
+            runCatching { app.api.delete("/api/me/photo") }
+                .onSuccess { vm.refreshMe() }
+                .onFailure { android.widget.Toast.makeText(context, it.message ?: "Could not remove the photo.", android.widget.Toast.LENGTH_SHORT).show() }
+        }
+        Unit
+    }
     // Debug builds: `--es sheet qr` opens the QR sheet over adb (see DebugHooks).
     if (BuildConfig.DEBUG) {
         val asked by com.arkhins.ctrlaps.ui.DebugHooks.sheet.collectAsState()
@@ -133,7 +152,6 @@ fun AccountScreen(
         }
     }
     // Settings and Storage look things up on the phone; done now, in the background, they open already filled.
-    val context = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.runtime.LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             runCatching { preloadSettings(context) }
@@ -183,7 +201,13 @@ fun AccountScreen(
             }
             return@Column
         }
-        ProfileBanner(app.api.absolute(u.photoUrl), u.displayName, u.roleLabel + (u.teamName?.let { " · $it" } ?: "")) { StatusChip(u.status, u.statusLabel) }
+        ProfileBanner(
+            app.api.absolute(u.photoUrl),
+            u.displayName,
+            u.roleLabel + (u.teamName?.let { " · $it" } ?: ""),
+            onChange = if (editsOwn) changeOwnPhoto else null,
+            onRemove = if (editsOwn && u.photoUrl != null) removeOwnPhoto else null,
+        ) { StatusChip(u.status, u.statusLabel) }
 
         // Users (no role yet) follow race categories as fans; everyone else has theirs by role.
         if (u.role == "user") FollowCategoriesPanel(vm)
@@ -431,7 +455,8 @@ private fun FollowCategoriesPanel(vm: AppViewModel) {
  * accent, the role and status, and the photo itself on the right.
  */
 @Composable
-fun ProfileBanner(photo: String?, name: String, role: String, status: @Composable () -> Unit) {
+fun ProfileBanner(photo: String?, name: String, role: String, onChange: (() -> Unit)? = null, onRemove: (() -> Unit)? = null, status: @Composable () -> Unit) {
+    val context = LocalContext.current
     Box(
         Modifier
             .fillMaxWidth()
@@ -458,8 +483,15 @@ fun ProfileBanner(photo: String?, name: String, role: String, status: @Composabl
                 status()
             }
             Spacer(Modifier.width(12.dp))
-            Box(Modifier.size(80.dp).clip(RoundedCornerShape(16.dp)).border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp))) {
-                if (photo != null) AsyncImage(model = photo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().clickable { PhotoPreview.show(photo, name) })
+            // A tap: the photo large (Change and Remove for those who may); none yet, the gallery or "No photo yet".
+            Box(
+                Modifier
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                    .clickable { openPhoto(context, photo, name, onChange, onRemove) },
+            ) {
+                if (photo != null) AsyncImage(model = photo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
                 else Box(Modifier.matchParentSize().background(NightHighest), contentAlignment = Alignment.Center) {
                     Text(name.take(1).uppercase(), style = MaterialTheme.typography.headlineMedium, color = Snow)
                 }

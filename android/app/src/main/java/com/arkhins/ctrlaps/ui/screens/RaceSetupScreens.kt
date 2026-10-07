@@ -435,7 +435,19 @@ fun TeamsScreen() {
                         Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             val name = names[t.id] ?: t.name
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.clip(CircleShape).clickable { changePhoto(t.id) }) { Avatar(app.api.absolute(t.photoUrl), name, size = 46, preview = false) }
+                                Avatar(
+                                    app.api.absolute(t.photoUrl),
+                                    name,
+                                    size = 46,
+                                    onChange = { changePhoto(t.id) },
+                                    onRemove = if (t.photoUrl != null) ({
+                                        scope.launch {
+                                            runCatching { app.api.delete("/api/teams/${t.id}/photo") }
+                                                .onSuccess { data = data?.let { r -> r.copy(teams = r.teams.map { x -> if (x.id == t.id) x.copy(photoUrl = null) else x }) } }
+                                                .onFailure { error = it.message }
+                                        }
+                                    }) else null,
+                                )
                                 Spacer(Modifier.width(14.dp))
                                 Column(Modifier.weight(1f).clickable { openRoute("team/${t.id}") }) {
                                     Text(name, style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp, lineHeight = 20.sp), fontWeight = FontWeight.Bold, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
