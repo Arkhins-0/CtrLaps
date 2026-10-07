@@ -12,9 +12,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
- * Firebase hands messages here while the app is in the foreground (in the
- * background Android shows the notification itself). Each one becomes a
- * heads-up notification and an in-app popup.
+ * Firebase hands every message here, in the background too: the server
+ * sends data only, so the app builds each notification itself. Each one
+ * becomes a heads-up notification, and while the app is open an in-app popup.
  */
 class CtrlapsMessagingService : FirebaseMessagingService() {
 
@@ -37,7 +37,7 @@ class CtrlapsMessagingService : FirebaseMessagingService() {
         val link = data["link"] ?: "/home"
         // The chat on screen shows the message itself: no notification, no popup, only the fetch.
         val onScreen = Notifications.isOpenChat(link)
-        if (!onScreen) Notifications.show(this, title, body, link, message.notification?.tag)
+        if (!onScreen) Notifications.show(this, Incoming.from(data, title, body))
         val app = application as CtrlapsApplication
         link.removePrefix("/chats/").takeIf { link.startsWith("/chats/") && it.isNotBlank() }?.let { id ->
             app.appScope.launch { runCatching { app.chatCache.sync(id, markRead = onScreen) } }

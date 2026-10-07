@@ -78,7 +78,7 @@ class CtrlapsApplication : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         session.load()
-        Notifications.createChannel(this)
+        Notifications.createChannels(this)
         runCatching {
             getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
                 override fun onLost(network: Network) {

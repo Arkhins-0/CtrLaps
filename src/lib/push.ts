@@ -66,14 +66,12 @@ export async function pushTo(userIds: string[], push: Push): Promise<void> {
   for (let i = 0; i < tokens.length; i += 500) {
     const batch = tokens.slice(i, i + 500);
     try {
+      // Data only for Android: the app builds every notification itself (the sender's photo, a chat's earlier
+      // messages, Reply and Mark read), in the background too. Browsers get a ready notification.
       const result = await messaging.sendEachForMulticast({
         tokens: batch,
-        notification: { title: push.title, body: push.body },
-        data: { ...push.popup, link: push.link, title: push.title, body: push.body },
-        android: {
-          priority: "high",
-          notification: { channelId: "ctrlaps_alerts", tag: push.tag, clickAction: "OPEN_LINK", sound: "default" },
-        },
+        data: { ...push.popup, link: push.link, title: push.title, body: push.body, tag: push.tag ?? "" },
+        android: { priority: "high" },
         webpush: {
           notification: { title: push.title, body: push.body, tag: push.tag, icon: "/icon-512.png" },
           fcmOptions: { link: push.link },

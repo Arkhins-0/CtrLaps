@@ -106,7 +106,7 @@
         </service>
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="ctrlaps_alerts" />
+            android:value="other" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_notification" />
@@ -117,6 +117,11 @@
         <!-- Where the package installer reports how the in-app update went. -->
         <receiver
             android:name=".data.UpdateInstallReceiver"
+            android:exported="false" />
+
+        <!-- A chat notification's Reply and Mark read buttons. -->
+        <receiver
+            android:name=".push.NotificationActionReceiver"
             android:exported="false" />
 
         <!-- An event's reminder, set on the phone (EventReminders). -->

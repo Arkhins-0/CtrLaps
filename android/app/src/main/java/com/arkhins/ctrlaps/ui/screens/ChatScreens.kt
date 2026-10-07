@@ -715,9 +715,10 @@ fun ChatScreen(
     val clipboard = LocalClipboardManager.current
     val myName = vm.me?.user?.displayName ?: "You"
     DisposableEffect(Unit) { onDispose { onSelection(null) } }
-    // While this chat is on screen its messages need no notification or popup.
+    // While this chat is on screen its messages need no notification or popup, and the one waiting goes.
     DisposableEffect(conversationId) {
         Notifications.openChat = conversationId
+        Notifications.cancelChat(context, conversationId)
         onDispose { if (Notifications.openChat == conversationId) Notifications.openChat = null }
     }
     // Built in the same frame the selection changes, so the bar is there at once.

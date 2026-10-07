@@ -402,7 +402,7 @@ export function popupData(
   kind: "chat" | "channel" | "announcement" | "group",
   sender: SessionUser,
   draft: Draft,
-  file: { mime: string; as_document?: boolean } | null,
+  file: { id?: string; mime: string; as_document?: boolean } | null,
   place = "",
 ): Record<string, string> {
   const location = /https:\/\/maps\.google\.com\/\?q=/.test(draft.body);
@@ -413,12 +413,15 @@ export function popupData(
       : "";
   return {
     kind,
+    senderId: sender.id,
     senderName: sender.name || sender.email,
     senderRole: roleLabel(sender.role, isDeveloper(sender)),
     senderPhoto: photoUrl(sender) ?? "",
     // Notifications and popups show the words, not the formatting markers.
     text: location ? "" : plainText(draft.body).trim().replace(/\s+/g, " ").slice(0, 300),
     attach,
+    // A photo's file id: the app's notification shows it large.
+    image: attach === "image" && file?.id ? file.id : "",
     place,
   };
 }
