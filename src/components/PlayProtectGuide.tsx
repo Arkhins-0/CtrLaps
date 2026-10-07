@@ -36,7 +36,7 @@ export function PlayProtectGuide() {
     <section className="mt-6">
       <h2 className="mb-1 text-lg font-bold tracking-tight">If Google Play Protect warns you</h2>
       <p className="text-sm text-snow-soft">
-        {APP_NAME} isn&apos;t on the Play Store yet: Google is still registering us as a developer, so Android warns about an app it hasn&apos;t
+        <b className="text-gold">{APP_NAME} isn&apos;t on the Play Store yet</b>: Google is still registering us as a developer, so Android warns about an app it hasn&apos;t
         checked itself. The app is ours and safe to install. You&apos;ll see one of these; tap the ringed buttons in order.
       </p>
 
