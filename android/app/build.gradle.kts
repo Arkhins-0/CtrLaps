@@ -14,8 +14,8 @@ plugins {
 // Four segments. Bump both together for every release: the tag pushed to
 // GitHub is "v" + versionName, and the app compares versionName against the
 // latest release to decide whether to show the update popup.
-val ctrlapsVersionName = "0.2.0.6"
-val ctrlapsVersionCode = 20
+val ctrlapsVersionName = "0.2.1.0"
+val ctrlapsVersionCode = 21
 
 // --- Build-time configuration --------------------------------------------------
 // Values reach the app through BuildConfig. Each is looked up, in order, as an
