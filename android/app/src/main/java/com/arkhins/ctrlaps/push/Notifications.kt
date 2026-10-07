@@ -148,6 +148,24 @@ object Notifications {
         }
     }
 
+    /**
+     * Account → Notifications → Send a test: one notification on each channel (a chat, an announcement, a result), so a
+     * phone can be checked without waiting for a real one. Not kept in the history.
+     */
+    fun sendTest(context: Context) {
+        listOf(
+            Triple(CHANNEL_CHATS, "Test · Chats", "This is how a chat message arrives."),
+            Triple(CHANNEL_POSTS, "Test · Announcements and channels", "This is how an announcement or a channel post arrives."),
+            Triple(CHANNEL_OTHER, "Test · Results and reminders", "This is how results, reminders and support replies arrive."),
+        ).forEach { (channel, title, body) ->
+            val builder = base(context, channel, "/home", "test:$channel")
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            post(context, "test:$channel", builder)
+        }
+    }
+
     /** A plain notification: results, reminders, support. Results also get a Standings button. */
     fun show(context: Context, title: String, body: String, link: String, tag: String?, logged: Boolean = false) {
         if (!logged) log(context, "${tag ?: link}@${System.currentTimeMillis()}", kindOf("", link, tag), title, body, link, "")

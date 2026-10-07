@@ -37,6 +37,7 @@ import com.arkhins.ctrlaps.ui.screens.peoplePages
 import androidx.compose.runtime.CompositionLocalProvider
 import com.arkhins.ctrlaps.ui.screens.LocalOpen
 import com.arkhins.ctrlaps.ui.screens.NotificationsScreen
+import com.arkhins.ctrlaps.ui.screens.NotificationSettingsScreen
 import com.arkhins.ctrlaps.ui.components.NotificationBell
 import com.arkhins.ctrlaps.ui.components.PhotoViewerActions
 import com.arkhins.ctrlaps.ui.screens.StandingsScreen
@@ -488,6 +489,7 @@ private fun MainNav(vm: AppViewModel) {
             composable("delete-account") { Pushed("Delete account", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Delete)) { DeleteAccountScreen(onDeleted = { vm.accountDeleted() }) } }
             composable("theme") { Pushed("Theme", flat = true, bigIcon = BigIcon(drawable = R.drawable.ic_palette)) { ThemeScreen() } }
             composable("permissions") { Pushed("Permissions", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Lock)) { PermissionsScreen() } }
+            composable("notification-settings") { Pushed("Notifications", flat = true, bigIcon = BigIcon(drawable = R.drawable.ic_bell)) { NotificationSettingsScreen(onHistory = { nav.open("notifications") }, onPermissions = { nav.open("permissions") }) } }
             composable("notifications") { Pushed("Notifications", flat = true, bigIcon = BigIcon(drawable = R.drawable.ic_bell)) { NotificationsScreen() } }
             composable("about") { Pushed("About", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Info)) { AboutScreen(vm, onFaqs = { nav.open("support/faqs") }, onChangelog = { nav.open("changelog") }, onLegal = { nav.open("legal/$it") }, onSupport = { nav.open("support") }, onLicense = { nav.open("license") }) } }
             composable("license") { Pushed("License", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Info)) { LicenseScreen() } }

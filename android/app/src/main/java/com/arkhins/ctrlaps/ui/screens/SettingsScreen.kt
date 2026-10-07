@@ -1,6 +1,8 @@
 package com.arkhins.ctrlaps.ui.screens
 
 import com.arkhins.ctrlaps.ui.theme.NightLine
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import com.arkhins.ctrlaps.ui.components.GroupTitle
 import com.arkhins.ctrlaps.ui.theme.NightHigh
 import com.arkhins.ctrlaps.ui.components.ColorPickerDialog
 import com.arkhins.ctrlaps.ui.components.ColorDot
@@ -112,6 +114,8 @@ fun preloadSettings(context: Context) {
 
 /** One thing the phone lets CTR[L]APS do, whether it is allowed, and what goes wrong without it. */
 private data class Access(
+    /** Its icon on the page. */
+    val icon: Int,
     val title: String,
     val hint: String,
     val warning: String,
@@ -121,6 +125,8 @@ private data class Access(
     val permissions: List<String> = emptyList(),
     /** The phone's own page for this switch. */
     val page: Intent,
+    /** Under "Updates and background" rather than "What CTR[L]APS can use". */
+    val background: Boolean = false,
 )
 
 /**
@@ -339,42 +345,91 @@ fun PermissionsScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Panel {
-            Column {
-                items.forEachIndexed { i, item ->
-                    if (i > 0) HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                    AccessRow(item) {
-                        if (item.allowed == false && item.permissions.isNotEmpty()) ask.launch(item.permissions.toTypedArray())
-                        else runCatching { openPage.launch(item.page) }.onFailure { runCatching { context.startActivity(appDetails(context)) } }
-                    }
+        val open = { item: Access ->
+            if (item.allowed == false && item.permissions.isNotEmpty()) ask.launch(item.permissions.toTypedArray())
+            else runCatching { openPage.launch(item.page) }.onFailure { runCatching { context.startActivity(appDetails(context)) } }
+        }
+        if (items.isNotEmpty()) AccessSummary(items)
+        listOf(false to "What CTR[L]APS can use", true to "Updates and background").forEach { (background, title) ->
+            val group = items.filter { it.background == background }
+            if (group.isNotEmpty()) {
+                Column {
+                    GroupTitle(title)
+                    group.forEach { item -> AccessRow(item) { open(item) } }
                 }
             }
         }
         Text(
             "Tap a line to change it. Switching one off happens on the phone's own settings page.",
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.bodySmall,
             color = SnowFaint,
         )
     }
 }
 
+/** The page's top: all set, or how many still need allowing, with the tone to match. */
+@Composable
+private fun AccessSummary(items: List<Access>) {
+    val known = items.filter { it.allowed != null }
+    val missing = known.count { it.allowed == false }
+    val tone = if (missing == 0) Allowed else Danger
+    Row(
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).background(tone.copy(alpha = 0.12f)).padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(painterResource(if (missing == 0) R.drawable.ic_shield_check else R.drawable.ic_error), contentDescription = null, tint = tone, modifier = Modifier.size(32.dp))
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                if (missing == 0) "All set" else if (missing == 1) "1 needs your OK" else "$missing need your OK",
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp, lineHeight = 26.sp),
+                fontWeight = FontWeight.Bold,
+                color = Snow,
+            )
+            Text(
+                "${known.size - missing} of ${known.size} allowed" + if (missing == 0) ". Popups, updates and the scanner all work." else ". Tap one below to allow it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = SnowSoft,
+            )
+        }
+    }
+}
+
+/**
+ * One permission, as the Account pages' rows: an icon, a bold title, what it's for (and, when it is off, what goes
+ * wrong in red), and a switch that shows whether it is on. One the phone can't report gets an arrow to its page.
+ */
 @Composable
 private fun AccessRow(item: Access, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Icon(painterResource(item.icon), contentDescription = null, tint = if (item.allowed == false) Danger else Gold, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(20.dp))
         Column(Modifier.weight(1f)) {
-            Text(item.title, style = MaterialTheme.typography.titleMedium, color = Snow)
-            Text(item.hint, style = MaterialTheme.typography.bodySmall, color = SnowFaint)
-            if (item.allowed == false) Text(item.warning, style = MaterialTheme.typography.bodySmall, color = Danger)
-            if (item.allowed == null) Text(item.warning, style = MaterialTheme.typography.bodySmall, color = SnowSoft)
+            Text(item.title, style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp, lineHeight = 20.sp), fontWeight = FontWeight.Bold, color = Snow)
+            Text(item.hint, style = MaterialTheme.typography.bodySmall, color = SnowSoft.copy(alpha = 0.8f))
+            if (item.allowed == false) Text(item.warning, style = MaterialTheme.typography.bodySmall, color = Danger, modifier = Modifier.padding(top = 2.dp))
+            if (item.allowed == null) Text(item.warning, style = MaterialTheme.typography.bodySmall, color = SnowFaint, modifier = Modifier.padding(top = 2.dp))
         }
-        Spacer(Modifier.width(10.dp))
-        when (item.allowed) {
-            true -> Chip("Allowed", Allowed)
-            false -> Chip("Not allowed", Danger)
-            null -> Chip("Check", SnowSoft)
+        Spacer(Modifier.width(12.dp))
+        if (item.allowed == null) {
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = "Open", tint = Gold)
+        } else {
+            // Shows the state; the row's tap does the changing (a dialog, or the phone's page).
+            Switch(
+                checked = item.allowed,
+                onCheckedChange = null,
+                modifier = Modifier.semantics { contentDescription = if (item.allowed) "Allowed" else "Not allowed" },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = OnGold,
+                    checkedTrackColor = Gold,
+                    uncheckedThumbColor = SnowFaint,
+                    uncheckedTrackColor = NightHigh,
+                    uncheckedBorderColor = SnowFaint,
+                ),
+            )
         }
     }
 }
@@ -384,6 +439,7 @@ private fun accessList(context: Context): List<Access> = buildList {
     val channelsOff = Battery.channelsOff(context)
     add(
         Access(
+            R.drawable.ic_bell,
             "Notifications",
             "Popups for messages, announcements and race updates",
             channelsOff.takeIf { it.isNotEmpty() }?.let { "Switched off: ${it.joinToString()}. Those popups don't arrive." }
@@ -396,6 +452,7 @@ private fun accessList(context: Context): List<Access> = buildList {
     )
     add(
         Access(
+            R.drawable.ic_location,
             "Location",
             "Share where you are in a chat",
             "You can't share your location in chats.",
@@ -406,6 +463,7 @@ private fun accessList(context: Context): List<Access> = buildList {
     )
     add(
         Access(
+            R.drawable.ic_gallery,
             "Photos",
             "Your recent photos in the attach sheet",
             "The attach sheet can't show your photos; Gallery opens the system picker instead.",
@@ -416,6 +474,7 @@ private fun accessList(context: Context): List<Access> = buildList {
     )
     add(
         Access(
+            R.drawable.ic_mic,
             "Microphone",
             "Record voice notes",
             "You can't record voice notes.",
@@ -426,6 +485,7 @@ private fun accessList(context: Context): List<Access> = buildList {
     )
     add(
         Access(
+            R.drawable.ic_camera,
             "Camera",
             "Scan QR codes to verify people",
             "You can't scan QR codes; people can only be checked by their account code.",
@@ -436,32 +496,38 @@ private fun accessList(context: Context): List<Access> = buildList {
     )
     add(
         Access(
+            R.drawable.ic_download,
             "Install updates",
             "Update CTR[L]APS from inside the app",
             "Updates can't install from inside CTR[L]APS; Android will stop to ask each time.",
             context.packageManager.canRequestPackageInstalls(),
             page = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")),
+            background = true,
         ),
     )
     val exempt = Battery.isExempt(context)
     add(
         Access(
+            R.drawable.ic_dark_mode,
             "Run in background",
             "Battery optimisation off for CTR[L]APS",
             "The phone may hold back popups and downloads while it sleeps.",
             exempt,
             page = if (exempt) Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS) else Battery.requestExemption(context),
+            background = true,
         ),
     )
     // Xiaomi's own battery saver holds an app back even with Android's optimisation off; it can't be read, only opened.
     Battery.xiaomiBatteryIntent(context)?.let { page ->
         add(
             Access(
+                R.drawable.ic_battery,
                 "Battery saver",
-                "Xiaomi's battery saver: choose No restrictions",
+                "Xiaomi's own battery saver, apart from Android's",
                 "Set to No restrictions, or the phone may hold back popups while it sleeps.",
                 null,
                 page = page,
+                background = true,
             ),
         )
     }
@@ -469,11 +535,13 @@ private fun accessList(context: Context): List<Access> = buildList {
     Battery.autostartIntent(context)?.let { page ->
         add(
             Access(
+                R.drawable.ic_restart,
                 "Autostart",
                 "Start again after recent apps are cleared",
                 "Popups stop once recent apps are cleared, until CTR[L]APS is opened again.",
                 Battery.autostartAllowed(context),
                 page = page,
+                background = true,
             ),
         )
     }

@@ -192,7 +192,7 @@ fun AccountScreen(
         Column {
             // The QR in a sheet, a tap away at the gate; the list stays on the first screen.
             MenuRow("Account", "Email, date of birth and password", icon = rememberVectorPainter(Icons.Outlined.Person), onClick = onDetails)
-            MenuRow("Notifications", "Everything this phone has shown you", icon = painterResource(R.drawable.ic_bell)) { open("notifications") }
+            MenuRow("Notifications", "Popups, each kind, a test and the history", icon = painterResource(R.drawable.ic_bell)) { open("notification-settings") }
             MenuRow("Archive", "Past seasons: their weekends, channels and messages", icon = painterResource(R.drawable.ic_archive), onClick = onArchive)
             MenuRow("Storage", "What CTR[L]APS keeps on this phone", icon = painterResource(R.drawable.ic_download), onClick = onStorage)
             MenuRow("Settings", "Permissions, theme and email", icon = rememberVectorPainter(Icons.Outlined.Settings), onClick = onSettings)
@@ -303,7 +303,9 @@ private val FINDABLE = listOf(
     Findable("Account details", "Account", "details", "name profile date of birth phone contact"),
     Findable("Change password", "Account", "details", "password security"),
     Findable("Change email", "Account", "details", "email address"),
-    Findable("Notifications", "Account › Notifications", "notifications", "alerts history bell"),
+    Findable("Notifications", "Account › Notifications", "notification-settings", "alerts popups channels chats announcements results"),
+    Findable("Send a test notification", "Account › Notifications", "notification-settings", "test check alerts popups arrive"),
+    Findable("Notification history", "Account › Notifications", "notifications", "history bell past alerts"),
     Findable("Archive", "Account › Archive", "archive", "past seasons old"),
     Findable("Storage", "Account › Storage", "storage", "space files phone clear"),
     Findable("Automatic downloads", "Account › Storage", "storage", "download photos audio documents data"),
