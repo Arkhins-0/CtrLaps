@@ -103,6 +103,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clip
+import com.arkhins.ctrlaps.ui.components.WheelPicker
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.put
@@ -601,13 +602,41 @@ private fun WeekendDialog(w: Weekend?, seasons: List<Season>, categories: List<C
     )
 }
 
-/** Name, start and end as the track's wall clock. Saving tells everyone. */
+/** The kinds of session on the name wheel; Other is typed. */
+private val SESSION_KINDS = listOf("Briefing", "Practice", "Qualifying", "Race", "Warm-up", "Test", "Other")
+/** Kinds that are usually numbered: picking one takes the next free number. */
+private val NUMBERED_KINDS = setOf("Practice", "Qualifying", "Race")
+private val SESSION_NUMBERS = listOf("—", "1", "2", "3", "4", "5")
+
+/** A session's name split for the wheels: its kind, its number (null: none), or typed text for Other. */
+private data class SessionName(val kind: String, val number: Int?, val other: String = "") {
+    val text: String get() = if (kind == "Other") other.trim() else kind + (number?.let { " $it" } ?: "")
+}
+
+/** "ITC Race 2" → Race, 2 (a category code in front is dropped). [exact]: only a name the wheels would write. */
+private fun parseSessionName(name: String, codes: List<String>, exact: Boolean): SessionName {
+    var n = name.trim()
+    codes.forEach { c -> if (c.isNotBlank() && n.startsWith("$c ", ignoreCase = true)) n = n.substring(c.length + 1).trim() }
+    val m = Regex("""^(.*?)(?:\s+(\d+))?$""").find(n)
+    val base = m?.groupValues?.get(1)?.trim().orEmpty()
+    val number = m?.groupValues?.get(2)?.toIntOrNull()
+    val kind = SESSION_KINDS.firstOrNull { it != "Other" && it.equals(base, ignoreCase = true) }
+        ?: if (exact) null else SESSION_KINDS.firstOrNull { k -> k != "Other" && (base.contains(k, ignoreCase = true) || base.contains(k.replace("-", " "), ignoreCase = true)) }
+    return if (kind == null || (exact && (number ?: 0) > 5)) SessionName("Other", null, name.trim()) else SessionName(kind, number)
+}
+
+/**
+ * Add or change a session: its name on two wheels (the kind — Briefing, Practice, Qualifying, Race… — and a number, or
+ * none), start and end as the track's wall clock, and its category. Picking Practice, Qualifying or Race takes the
+ * next number not used in the weekend for that category; other kinds start with none. Saving a name the weekend
+ * already has asks first. An admin can delete the session from here. Saving tells everyone.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SessionDialog(w: Weekend, session: RaceSession?, categories: List<Category>, timesOnly: Boolean = false, onDismiss: () -> Unit, onSaved: () -> Unit) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
-    var name by remember { mutableStateOf(session?.name ?: "") }
+    val codes = remember(categories) { categories.map { it.code } }
     var starts by remember { mutableStateOf(session?.let { asInput(it.startsAt, w.timezone) } ?: "${w.startsOn}T09:00") }
     var ends by remember { mutableStateOf(session?.let { asInput(it.endsAt, w.timezone) } ?: "${w.startsOn}T10:00") }
     // The weekend's own categories; all of its season's when it lists none.
@@ -616,53 +645,148 @@ private fun SessionDialog(w: Weekend, session: RaceSession?, categories: List<Ca
     var categoryId by remember { mutableStateOf(session?.categoryId) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var askDuplicate by remember { mutableStateOf(false) }
+    var askDelete by remember { mutableStateOf(false) }
+
+    // The other sessions of the weekend in the same category.
+    fun others(cat: String?) = w.sessions.filter { it.id != session?.id && it.categoryId == cat }
+    fun nextFree(kind: String, cat: String?): Int? {
+        val taken = others(cat).map { parseSessionName(it.name, codes, exact = false) }.filter { it.kind == kind }.map { it.number ?: 1 }.toSet()
+        return (1..5).firstOrNull { it !in taken }
+    }
+    var name by remember {
+        mutableStateOf(session?.let { parseSessionName(it.name, codes, exact = true) } ?: SessionName("Practice", nextFree("Practice", categoryId)))
+    }
+    fun pickKind(kind: String) {
+        name = when {
+            kind == "Other" -> SessionName("Other", null, if (name.kind == "Other") name.other else "")
+            kind in NUMBERED_KINDS -> SessionName(kind, nextFree(kind, categoryId))
+            else -> SessionName(kind, null)
+        }
+    }
+    val duplicate = others(categoryId).any { parseSessionName(it.name, codes, exact = false).let { o -> o.kind == name.kind && o.number == name.number && name.kind != "Other" } || it.name.trim().equals(name.text, ignoreCase = true) }
 
     val valid = runCatching { LocalDateTime.parse(starts.trim(), inputFormat); LocalDateTime.parse(ends.trim(), inputFormat) }.isSuccess
+
+    fun save() {
+        busy = true
+        error = null
+        scope.launch {
+            try {
+                app.api.post("/api/weekends/${w.id}/sessions", WeekendResponse.serializer()) {
+                    if (session != null) put("id", session.id)
+                    put("name", name.text)
+                    put("startsAt", starts.trim())
+                    put("endsAt", ends.trim())
+                    put("categoryId", categoryId ?: "")
+                }
+                onSaved()
+            } catch (e: Exception) {
+                error = e.message ?: "Could not save."
+                busy = false
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         containerColor = NightPanel,
         title = { Text(if (session == null) "Add session" else if (timesOnly) "Change the times" else "Edit session", style = MaterialTheme.typography.headlineSmall) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 ErrorText(error)
-                Field(name, { name = it }, "Session", placeholder = "Qualifying", enabled = !busy && !timesOnly)
+                if (timesOnly) {
+                    Text(session?.name.orEmpty(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Snow)
+                } else {
+                    // A category first: it decides which numbers are free.
+                    if (offered.isNotEmpty()) {
+                        Text("Category", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            fun choose(id: String?) {
+                                if (busy || id == categoryId) return
+                                categoryId = id
+                                if (name.kind in NUMBERED_KINDS && session == null) name = SessionName(name.kind, nextFree(name.kind, id))
+                            }
+                            Chip("Everyone", Gold, filled = categoryId == null) { choose(null) }
+                            offered.forEach { c -> Chip(c.code, categoryColor(c), filled = categoryId == c.id) { choose(c.id) } }
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth()) {
+                        Text("Session", style = MaterialTheme.typography.bodySmall, color = SnowFaint, modifier = Modifier.weight(1.5f))
+                        Text("Number", style = MaterialTheme.typography.bodySmall, color = SnowFaint, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    }
+                    Row(Modifier.fillMaxWidth()) {
+                        WheelPicker(SESSION_KINDS, SESSION_KINDS.indexOf(name.kind).coerceAtLeast(0), { pickKind(SESSION_KINDS[it]) }, Modifier.weight(1.5f), enabled = !busy)
+                        WheelPicker(
+                            SESSION_NUMBERS,
+                            name.number?.coerceIn(0, 5) ?: 0,
+                            { i -> if (name.kind != "Other") name = name.copy(number = if (i == 0) null else i) },
+                            Modifier.weight(1f),
+                            enabled = !busy && name.kind != "Other",
+                        )
+                    }
+                    if (name.kind == "Other") Field(name.other, { name = name.copy(other = it) }, "Session name", placeholder = "Super pole", enabled = !busy)
+                    Text(
+                        if (name.text.isBlank()) "Name the session." else "Saved as “${name.text}”" + if (duplicate) " · the weekend already has one" else "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (duplicate) Danger else SnowSoft,
+                    )
+                }
                 DateTimeField(starts, { starts = it; if (ends <= it) ends = it }, "Starts (${w.timezone})", enabled = !busy, defaultDay = w.startsOn)
                 DateTimeField(ends, { ends = it }, "Ends (${w.timezone})", enabled = !busy, defaultDay = w.startsOn)
-                // A coordinator changes the times only: the category stays as it is.
-                if (offered.isNotEmpty() && !timesOnly) {
-                    Text("CATEGORY", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Chip("Everyone", Gold, filled = categoryId == null) { if (!busy) categoryId = null }
-                        offered.forEach { c -> Chip(c.code, categoryColor(c), filled = categoryId == c.id) { if (!busy) categoryId = c.id } }
-                    }
-                }
-                Text("Saving a new or changed time sends an urgent notice to everyone.", style = MaterialTheme.typography.labelSmall, color = SnowFaint, textAlign = TextAlign.Start)
+                Text("Saving a new or changed time sends an urgent notice to everyone.", style = MaterialTheme.typography.bodySmall, color = SnowFaint, textAlign = TextAlign.Start)
             }
         },
         confirmButton = {
-            TextButton(enabled = !busy && name.isNotBlank() && valid, onClick = {
-                busy = true
-                error = null
-                scope.launch {
-                    try {
-                        app.api.post("/api/weekends/${w.id}/sessions", WeekendResponse.serializer()) {
-                            if (session != null) put("id", session.id)
-                            put("name", name.trim())
-                            put("startsAt", starts.trim())
-                            put("endsAt", ends.trim())
-                            put("categoryId", categoryId ?: "")
-                        }
-                        onSaved()
-                    } catch (e: Exception) {
-                        error = e.message ?: "Could not save."
-                        busy = false
-                    }
-                }
+            TextButton(enabled = !busy && name.text.length >= 2 && valid, onClick = {
+                // The same name twice in a weekend's category: ask before saving.
+                if (!timesOnly && duplicate) askDuplicate = true else save()
             }) { Text(if (busy) "Saving…" else "Save", color = Gold) }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") } },
+        dismissButton = {
+            Row {
+                if (session != null && !timesOnly) TextButton(onClick = { askDelete = true }, enabled = !busy) { Text("Delete", color = Danger) }
+                TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") }
+            }
+        },
     )
+    if (askDuplicate) {
+        AlertDialog(
+            onDismissRequest = { askDuplicate = false },
+            containerColor = NightPanel,
+            title = { Text("${name.text} is already there", style = MaterialTheme.typography.headlineSmall) },
+            text = {
+                val cat = offered.firstOrNull { it.id == categoryId }?.code
+                Text("This weekend already has a ${name.text}" + (cat?.let { " for $it" } ?: " for everyone") + ". Save another one with the same name?", color = SnowSoft)
+            },
+            confirmButton = { TextButton(onClick = { askDuplicate = false; save() }) { Text("Save anyway", color = Gold) } },
+            dismissButton = { TextButton(onClick = { askDuplicate = false }) { Text("Change it") } },
+        )
+    }
+    if (askDelete && session != null) {
+        AlertDialog(
+            onDismissRequest = { askDelete = false },
+            containerColor = NightPanel,
+            title = { Text("Delete ${session.name}?", style = MaterialTheme.typography.headlineSmall) },
+            text = { Text("Its results go with it, and everyone gets a notice that it was removed.", color = SnowSoft) },
+            confirmButton = {
+                TextButton(onClick = {
+                    askDelete = false
+                    busy = true
+                    scope.launch {
+                        try {
+                            app.api.delete("/api/weekends/${w.id}/sessions?session=${session.id}")
+                            onSaved()
+                        } catch (e: Exception) {
+                            error = e.message ?: "Could not delete."
+                            busy = false
+                        }
+                    }
+                }) { Text("Delete", color = Danger) }
+            },
+            dismissButton = { TextButton(onClick = { askDelete = false }) { Text("Cancel") } },
+        )
+    }
 }
 
 /** A category's own colour. */
