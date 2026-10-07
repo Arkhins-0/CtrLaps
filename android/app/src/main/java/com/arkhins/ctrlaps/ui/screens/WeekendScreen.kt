@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.theme.Night
+import com.arkhins.ctrlaps.ui.components.WeekendPhotoHeader
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -83,6 +85,7 @@ fun WeekendScreen(vm: AppViewModel, weekendId: String, onView: (FileView) -> Uni
             error != null && w == null -> item { ErrorText(error) }
             w == null -> item { Loading() }
             else -> {
+                item { WeekendPhotoHeader(weekendId, w.photoUrl, isAdmin = vm.me?.isAdmin == true, pageColor = Night) { reload++ } }
                 item { WeekendCard(w, isAdmin = vm.me?.isAdmin == true, editTimes = vm.me?.user?.role == "coordinator", onOpen = {}, onChanged = { reload++ }, startOpen = true, categories = weekend?.categories ?: emptyList()) }
                 val c = channel
                 item {

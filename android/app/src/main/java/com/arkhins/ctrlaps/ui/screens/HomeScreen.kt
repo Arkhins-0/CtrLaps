@@ -1,5 +1,8 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.theme.NightPanel
+import com.arkhins.ctrlaps.ui.components.FadingPhoto
+import androidx.compose.ui.draw.clip
 import com.arkhins.ctrlaps.ui.theme.OnGold
 import com.arkhins.ctrlaps.data.UpcomingEvent
 import com.arkhins.ctrlaps.data.UpcomingEventsResponse
@@ -228,14 +231,19 @@ fun HomeScreen(
             }
             val n = next
             if (n != null && n.state != "none" && n.weekend != null && n.session != null) {
-                Panel(Modifier.clickable { onOpenWeekend(n.weekend.id) }) {
+                // With a track photo, it heads the card and fades into it.
+                val photo = n.weekend.photoUrl
+                Panel(Modifier.clickable { onOpenWeekend(n.weekend.id) }, padding = if (photo != null) PaddingValues(0.dp) else PaddingValues(16.dp)) {
                     Column {
+                        if (photo != null) FadingPhoto(photo, NightPanel, 110.dp, Modifier.clip(MaterialTheme.shapes.medium))
+                        Column(if (photo != null) Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp) else Modifier) {
                         Text(if (n.state == "live") "LIVE NOW" else "NEXT UP", style = MaterialTheme.typography.labelMedium, color = Gold)
                         Spacer(Modifier.height(4.dp))
                         Text(n.weekend.name, style = MaterialTheme.typography.titleLarge, color = Snow)
                         Text("${n.session.name} · ${localDateTime(n.session.startsAt)}", style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
                         Text("${trackDateTime(n.session.startsAt, n.weekend.timezone)} track time", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                         if (n.weekend.place.isNotBlank()) Text(n.weekend.place, style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                        }
                     }
                 }
             }

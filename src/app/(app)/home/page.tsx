@@ -56,14 +56,25 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
       <aside className="space-y-5 lg:order-none order-first">
         {board && <DashboardCard data={board} />}
         {next.state !== "none" && (
-          <Link href={`/w/${next.weekend.id}`} className="card block border-gold/30 hover:border-gold/60">
-            <p className="section-title text-gold">{next.state === "live" ? "Live now" : "Next up"}</p>
-            <p className="mt-1 text-lg font-semibold">{next.weekend.name}</p>
-            <p className="text-sm text-snow-soft">
+          <Link
+            href={`/w/${next.weekend.id}`}
+            className={`card relative block overflow-hidden border-gold/30 hover:border-gold/60 ${next.weekend.photoUrl ? "pt-24" : ""}`}
+          >
+            {next.weekend.photoUrl && (
+              <>
+                {/* The track's photo across the top, fading into the card. */}
+                {/* eslint-disable-next-line @next/next/no-img-element -- a signed-in, versioned image from our own API */}
+                <img src={next.weekend.photoUrl} alt="" className="absolute inset-x-0 top-0 h-32 w-full object-cover" />
+                <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-t from-night-panel via-night-panel/40 to-transparent" />
+              </>
+            )}
+            <p className="relative section-title text-gold">{next.state === "live" ? "Live now" : "Next up"}</p>
+            <p className="relative mt-1 text-lg font-semibold">{next.weekend.name}</p>
+            <p className="relative text-sm text-snow-soft">
               {next.session.name} · <LocalTime iso={next.session.startsAt} />
             </p>
-            <p className="text-xs text-snow-faint">{formatIn(next.session.startsAt, next.weekend.timezone)} track time</p>
-            {next.weekend.venue && <p className="mt-1 text-xs text-snow-faint">{[next.weekend.venue, next.weekend.city, next.weekend.country].filter(Boolean).join(", ")}</p>}
+            <p className="relative text-xs text-snow-faint">{formatIn(next.session.startsAt, next.weekend.timezone)} track time</p>
+            {next.weekend.venue && <p className="relative mt-1 text-xs text-snow-faint">{[next.weekend.venue, next.weekend.city, next.weekend.country].filter(Boolean).join(", ")}</p>}
           </Link>
         )}
 

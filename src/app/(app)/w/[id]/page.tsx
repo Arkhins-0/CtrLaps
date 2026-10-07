@@ -3,6 +3,7 @@ import { ChannelView, type ClosedReason } from "@/components/ChannelView";
 import { ChannelMenu } from "@/components/channels/ChannelMenu";
 import { MuteButton } from "@/components/channels/MuteButton";
 import { WeekendCard } from "@/components/schedule/WeekendCard";
+import { WeekendPhoto } from "@/components/schedule/WeekendPhoto";
 import { isMuted } from "@/lib/channels";
 import { canPostChannel, channelFor, conversationMessages, markConversationRead } from "@/lib/messages";
 import { categoriesOf } from "@/lib/categories";
@@ -34,6 +35,7 @@ export default async function WeekendPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="space-y-5">
+      <WeekendPhoto weekendId={id} photoUrl={weekend.photoUrl} isAdmin={isAdmin} />
       <WeekendCard
         weekend={weekend}
         isAdmin={isAdmin}

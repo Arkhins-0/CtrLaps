@@ -487,6 +487,8 @@ data class Weekend(
     val seasonArchived: Boolean = false,
     /** The race categories running this round. */
     val categoryIds: List<String> = emptyList(),
+    /** The weekend's photo (the track), versioned; null when it has none. */
+    val photoUrl: String? = null,
     val sessions: List<RaceSession> = emptyList(),
 ) {
     val place: String get() = listOf(venue, city, country).filter { it.isNotBlank() }.joinToString(", ")

@@ -28,6 +28,8 @@ export type Weekend = {
   seasonArchived: boolean;
   /** The race categories running this round (ids). */
   categoryIds: string[];
+  /** The weekend's photo (the track), versioned so a new one shows at once; null when there is none. */
+  photoUrl: string | null;
   sessions: Session[];
 };
 
@@ -48,12 +50,13 @@ type WRow = {
   season_id: string | null;
   season_name: string | null;
   season_status: string | null;
+  photo_key: string | null;
 };
 type SRow = { id: string; weekend_id: string; name: string; starts_at: string; ends_at: string; category_id: string | null };
 const S = "id, weekend_id, name, starts_at, ends_at, category_id";
 
 const W = `w.id, w.name, w.venue, w.city, w.country, w.timezone, w.starts_on::text AS starts_on, w.ends_on::text AS ends_on, w.channel_open,
-  w.channel_closed_reason, w.season_id, s.name AS season_name, s.status AS season_status`;
+  w.channel_closed_reason, w.season_id, s.name AS season_name, s.status AS season_status, w.photo_key`;
 const FROM = "FROM race_weekends w LEFT JOIN seasons s ON s.id = w.season_id";
 
 const session = (s: SRow): Session => ({
@@ -80,8 +83,13 @@ const weekend = (w: WRow, sessions: SRow[], categoryIds: string[] = []): Weekend
   seasonName: w.season_name,
   seasonArchived: w.season_status === "archived",
   categoryIds,
+  photoUrl: weekendPhotoUrl(w.id, w.photo_key),
   sessions: sessions.map(session),
 });
+
+/** Where a weekend's photo is read from; the version changes whenever the photo does. */
+export const weekendPhotoUrl = (id: string, key: string | null): string | null =>
+  key ? `/api/weekends/${id}/photo?v=${encodeURIComponent(key.slice(key.lastIndexOf("/") + 1))}` : null;
 
 /** Which categories run each of these weekends. */
 async function weekendCategories(ids: string[]): Promise<Map<string, string[]>> {
