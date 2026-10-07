@@ -5,6 +5,8 @@
 // Usage: node scripts/seed-mock.mjs          (add; refuses if mock data is already there)
 //        node scripts/seed-mock.mjs --photos (give the mock people profile photos: stock portraits from
 //                                             randomuser.me, made for test data, stored as the app stores photos)
+//        node scripts/seed-mock.mjs --results (more races with results, for the standings: a pre-season weekend
+//                                              and a Race 2 per category at the opener)
 //        node scripts/seed-mock.mjs --remove (take it all out, photos included)
 import path from "node:path";
 import { randomBytes, randomInt } from "node:crypto";
@@ -84,6 +86,7 @@ async function remove() {
     const d = r.detail ?? {};
     if (d.messages?.length) await q("DELETE FROM messages WHERE id = ANY($1::uuid[])", [d.messages]);
     if (d.conversations?.length) await q("DELETE FROM conversations WHERE id = ANY($1::uuid[])", [d.conversations]);
+    if (d.sessions?.length) await q("DELETE FROM race_sessions WHERE id = ANY($1::uuid[])", [d.sessions]);
     if (d.weekends?.length) await q("DELETE FROM race_weekends WHERE id = ANY($1::uuid[])", [d.weekends]);
   }
   const mock = (await q("SELECT id FROM users WHERE email LIKE $1", [`%${DOMAIN}`])).map((u) => u.id);
@@ -335,8 +338,106 @@ async function seed() {
   console.log(`added: ${Object.keys(people).length} mock people, ${made.weekends.length} weekends, ${made.messages.length} messages`);
 }
 
+// Points for 1st, 2nd… (the common table).
+const POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+
+async function moreResults() {
+  const admin = await one("SELECT id FROM users WHERE email = $1", [ADMIN_EMAIL]);
+  const opener = await one("SELECT id FROM race_weekends WHERE name = 'Season opener · Chennai'");
+  if (!admin || !opener) throw new Error("No mock data: run without flags first.");
+  if (await one("SELECT 1 FROM race_weekends WHERE name = 'Pre-season · Kolhapur'")) throw new Error("The extra results are already there.");
+  const season = await one("SELECT id FROM seasons WHERE status = 'active' ORDER BY created_at DESC LIMIT 1");
+  const cat = Object.fromEntries((await q("SELECT id, code FROM categories WHERE season_id = $1", [season.id])).map((c) => [c.code, c.id]));
+  const teams = (await q("SELECT id FROM teams ORDER BY name")).map((t) => t.id);
+  const user = async (key) => (await one("SELECT id, team_id FROM users WHERE email = $1", [`${key}${DOMAIN}`])) ?? { id: null, team_id: null };
+  const [karthik, aditya, rahul] = [await user("karthik"), await user("aditya"), await user("rahul")];
+
+  // Each category's drivers, by a short key: car, name, linked account, team.
+  const drivers = {
+    ITC: {
+      ks: ["7", "Karthik Subramanian", karthik.id, karthik.team_id ?? teams[0]],
+      ar: ["21", "Aditya Rao", aditya.id, aditya.team_id ?? teams[1]],
+      rp: ["11", "Rohan Pillai", null, teams[2]],
+      fa: ["3", "Farhan Ali", null, teams[5]],
+      sg: ["44", "Siddharth Gupta", null, karthik.team_id ?? teams[0]],
+      hv: ["19", "Harish Varma", null, teams[8]],
+      mk: ["66", "Manoj Kumar", null, teams[3]],
+      jt: ["31", "Joel Thomas", null, teams[6]],
+    },
+    LGB1300: {
+      rn: ["12", "Rahul Nair", rahul.id, rahul.team_id ?? teams[0]],
+      im: ["5", "Ishaan Mehta", null, teams[3]],
+      vs: ["27", "Varun Shetty", null, teams[6]],
+      nr: ["9", "Nikhil Reddy", null, rahul.team_id ?? teams[0]],
+      pd: ["33", "Pranav Desai", null, teams[1]],
+      ab: ["17", "Amit Bose", null, teams[4]],
+    },
+    F4: {
+      as: ["1", "Ananya Sharma", null, teams[1]],
+      kj: ["14", "Kabir Joshi", null, teams[4]],
+      tk: ["8", "Tanvi Kulkarni", null, teams[7]],
+      dm: ["22", "Dev Malhotra", null, teams[0]],
+      sq: ["4", "Sana Qureshi", null, teams[2]],
+      ak: ["10", "Arnav Kapoor", null, teams[5]],
+    },
+  };
+  const made = { weekends: [], sessions: [] };
+  await client.query("BEGIN");
+  const session = async (weekendId, name, startsAt, minutes, codeName) => {
+    const r = await one(
+      `INSERT INTO race_sessions (weekend_id, name, starts_at, ends_at, category_id) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [weekendId, name, startsAt, new Date(new Date(startsAt).getTime() + minutes * 60_000), codeName ? cat[codeName] : null],
+    );
+    made.sessions.push(r.id);
+    return r.id;
+  };
+  // A finishing order by driver key; "key:dnf" retires; the first finisher has pole, "fl" marks the fastest lap.
+  const race = async (sessionId, codeName, order, fastest) => {
+    let place = 0;
+    for (const [i, entry] of order.entries()) {
+      const [key, status = "finished"] = entry.split(":");
+      const [car, name, userId, teamId] = drivers[codeName][key];
+      const finished = status === "finished";
+      const position = finished ? ++place : null;
+      await q(
+        `INSERT INTO session_results (session_id, row_order, position, status, car_number, driver_name, user_id, team_id, points, best_lap, pole, fastest_lap)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        [sessionId, i, position, status, car, name, userId, teamId, finished ? POINTS[position - 1] ?? 0 : 0,
+          finished ? `1:${48 + i}.${String(100 + i * 137).slice(-3)}` : "", i === 0, key === fastest],
+      );
+    }
+  };
+
+  // A pre-season weekend in August.
+  const w = await one(
+    `INSERT INTO race_weekends (name, venue, city, country, timezone, starts_on, ends_on, season_id) VALUES ($1, $2, $3, 'India', 'Asia/Kolkata', $4, $5, $6) RETURNING id`,
+    ["Pre-season · Kolhapur", "Kolhapur Raceway", "Kolhapur", "2026-08-22", "2026-08-23", season.id],
+  );
+  made.weekends.push(w.id);
+  for (const c of ["ITC", "LGB1300", "F4"]) await q("INSERT INTO weekend_categories (weekend_id, category_id) VALUES ($1, $2)", [w.id, cat[c]]);
+  await session(w.id, "Briefing", "2026-08-22T03:00:00Z", 45, null);
+  await session(w.id, "Practice 1", "2026-08-22T04:00:00Z", 30, "ITC");
+  await session(w.id, "Qualifying", "2026-08-22T06:00:00Z", 20, "ITC");
+  await race(await session(w.id, "Race 1", "2026-08-22T09:00:00Z", 25, "ITC"), "ITC", ["ar", "ks", "fa", "rp", "mk", "sg", "jt", "hv:dnf"], "ks");
+  await race(await session(w.id, "Race 2", "2026-08-23T05:00:00Z", 25, "ITC"), "ITC", ["ks", "rp", "ar", "sg", "fa", "hv", "mk", "jt"], "rp");
+  await race(await session(w.id, "Race 1", "2026-08-22T10:30:00Z", 20, "LGB1300"), "LGB1300", ["im", "rn", "vs", "pd", "nr", "ab"], "rn");
+  await race(await session(w.id, "Race 2", "2026-08-23T06:30:00Z", 20, "LGB1300"), "LGB1300", ["rn", "im", "nr", "vs", "ab", "pd:dns"], "im");
+  await race(await session(w.id, "Race 1", "2026-08-22T11:30:00Z", 25, "F4"), "F4", ["kj", "as", "dm", "sq", "ak", "tk"], "as");
+  await race(await session(w.id, "Race 2", "2026-08-23T08:00:00Z", 25, "F4"), "F4", ["as", "dm", "kj", "tk", "ak:dnf", "sq"], "dm");
+
+  // A second race per category at the opener.
+  await race(await session(opener.id, "ITC Race 2", "2026-09-20T10:00:00Z", 25, "ITC"), "ITC", ["ks", "fa", "ar", "rp", "hv", "mk", "sg", "jt:dsq"], "fa");
+  await race(await session(opener.id, "LGB1300 Race 2", "2026-09-20T11:00:00Z", 20, "LGB1300"), "LGB1300", ["vs", "rn", "im", "pd", "nr", "ab"], "vs");
+  await race(await session(opener.id, "F4 Race 2", "2026-09-20T12:00:00Z", 25, "F4"), "F4", ["kj", "tk", "as", "dm", "sq", "ak"], "kj");
+
+  await q("INSERT INTO audit_log (actor_id, action, detail) VALUES ($1, 'mock.seed', $2)", [admin.id, JSON.stringify(made)]);
+  await client.query("COMMIT");
+  console.log(`added: 1 weekend and ${made.sessions.length} sessions, 9 of them with results`);
+}
+
 try {
   if (process.argv.includes("--remove")) await remove();
+  else if (process.argv.includes("--results")) await moreResults();
   else if (process.argv.includes("--photos")) await photos();
   else await seed();
 } catch (error) {
