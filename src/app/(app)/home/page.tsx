@@ -7,6 +7,7 @@ import { UpcomingEvents } from "@/components/EventCard";
 import { upcoming } from "@/lib/events";
 import { plainText } from "@/lib/formatting";
 import { LocalTime } from "@/components/LocalTime";
+import { SessionCountdown } from "@/components/SessionCountdown";
 import { channelFor, conversationMessages, inbox, myConversations } from "@/lib/messages";
 import { listWeekends, nextRace } from "@/lib/races";
 import { canAnnounce } from "@/lib/roles";
@@ -50,7 +51,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
             </Link>
           )}
         </div>
-        <Inbox initial={announcements} highlight={m} />
+        <Inbox initial={announcements} highlight={m} canSend={canSend} />
       </section>
 
       <aside className="space-y-5 lg:order-none order-first">
@@ -74,6 +75,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
               {next.session.name} · <LocalTime iso={next.session.startsAt} />
             </p>
             <p className="relative text-xs text-snow-faint">{formatIn(next.session.startsAt, next.weekend.timezone)} track time</p>
+            {/* Ticks on to the session after this one as each starts and ends. */}
+            <SessionCountdown sessions={[next.session, ...next.later]} className="relative mt-2 text-sm font-semibold text-gold" />
             {next.weekend.venue && <p className="relative mt-1 text-xs text-snow-faint">{[next.weekend.venue, next.weekend.city, next.weekend.country].filter(Boolean).join(", ")}</p>}
           </Link>
         )}

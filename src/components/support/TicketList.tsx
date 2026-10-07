@@ -4,11 +4,15 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
 import type { TicketListItem } from "@/lib/support";
+import { EmptyState } from "../EmptyState";
 
 type Status = "open" | "closed" | "all";
 
-/** Tickets with Open · Closed · All: your own, or (a developer) everyone's, with who raised each. */
-export function TicketList({ isDev }: { isDev: boolean }) {
+/**
+ * Tickets with Open · Closed · All: your own, or (a developer) everyone's, with who raised each. `onRaise` opens the
+ * support form, offered when you have no tickets.
+ */
+export function TicketList({ isDev, onRaise }: { isDev: boolean; onRaise?: () => void }) {
   const [status, setStatus] = useState<Status>("open");
   const [tickets, setTickets] = useState<TicketListItem[] | null>(null);
   const [query, setQuery] = useState("");
@@ -43,9 +47,25 @@ export function TicketList({ isDev }: { isDev: boolean }) {
       </div>
       {error && <p className="error">{error}</p>}
       {tickets === null && !error && <p className="text-sm text-snow-faint">Loading…</p>}
-      {tickets !== null && shown.length === 0 && (
-        <p className="card text-sm text-snow-faint">{status === "open" ? "No open tickets." : status === "closed" ? "No closed tickets." : "No tickets yet."}</p>
-      )}
+      {tickets !== null && shown.length === 0 &&
+        (q ? (
+          <p className="card text-sm text-snow-faint">No tickets match.</p>
+        ) : (
+          <EmptyState
+            icon="help"
+            title={status === "open" ? "No open tickets" : status === "closed" ? "No closed tickets" : "No tickets yet"}
+            line={
+              isDev
+                ? status === "closed"
+                  ? "Tickets show here once they're answered and closed."
+                  : "Nothing is waiting for Support."
+                : status === "closed"
+                  ? "Your tickets show here once Support closes them."
+                  : "Ask Support with the form; your ticket and its replies show here."
+            }
+            action={!isDev && status !== "closed" && onRaise ? { label: "Raise a ticket", onClick: onRaise } : undefined}
+          />
+        ))}
       {shown.map((t) => (
         <Link key={t.id} href={`/support/tickets/${t.id}`} className="row border border-night-line bg-night-panel/60 hover:border-gold/40">
           <span className="min-w-0 flex-1">

@@ -8,6 +8,7 @@ import { usePendingEdits } from "@/lib/pendingEdits";
 import type { Team } from "@/lib/teams";
 import { GroupTitle, SQUARE_BUTTON, SearchPill } from "./AppUI";
 import { Avatar } from "./Avatar";
+import { EmptyState } from "./EmptyState";
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 import { SaveBar } from "./SaveBar";
@@ -131,7 +132,14 @@ export function TeamsEditor({ initial, categories }: { initial: Team[]; categori
         </form>
         </Sheet>
       )}
-      {teams.length === 0 && <p className="text-sm text-snow-faint">No teams yet. Tap + to add the first.</p>}
+      {teams.length === 0 && !adding && (
+        <EmptyState
+          icon="people"
+          title="No teams yet"
+          line="Add a team, then enter it in this season's race categories."
+          action={{ label: "Add a team", onClick: () => setAdding({ name: "", categoryIds: [] }) }}
+        />
+      )}
       {teams.length > 0 && <GroupTitle title="Teams" count={shown.length} />}
       <ul className="grid grid-cols-1 gap-x-4 lg:grid-cols-2">
         {shown.map((saved) => {

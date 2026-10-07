@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { Category } from "@/lib/categories";
 import type { Weekend } from "@/lib/races";
 import type { Season } from "@/lib/seasons";
+import { EmptyState } from "./EmptyState";
 import { CategoriesEditor } from "./schedule/CategoriesEditor";
 import { CategoryChips } from "./schedule/CategoryTag";
 import { WeekendCard } from "./schedule/WeekendCard";
@@ -47,7 +48,14 @@ export function ScheduleEditor({ weekends, seasons, categories }: { weekends: We
           onCancel={() => setCreating(false)}
         />
       )}
-      {weekends.length === 0 && !creating && <p className="card text-sm text-snow-faint">No race weekend yet.</p>}
+      {weekends.length === 0 && !creating && (
+        <EmptyState
+          icon="calendar"
+          title="No weekends yet"
+          line="Add the season's first race weekend; everyone sees it here, with its sessions."
+          action={{ label: "Add a race weekend", onClick: () => setCreating(true) }}
+        />
+      )}
       {only && shown.length === 0 && <p className="card text-sm text-snow-faint">No weekend has this category yet.</p>}
       {Array.from(new Set(shown.map((w) => w.seasonName ?? ""))).map((seasonName) => (
         <div key={seasonName || "none"} className="space-y-4">

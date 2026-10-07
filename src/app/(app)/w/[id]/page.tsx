@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { ChannelView, type ClosedReason } from "@/components/ChannelView";
 import { ChannelMenu } from "@/components/channels/ChannelMenu";
 import { MuteButton } from "@/components/channels/MuteButton";
+import { SessionCountdown } from "@/components/SessionCountdown";
 import { WeekendCard } from "@/components/schedule/WeekendCard";
 import { WeekendPhoto } from "@/components/schedule/WeekendPhoto";
 import { isMuted } from "@/lib/channels";
@@ -10,6 +11,7 @@ import { categoriesOf } from "@/lib/categories";
 import { weekendById } from "@/lib/races";
 import { listSeasons } from "@/lib/seasons";
 import { requireProfile } from "@/lib/session";
+import { myCategories } from "@/lib/teams";
 
 export const metadata = { title: "Race weekend" };
 
@@ -20,22 +22,28 @@ export default async function WeekendPage({ params }: { params: Promise<{ id: st
   const weekend = await weekendById(id);
   if (!weekend) notFound();
   const isAdmin = user.role === "admin";
-  const [channel, mayPost, seasons, categories] = await Promise.all([
+  const [channel, mayPost, seasons, categories, mine] = await Promise.all([
     channelFor(id),
     // Admins, coordinators and this weekend's channel managers.
     canPostChannel(user, id),
     isAdmin ? listSeasons() : Promise.resolve([]),
     categoriesOf([weekend.seasonId ?? ""]),
+    myCategories(user),
   ]);
   const messages = channel ? await conversationMessages(user, channel.id) : [];
   if (channel) await markConversationRead(user.id, channel.id);
   const open = channel?.open ?? false;
   // Same reasons as the channel API: its season is archived now, it was closed with its season, or by hand.
   const closedReason: ClosedReason = open ? null : weekend.seasonArchived ? "archived" : (weekend.channelClosedReason ?? "admin");
+  // The countdown is to this person's next session, as the header's: their categories' and those for everyone. A
+  // weekend with none of theirs counts down to its own sessions.
+  const theirs = mine ? weekend.sessions.filter((s) => !s.categoryId || mine.includes(s.categoryId)) : weekend.sessions;
+  const countdownSessions = (theirs.length > 0 ? theirs : weekend.sessions).map(({ name, startsAt, endsAt }) => ({ name, startsAt, endsAt }));
 
   return (
     <div className="space-y-5">
       <WeekendPhoto weekendId={id} photoUrl={weekend.photoUrl} isAdmin={isAdmin} />
+      <SessionCountdown sessions={countdownSessions} className="px-1 text-sm font-semibold text-gold" />
       <WeekendCard
         weekend={weekend}
         isAdmin={isAdmin}

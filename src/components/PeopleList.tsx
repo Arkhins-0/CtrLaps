@@ -7,6 +7,7 @@ import type { RosterCategory } from "@/lib/categoryChannels";
 import type { PublicUser } from "@/lib/users";
 import { GroupTitle, SQUARE_BUTTON, SearchPill } from "./AppUI";
 import { Avatar } from "./Avatar";
+import { EmptyState, type EmptyAction } from "./EmptyState";
 import { Icon } from "./Icon";
 import { StatusBadge } from "./StatusBadge";
 
@@ -21,8 +22,21 @@ const groupOf = (p: PublicUser): Group => (p.isDev ? "developer" : p.role);
 /** People who registered and have no role yet, and developers, start hidden. */
 const DEFAULT_HIDDEN: Group[] = ["user", "developer"];
 
-/** Everyone below the viewer by role, with a filter: which roles show, and one race category or one team. */
-export function PeopleList({ people, emptyText, categories = [] }: { people: PublicUser[]; emptyText: string; categories?: RosterCategory[] }) {
+/**
+ * Everyone below the viewer by role, with a filter: which roles show, and one race category or one team. With nobody
+ * at all, `emptyText` says why, and `emptyAction` is the next step when the viewer can take one (adding someone).
+ */
+export function PeopleList({
+  people,
+  emptyText,
+  emptyAction,
+  categories = [],
+}: {
+  people: PublicUser[];
+  emptyText: string;
+  emptyAction?: EmptyAction;
+  categories?: RosterCategory[];
+}) {
   const [hidden, setHidden] = useState<Group[]>(DEFAULT_HIDDEN);
   const [category, setCategory] = useState("");
   const [team, setTeam] = useState("");
@@ -135,7 +149,7 @@ export function PeopleList({ people, emptyText, categories = [] }: { people: Pub
         </div>
       )}
 
-      {people.length === 0 && <p className="mt-4 text-sm text-snow-faint">{emptyText}</p>}
+      {people.length === 0 && <EmptyState icon="people" title="No one here yet" line={emptyText} action={emptyAction} />}
       {people.length > 0 && shown.length === 0 && (
         <p className="mt-4 text-sm text-snow-faint">
           {q ? "No one matches." : narrowed ? "Nobody matches this category or team." : "Everyone here is hidden by the filter. Use Filter to show them."}

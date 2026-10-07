@@ -20,6 +20,7 @@ const FINDABLE: Findable[] = [
   { title: "Theme", path: "Settings › Theme", href: "/account/settings/theme", words: "dark light mode system appearance", icon: "palette" },
   { title: "Pure black", path: "Settings › Theme", href: "/account/settings/theme", words: "amoled oled black dark", icon: "darkMode" },
   { title: "Accent colour", path: "Settings › Theme", href: "/account/settings/theme", words: "color gold orange green blue violet custom", icon: "palette" },
+  { title: "Notifications", path: "Settings › Notifications", href: "/account/settings/notifications", words: "push popups alerts phone chats announcements channel posts results mute sound", icon: "bell" },
   { title: "Email", path: "Settings › Email", href: "/account/settings/email", words: "mail newsletters unsubscribe", icon: "mail" },
   { title: "Delete account", path: "Settings › Delete account", href: "/account/settings/delete", words: "remove erase close", icon: "trash" },
   { title: "Help & support", path: "Help & support", href: "/support", words: "help contact support ticket form", icon: "call" },

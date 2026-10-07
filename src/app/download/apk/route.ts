@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 const PACKAGE = "com.arkhins.ctrlaps";
 
 /**
- * <site>/download — the one link to share.
+ * <site>/download/apk — what /download used to be, now behind the /download page (whose button comes here, and
+ * which sends its old `?open=` and `?direct=1` links on here unchanged).
  *
  * On an Android phone it first tries to open the installed app (an intent
  * link to /home, or to `?open=<path>` when the app has that page); only
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
   const android = /android/i.test(request.headers.get("user-agent") ?? "");
   if (android && url.searchParams.get("direct") !== "1") {
     const host = new URL(SITE_URL).host;
-    const fallback = encodeURIComponent(`${SITE_URL}/download?direct=1`);
+    const fallback = encodeURIComponent(`${SITE_URL}/download/apk?direct=1`);
     const target = appPath(url.searchParams.get("open"));
     return NextResponse.redirect(`intent://${host}${target}#Intent;scheme=https;package=${PACKAGE};S.browser_fallback_url=${fallback};end`, 302);
   }

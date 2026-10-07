@@ -1,11 +1,12 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "./Icon";
 import { PhotoCropDialog } from "./PhotoCropDialog";
 import { Sheet } from "./Sheet";
+import { toast } from "./Toasts";
 
 /** What those who may change a photo can do with it; the caller saves to the server and refreshes. */
 export type PhotoEdit = {
@@ -19,7 +20,7 @@ export type PhotoEdit = {
  * those who may change it; where there is no photo yet, those who may add one go straight to picking it, and
  * everyone else is told there's none. `wide` is a 16:9 photo (a weekend's track), shown wide and not cropped square.
  *
- * Returns what a tap does (`tap`) and what to draw beside the photo (`ui`: the sheet, the cropper, the toast); `ui`
+ * Returns what a tap does (`tap`) and what to draw beside the photo (`ui`: the sheet, the cropper); `ui`
  * goes beside the tapped element, not inside it, so its keys and clicks don't reach it.
  */
 export function usePhotoPullUp({ src, name, edit, wide = false }: { src: string | null; name: string; edit?: PhotoEdit | null; wide?: boolean }) {
@@ -28,15 +29,6 @@ export function usePhotoPullUp({ src, name, edit, wide = false }: { src: string 
   const [cropping, setCropping] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const timer = useRef<number>(undefined);
-  useEffect(() => () => window.clearTimeout(timer.current), []);
-
-  const say = (text: string) => {
-    setToast(text);
-    window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setToast(null), 3_000);
-  };
 
   const close = () => {
     setOpen(false);
@@ -48,7 +40,7 @@ export function usePhotoPullUp({ src, name, edit, wide = false }: { src: string 
   const failed = (e: unknown, fallback: string) => {
     const message = e instanceof Error ? e.message : fallback;
     if (open) setError(message);
-    else say(message);
+    else toast({ text: message, tone: "error" });
   };
 
   const save = async (photo: File) => {
@@ -102,7 +94,7 @@ export function usePhotoPullUp({ src, name, edit, wide = false }: { src: string 
       setConfirming(false);
       setOpen(true);
     } else if (edit) pick();
-    else say("No photo yet");
+    else toast("No photo yet");
   };
 
   const ui = (
@@ -155,13 +147,6 @@ export function usePhotoPullUp({ src, name, edit, wide = false }: { src: string 
                 save(f);
               }}
             />
-          </div>,
-          document.body,
-        )}
-      {toast &&
-        createPortal(
-          <div className="pointer-events-none fixed inset-x-0 bottom-20 z-50 flex justify-center px-4" role="status" aria-live="polite">
-            <span className="rounded-full border border-night-line bg-night-panel px-4 py-2 text-sm text-snow shadow-card">{toast}</span>
           </div>,
           document.body,
         )}

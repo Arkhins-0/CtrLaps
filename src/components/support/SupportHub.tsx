@@ -36,7 +36,7 @@ export function SupportHub({
       </div>
       {tab === "faqs" && <FaqList initial={faqs} canEdit={isDev} />}
       {tab === "form" && <TicketForm prefill={prefill} signedIn={signedIn} />}
-      {tab === "tickets" && <TicketList isDev={isDev} />}
+      {tab === "tickets" && <TicketList isDev={isDev} onRaise={() => setTab("form")} />}
     </div>
   );
 }

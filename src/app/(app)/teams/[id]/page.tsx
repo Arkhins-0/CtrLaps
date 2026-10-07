@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { GroupTitle, ProfileBanner } from "@/components/AppUI";
 import { Avatar } from "@/components/Avatar";
+import { EmptyState } from "@/components/EmptyState";
 import { Icon } from "@/components/Icon";
 import { TeamPhoto } from "@/components/EditablePhoto";
 import { CategoryTag } from "@/components/schedule/CategoryTag";
@@ -56,7 +57,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
 
       <GroupTitle title="Standings" count={standings.length > 0 ? standings.length : undefined} />
       {standings.length === 0 ? (
-        <p className="px-1 text-sm text-snow-faint">No standings yet: the team has no results this season.</p>
+        <EmptyState section icon="star" title="No standings yet" line="The team shows here once it has results this season." />
       ) : (
         standings.map((s) => (
           <Link key={s.category.id} href={`/standings?category=${s.category.id}`} className={ROW}>
@@ -82,7 +83,15 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
       )}
 
       <GroupTitle title="People" count={people.length} />
-      {people.length === 0 && <p className="px-1 text-sm text-snow-faint">No one is in this team yet.</p>}
+      {people.length === 0 && (
+        <EmptyState
+          section
+          icon="people"
+          title="No one in this team yet"
+          line={staff ? "Add its manager, drivers and crew from People." : "Its manager, drivers and crew show here once they're added."}
+          action={staff ? { label: "Add someone", href: "/people/new" } : undefined}
+        />
+      )}
       {people.map((p) => {
         const body = (
           <>
@@ -107,7 +116,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
       })}
 
       <GroupTitle title="Latest results" />
-      {latest.length === 0 && <p className="px-1 text-sm text-snow-faint">No results yet this season.</p>}
+      {latest.length === 0 && <EmptyState section icon="star" title="No results yet" line="Its drivers' finishes this season show here." />}
       {latest.map((r, i) => {
         const category = categoryOf(r.categoryId);
         const finished = r.status === "finished";

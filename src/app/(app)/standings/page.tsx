@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
+import { EmptyState } from "@/components/EmptyState";
 import { LocalTime } from "@/components/LocalTime";
 import type { DriverRound, StandingSession } from "@/lib/results";
 import { standingsPage } from "@/lib/results";
@@ -69,7 +70,15 @@ export default async function Standings({ searchParams }: { searchParams: Promis
           ))}
       </div>
 
-      {page.categories.length === 0 && <p className="card text-sm text-snow-faint">This season has no race categories yet.</p>}
+      {page.categories.length === 0 && (
+        <EmptyState
+          icon="star"
+          title="No categories yet"
+          line="Standings show here once this season has race categories and their first results."
+          // Categories are set up from the Schedule page (its Categories button), by an admin.
+          action={user.role === "admin" && (!thisSeason || thisSeason.current) ? { label: "Set up categories", href: "/schedule" } : undefined}
+        />
+      )}
       {page.categories.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {page.categories.map((c) => {
@@ -97,7 +106,7 @@ export default async function Standings({ searchParams }: { searchParams: Promis
               {page.sessions.length > 0 && <span className="text-xs text-snow-faint">{page.sessions.length} sessions with results</span>}
             </div>
             {page.drivers.length === 0 ? (
-              <p className="text-sm text-snow-faint">No results yet.</p>
+              <EmptyState section icon="star" title="No results yet" line={`Points show here after the first ${chosen.code} session's results are in.`} />
             ) : (
               <div className="-mx-5 overflow-x-auto px-5">
                 <table className="w-full text-sm">

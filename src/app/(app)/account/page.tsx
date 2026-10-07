@@ -48,7 +48,7 @@ export default async function Account() {
           <nav>
             <MenuLink href="/account/details" icon="person" title="Account" hint="Email, date of birth and password" />
             <MenuLink href="/archive" icon="archive" title="Archive" hint="Past seasons: their weekends, channels and messages" />
-            <MenuLink href="/account/settings" icon="settings" title="Settings" hint="Theme, email and your account" />
+            <MenuLink href="/account/settings" icon="settings" title="Settings" hint="Theme, notifications, email and your account" />
             {dev && <MenuLink href="/activity" icon="filter" title="Activity log" hint="Who did what, and when" />}
             <MenuLink href="/support" icon="call" title="Help & support" hint="FAQs, the support form and your tickets" />
             <MenuLink href="/account/about" icon="info" title="About" hint={release ? `The Android app is at v${release.version}` : "The app, the team, terms and privacy"} />

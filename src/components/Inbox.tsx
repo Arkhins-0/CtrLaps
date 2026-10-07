@@ -3,15 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import { api, changeMark, isStale } from "@/lib/client";
 import type { MessageOut } from "@/lib/messages";
+import { EmptyState } from "./EmptyState";
 import { MessageItem } from "./MessageList";
 import { Feed, useNewIds } from "./NewLine";
 import { useHydrated } from "@/lib/useHydrated";
 
 /**
  * The inbox: newest first, what has come into view gets marked read, and
- * a short poll keeps it current while the page is open.
+ * a short poll keeps it current while the page is open. `canSend`: the
+ * viewer may announce, so an empty inbox offers to write the first one.
  */
-export function Inbox({ initial, highlight }: { initial: MessageOut[]; highlight?: string }) {
+export function Inbox({ initial, highlight, canSend = false }: { initial: MessageOut[]; highlight?: string; canSend?: boolean }) {
   const [messages, setMessages] = useState(initial);
   const newIds = useNewIds(initial);
   const hydrated = useHydrated();
@@ -65,7 +67,15 @@ export function Inbox({ initial, highlight }: { initial: MessageOut[]; highlight
     }
   };
 
-  if (messages.length === 0) return <p className="card text-sm text-snow-faint">Nothing yet. Messages sent to you appear here.</p>;
+  if (messages.length === 0)
+    return (
+      <EmptyState
+        icon="bell"
+        title="No announcements yet"
+        line={canSend ? "What you announce goes to everyone it's for, and shows here." : "Announcements sent to you show here as they arrive."}
+        action={canSend ? { label: "Write an announcement", href: "/compose" } : undefined}
+      />
+    );
 
   return (
     <div className="space-y-3">

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { ConversationOut } from "@/lib/messages";
 import type { VolunteerGroup } from "@/lib/volunteers";
 import { Avatar } from "./Avatar";
+import { EmptyState } from "./EmptyState";
 import { Icon } from "./Icon";
 
 type Filter = "all" | "unread" | "groups";
@@ -116,17 +117,21 @@ export function ChatList({
               <div className="mx-4 mt-1 border-t border-night-line sm:mx-6 lg:mx-3" />
             </div>
           )}
-          {shown.length === 0 && (
+          {/* No chats at all: what comes here, and the pencil's job as a button. Narrowed to none: a line says so. */}
+          {conversations.length === 0 && filter === "all" && !search ? (
+            <EmptyState
+              icon="chat"
+              title="No chats yet"
+              line={canOpen ? "Your conversations with the people you work with show here." : "Chats others start with you show here."}
+              action={canOpen ? { label: "Start a chat", href: "/chats/new" } : undefined}
+            />
+          ) : shown.length === 0 && (
             <p className="px-4 py-3 text-sm text-snow-faint sm:px-6 lg:px-3">
               {filter === "unread"
                 ? "Nothing unread."
                 : filter === "groups"
                   ? "No groups yet."
-                  : search
-                    ? "No chats match."
-                    : canOpen
-                      ? "No chats yet. Start one with the pencil."
-                      : "No chats yet."}
+                  : "No chats match."}
             </p>
           )}
           {shown.map((c, i) => (

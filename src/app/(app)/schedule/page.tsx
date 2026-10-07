@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/EmptyState";
 import { ScheduleEditor } from "@/components/ScheduleEditor";
 import { SeasonBar } from "@/components/SeasonBar";
 import { ScheduleList } from "@/components/schedule/ScheduleList";
@@ -26,7 +27,9 @@ export default async function Schedule() {
       ) : (
         <>
           <h1 className="page-title">Schedule</h1>
-          {weekends.length === 0 && <p className="card text-sm text-snow-faint">No race weekend has been scheduled yet.</p>}
+          {weekends.length === 0 && (
+            <EmptyState icon="calendar" title="No weekends yet" line="Race weekends and their sessions show here once the organisers add them." />
+          )}
           <ScheduleList upcoming={upcoming} past={past} categories={categories} mine={await myCategories(user)} editTimes={user.role === "coordinator"} />
         </>
       )}

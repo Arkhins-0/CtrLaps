@@ -47,7 +47,12 @@ export default async function People() {
         </div>
       </div>
 
-      <PeopleList people={people} categories={categories} emptyText={canCreate ? "Nobody yet. Add the first person." : "Nobody reports to you."} />
+      <PeopleList
+        people={people}
+        categories={categories}
+        emptyText={canCreate ? "The people you add, and everyone who reports to you, show here." : "Nobody reports to you yet. Those who do will show here."}
+        emptyAction={canCreate ? { label: "Add someone", href: "/people/new" } : undefined}
+      />
     </div>
   );
 }

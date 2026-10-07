@@ -10,6 +10,7 @@ import { CountdownChip } from "./CountdownChip";
 import { Icon, type IconName } from "./Icon";
 import { Notifier } from "./Notifier";
 import { PermissionGate } from "./PermissionGate";
+import { Toasts } from "./Toasts";
 
 const NAV: { href: string; label: string; icon: IconName }[] = [
   { href: "/home", label: "Home", icon: "home" },
@@ -112,6 +113,8 @@ export function Shell({ user, unreadHome, unreadChats, children }: { user: Shell
           </div>
         </nav>
       )}
+      {/* The one place every page's toast() messages show. */}
+      <Toasts />
     </PermissionGate>
   );
 }
