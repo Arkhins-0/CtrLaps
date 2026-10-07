@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Splash screen icon. The system shows it in a 288dp box but only a centred 192dp circle is
+    visible. The logo (ctr_logo, 512×505) is placed by the smallest circle around its visible
+    pixels: that circle is centred in the box with a 94dp radius, so the logo is 164dp wide and the
+    flag tips and the badge's point stay just inside the mask. The flags reach higher than the point
+    goes low, so the top inset is larger than the bottom one.
+-->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="62.1dp"
+    android:insetTop="76.4dp"
+    android:insetRight="61.8dp"
+    android:insetBottom="49.7dp">
+    <bitmap
+        android:antialias="true"
+        android:filter="true"
+        android:gravity="fill"
+        android:src="@drawable/ctr_logo" />
+</inset>
