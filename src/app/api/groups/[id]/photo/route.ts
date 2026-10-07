@@ -1,6 +1,6 @@
 import { handle, isUuid, type Params } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { groupPhoto, setGroupPhoto } from "@/lib/groups";
+import { clearGroupPhoto, groupPhoto, setGroupPhoto } from "@/lib/groups";
 import { fail, json } from "@/lib/http";
 import { storage } from "@/lib/storage";
 
@@ -30,4 +30,13 @@ export const POST = handle<Params<"id">>(async (request, { params }) => {
   if (!(photo instanceof File) || photo.size === 0) return fail("Choose a photo.");
   await setGroupPhoto(user, id, photo);
   return json({ ok: true, photoUrl: `/api/groups/${id}/photo?v=${Date.now()}` });
+});
+
+/** Take the picture away: a group admin. */
+export const DELETE = handle<Params<"id">>(async (_request, { params }) => {
+  const user = await requireUser();
+  const { id } = await params;
+  if (!isUuid(id)) return fail("No such group.", 404);
+  await clearGroupPhoto(user, id);
+  return json({ ok: true, photoUrl: null });
 });

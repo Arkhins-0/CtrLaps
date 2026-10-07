@@ -5,7 +5,7 @@ import { AuthError, type SessionUser } from "./auth";
 import { one, q, run } from "./db";
 import { groupAddMode } from "./hierarchy";
 import { groupEvent, personCard, popupData, sendGroupInvite, type PersonCard, type PersonRow } from "./messages";
-import { storeImage } from "./profile";
+import { dropOldPhoto, storeImage } from "./profile";
 import { pushSync, pushTo } from "./push";
 import { hasChats } from "./roles";
 import { userById, usersByIds } from "./users";
@@ -330,6 +330,16 @@ export async function leaveGroup(user: SessionUser, groupId: string): Promise<vo
     if (heir) await groupEvent(groupId, heir.id, `${who(heir)} is now an admin`);
   }
   after(async () => pushSync(rest.map((m) => m.user_id), { scope: "chat", id: groupId }));
+}
+
+/** Take the group's picture away: a group admin. */
+export async function clearGroupPhoto(actor: SessionUser, groupId: string): Promise<void> {
+  const g = await requireAdmin(actor, groupId);
+  if (!g.photo_key) return;
+  await run("UPDATE conversations SET photo_key = NULL WHERE id = $1", [groupId]);
+  dropOldPhoto(g.photo_key, null);
+  await groupEvent(groupId, actor.id, `${who(actor)} removed the group picture`);
+  after(async () => pushSync(await memberIds(groupId), { scope: "chat", id: groupId }));
 }
 
 export async function groupPhoto(id: string): Promise<string | null> {

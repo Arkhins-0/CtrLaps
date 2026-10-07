@@ -41,3 +41,17 @@ export const POST = handle<Params<"id">>(async (request, { params }) => {
   await audit(me.id, user.id, "user.photo");
   return json({ ok: true, photoUrl: userPhotoUrl(user.id, key) });
 });
+
+/** Take the photo away: the person's manager or an admin, as for changing it. */
+export const DELETE = handle<Params<"id">>(async (_request, { params }) => {
+  const me = await requireUser();
+  const { id } = await params;
+  if (!isUuid(id)) return fail("No such person.", 404);
+  const user = await userById(id);
+  if (!user) return fail("No such person.", 404);
+  if (!canEdit(me, user)) return fail("Only this person's manager or an admin can change this.", 403);
+  await run("UPDATE users SET photo_key = NULL WHERE id = $1", [user.id]);
+  dropOldPhoto(user.photo_key, null);
+  await audit(me.id, user.id, "user.photo_removed");
+  return json({ ok: true, photoUrl: null });
+});
