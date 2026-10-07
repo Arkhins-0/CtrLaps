@@ -1,5 +1,45 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.runtime.collectAsState
+import kotlinx.serialization.Serializable
+import com.arkhins.ctrlaps.ui.theme.NightHigh
+import com.arkhins.ctrlaps.ui.theme.Night
+import com.arkhins.ctrlaps.ui.openSafely
+import com.arkhins.ctrlaps.ui.components.Loading
+import com.arkhins.ctrlaps.ui.components.ErrorText
+import com.arkhins.ctrlaps.ui.components.Avatar
+import com.arkhins.ctrlaps.LocalApp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.Alignment
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import com.arkhins.ctrlaps.R
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -34,68 +74,155 @@ import com.arkhins.ctrlaps.ui.theme.Snow
 import com.arkhins.ctrlaps.ui.theme.SnowFaint
 import com.arkhins.ctrlaps.ui.theme.SnowSoft
 
-/** The app's version and updates, what's new, the Terms, Privacy Policy and License, and Support. */
+/** One person behind the app (About → Developers / Helpers), set only in the database. */
+@Serializable
+data class Credit(val id: String, val name: String, val subtext: String = "", val link: String? = null, val photoUrl: String? = null)
+
+@Serializable
+data class CreditsResponse(val credits: List<Credit> = emptyList())
+
+/** The About page's own top: only a back arrow, as the page's big title is the heading. */
 @Composable
-fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> Unit, onSupport: () -> Unit, onLicense: () -> Unit) {
+fun BackOnlyBar(onBack: () -> Unit) {
+    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 8.dp, vertical = 8.dp)) {
+        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back", tint = Snow) }
+    }
+}
+
+/**
+ * About, after Arkhime's: a big title, then FAQ, the update check, what's new, the people behind the app, the Terms,
+ * the Privacy Policy, the License and Support. The people, the Terms and the Privacy Policy open in sheets.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> Unit, onSupport: () -> Unit, onLicense: () -> Unit, onFaqs: () -> Unit = onSupport) {
+    var sheet by rememberSaveable { mutableStateOf<String?>(null) }
+    // Debug builds: `--es sheet people|terms|privacy` opens that sheet over adb (see DebugHooks).
+    if (BuildConfig.DEBUG) {
+        val asked by com.arkhins.ctrlaps.ui.DebugHooks.sheet.collectAsState()
+        LaunchedEffect(asked) {
+            if (asked in setOf("people", "terms", "privacy")) { sheet = asked; com.arkhins.ctrlaps.ui.DebugHooks.sheet.value = null }
+        }
+    }
     Column(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(horizontal = 16.dp),
     ) {
-        UpdatePanel(vm)
-        Panel {
-            Column {
-                MenuRow("What's new", "Changes in each version", icon = rememberVectorPainter(Icons.Outlined.Star), onClick = onChangelog)
-                HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                MenuRow("Terms and conditions", "The rules for using CTR[L]APS", icon = painterResource(R.drawable.ic_document)) { onLegal("terms") }
-                HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                MenuRow("Privacy Policy", "What CTR[L]APS keeps and why", icon = rememberVectorPainter(Icons.Outlined.Lock)) { onLegal("privacy") }
-                HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                MenuRow("License", listOfNotNull("Apache License 2.0", Config.POWERED_BY_NAME.takeIf { it.isNotBlank() }?.let { "© 2026 $it" }).joinToString(" · "), icon = rememberVectorPainter(Icons.Outlined.Info), onClick = onLicense)
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 28.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("About", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold, color = Snow, modifier = Modifier.weight(1f))
+            Box(Modifier.size(56.dp).background(Snow, CircleShape), contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.Info, contentDescription = null, tint = Night, modifier = Modifier.size(34.dp))
             }
         }
-        // Support: FAQs, the support form and tickets.
-        Panel {
-            val unread = vm.me?.unreadSupport ?: 0
-            MenuRow(
-                "Support",
-                if (unread > 0) "$unread new ${if (unread == 1) "reply" else "replies"}" else if (vm.me?.isDev == true) "Tickets and FAQs" else "FAQs, the support form and your tickets",
-                highlight = unread > 0,
-                icon = rememberVectorPainter(Icons.Outlined.Call),
-                onClick = onSupport,
-            )
-        }
+        MenuRow("FAQ", "Common questions about CTR[L]APS", icon = rememberVectorPainter(Icons.Outlined.Search), onClick = onFaqs)
+        val info = vm.updateInfo
+        MenuRow(
+            "Check for updates",
+            when {
+                vm.checkingUpdate -> "Checking…"
+                vm.updateCheckError != null -> vm.updateCheckError!!
+                info != null -> "v${info.version} is available: tap to update"
+                vm.checkedOnce && vm.noReleaseYet -> "No release published yet"
+                vm.checkedOnce -> "v${BuildConfig.VERSION_NAME} is up to date"
+                else -> "You have v${BuildConfig.VERSION_NAME}. Tap to check"
+            },
+            highlight = info != null,
+            icon = rememberVectorPainter(Icons.Outlined.Refresh),
+            arrow = false,
+        ) { if (info != null) vm.showUpdate() else if (!vm.checkingUpdate) vm.checkForUpdate(force = true) }
+        MenuRow("What's new", "Changes in each version", icon = rememberVectorPainter(Icons.Outlined.Star), onClick = onChangelog)
+        MenuRow("Developers / Helpers", "The people behind CTR[L]APS", icon = painterResource(R.drawable.ic_tab_people), arrow = false) { sheet = "people" }
+        MenuRow("Terms and conditions", "The rules for using CTR[L]APS", icon = painterResource(R.drawable.ic_document), arrow = false) { sheet = "terms" }
+        MenuRow("Privacy Policy", "What CTR[L]APS keeps and why", icon = rememberVectorPainter(Icons.Outlined.Lock), arrow = false) { sheet = "privacy" }
+        MenuRow(
+            "License",
+            listOfNotNull("Apache License 2.0", Config.POWERED_BY_NAME.takeIf { it.isNotBlank() }?.let { "© 2026 $it" }).joinToString(" · "),
+            icon = rememberVectorPainter(Icons.Outlined.Info),
+            onClick = onLicense,
+        )
+        val unread = vm.me?.unreadSupport ?: 0
+        MenuRow(
+            "Support",
+            if (unread > 0) "$unread new ${if (unread == 1) "reply" else "replies"}" else if (vm.me?.isDev == true) "Tickets and FAQs" else "The support form and your tickets",
+            highlight = unread > 0,
+            icon = rememberVectorPainter(Icons.Outlined.Call),
+            onClick = onSupport,
+        )
         // A debug build says so, so it can't be mistaken for the release (same name, icon and version).
-        Text("CTR[L]APS v${BuildConfig.VERSION_NAME}${if (BuildConfig.DEBUG) " · Debug" else ""}", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+        Text(
+            "CTR[L]APS v${BuildConfig.VERSION_NAME}${if (BuildConfig.DEBUG) " · Debug" else ""}",
+            style = MaterialTheme.typography.labelSmall,
+            color = SnowFaint,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+            textAlign = TextAlign.Center,
+        )
+    }
+
+    when (val s = sheet) {
+        "people" -> AboutSheet("Developers / Helpers", onClose = { sheet = null }) { PeopleList() }
+        "terms", "privacy" -> AboutSheet(if (s == "privacy") "Privacy Policy" else "Terms and conditions", onClose = { sheet = null }, tall = true) {
+            // A link inside one opens the other here, in the same sheet.
+            LegalScreen(s, onOpen = { doc -> sheet = doc })
+        }
+        else -> Unit
     }
 }
 
-/** The version and the in-app update: tap to check again. */
+/** A sheet from About: its title, what it holds, and Close. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun UpdatePanel(vm: AppViewModel) {
-    Panel(Modifier.clickable(enabled = !vm.checkingUpdate) { vm.checkForUpdate(force = true) }) {
-        Column(Modifier.fillMaxWidth()) {
-            Text("App version", style = MaterialTheme.typography.titleMedium, color = Snow)
-            Text("v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.headlineSmall, color = Snow)
-            Spacer(Modifier.height(4.dp))
-            val info = vm.updateInfo
-            Text(
-                when {
-                    vm.checkingUpdate -> "Checking for updates…"
-                    vm.updateCheckError != null -> vm.updateCheckError!!
-                    info != null -> "v${info.version} is available."
-                    vm.checkedOnce && vm.noReleaseYet -> "No release has been published yet. Tap to check again."
-                    vm.checkedOnce -> "Up to date. Tap to check again."
-                    else -> "Tap to check for updates."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (info != null) Gold else SnowFaint,
-            )
-            if (info != null && !vm.checkingUpdate) {
-                Spacer(Modifier.height(10.dp))
-                GoldButton("Update app") { vm.showUpdate() }
+private fun AboutSheet(title: String, onClose: () -> Unit, tall: Boolean = false, content: @Composable () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onClose, containerColor = Night, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = tall)) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 12.dp)) {
+            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Snow, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp))
+            Box(Modifier.fillMaxWidth().weight(1f, fill = false).then(if (tall) Modifier.heightIn(max = 620.dp) else Modifier)) { content() }
+            OutlinedButton(
+                onClick = onClose,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(52.dp),
+                border = BorderStroke(1.dp, Gold.copy(alpha = 0.6f)),
+            ) { Text("Close", color = Gold, fontWeight = FontWeight.Bold) }
+        }
+    }
+}
+
+/** The people behind the app, as cards: photo, name in the accent, what they do; a tap opens their link. */
+@Composable
+private fun PeopleList() {
+    val app = LocalApp.current
+    val uri = LocalUriHandler.current
+    var people by remember { mutableStateOf<List<Credit>?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        try {
+            people = app.store.get("/api/credits", CreditsResponse.serializer()) { people = it.credits }.credits
+        } catch (e: Exception) {
+            if (people == null) error = e.message ?: "Could not load this."
+        }
+    }
+    Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        val list = people
+        when {
+            list == null && error != null -> ErrorText(error)
+            list == null -> Loading()
+            list.isEmpty() -> Text("Nobody listed yet.", style = MaterialTheme.typography.bodyMedium, color = SnowFaint)
+            else -> list.forEach { c ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(NightHigh, RoundedCornerShape(16.dp))
+                        .clickable(enabled = c.link != null) { c.link?.let { uri.openSafely(it) } }
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Avatar(c.photoUrl, c.name, 56)
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(c.name, style = MaterialTheme.typography.titleSmall.copy(fontSize = 17.sp), fontWeight = FontWeight.Bold, color = Gold)
+                        if (c.subtext.isNotBlank()) Text(c.subtext, style = MaterialTheme.typography.bodyMedium, color = Snow)
+                    }
+                }
             }
         }
     }

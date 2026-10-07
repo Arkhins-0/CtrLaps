@@ -1,5 +1,15 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.theme.Night
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -205,37 +215,49 @@ fun FaqScreen(vm: AppViewModel) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FaqItem(f: Faq, expanded: Boolean, onToggle: () -> Unit, canEdit: Boolean, onEdit: () -> Unit, onMove: (Int) -> Unit, onDelete: () -> Unit) {
     var asking by remember { mutableStateOf(false) }
-    Panel(Modifier.animateContentSize(), padding = PaddingValues(0.dp)) {
-        Column {
-            Row(Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(f.question, style = MaterialTheme.typography.titleSmall, color = Snow, modifier = Modifier.weight(1f))
-                Text(if (expanded) "⌃" else "⌄", style = MaterialTheme.typography.titleMedium, color = Gold)
-            }
-            if (expanded) {
-                Divider()
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(f.answer, style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
-                    f.steps.forEachIndexed { i, step ->
-                        Row(verticalAlignment = Alignment.Top) {
-                            Box(Modifier.size(22.dp).background(Gold, CircleShape), contentAlignment = Alignment.Center) {
-                                Text("${i + 1}", style = MaterialTheme.typography.labelSmall, color = OnGold, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(Modifier.width(10.dp))
-                            Text(step, style = MaterialTheme.typography.bodyMedium, color = SnowSoft, modifier = Modifier.weight(1f).padding(top = 1.dp))
+    // A row, as in Arkhime's FAQ: a question mark, the question, an arrow; the answer opens in a sheet.
+    Row(Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(26.dp).background(SnowSoft, CircleShape), contentAlignment = Alignment.Center) {
+            Text("?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Night)
+        }
+        Spacer(Modifier.width(18.dp))
+        Text(f.question, style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp), fontWeight = FontWeight.Bold, color = Snow, modifier = Modifier.weight(1f))
+        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = Gold)
+    }
+    if (expanded) {
+        ModalBottomSheet(onDismissRequest = onToggle, containerColor = Night) {
+            Column(
+                Modifier.fillMaxWidth().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(f.question, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Snow, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                Text(f.answer, style = MaterialTheme.typography.bodyLarge, color = SnowSoft)
+                f.steps.forEachIndexed { i, step ->
+                    Row(verticalAlignment = Alignment.Top) {
+                        Box(Modifier.size(22.dp).background(Gold, CircleShape), contentAlignment = Alignment.Center) {
+                            Text("${i + 1}", style = MaterialTheme.typography.labelSmall, color = OnGold, fontWeight = FontWeight.Bold)
                         }
-                    }
-                    if (canEdit) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Chip("Edit", Gold, onClick = onEdit)
-                            Chip("Up", SnowSoft) { onMove(-1) }
-                            Chip("Down", SnowSoft) { onMove(1) }
-                            Chip("Delete", MaterialTheme.colorScheme.error) { asking = true }
-                        }
+                        Spacer(Modifier.width(10.dp))
+                        Text(step, style = MaterialTheme.typography.bodyLarge, color = SnowSoft, modifier = Modifier.weight(1f).padding(top = 1.dp))
                     }
                 }
+                if (canEdit) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Chip("Edit", Gold) { onToggle(); onEdit() }
+                        Chip("Up", SnowSoft) { onMove(-1) }
+                        Chip("Down", SnowSoft) { onMove(1) }
+                        Chip("Delete", MaterialTheme.colorScheme.error) { asking = true }
+                    }
+                }
+                OutlinedButton(
+                    onClick = onToggle,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    border = BorderStroke(1.dp, Gold.copy(alpha = 0.6f)),
+                ) { Text("Close", color = Gold, fontWeight = FontWeight.Bold) }
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui
 
+import com.arkhins.ctrlaps.ui.screens.BackOnlyBar
 import com.arkhins.ctrlaps.ui.components.FlatPage
 import com.arkhins.ctrlaps.ui.components.HeaderTabs
 import com.arkhins.ctrlaps.ui.screens.PeopleTab
@@ -457,7 +458,7 @@ private fun MainNav(vm: AppViewModel) {
             composable("theme") { Pushed("Theme", flat = true) { ThemeScreen() } }
             composable("permissions") { Pushed("Permissions", flat = true) { PermissionsScreen() } }
             composable("notifications") { Pushed("Notifications", flat = true) { NotificationsScreen() } }
-            composable("about") { Pushed("About", flat = true) { AboutScreen(vm, onChangelog = { nav.open("changelog") }, onLegal = { nav.open("legal/$it") }, onSupport = { nav.open("support") }, onLicense = { nav.open("license") }) } }
+            composable("about") { Pushed("About", flat = true, header = { BackOnlyBar(headerBack) }) { AboutScreen(vm, onFaqs = { nav.open("support/faqs") }, onChangelog = { nav.open("changelog") }, onLegal = { nav.open("legal/$it") }, onSupport = { nav.open("support") }, onLicense = { nav.open("license") }) } }
             composable("license") { Pushed("License", flat = true) { LicenseScreen() } }
             composable("support") { Pushed("Support", flat = true) { SupportScreen(vm, onFaqs = { nav.open("support/faqs") }, onForm = { nav.open("support/new") }, onTickets = { nav.open("support/tickets") }) } }
             composable("support/faqs") { Pushed("FAQs", flat = true) { FaqScreen(vm) } }
