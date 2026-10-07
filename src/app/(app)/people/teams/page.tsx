@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PageHeader } from "@/components/AppUI";
 import { notFound } from "next/navigation";
 import { TeamsEditor } from "@/components/TeamsEditor";
 import { categoriesOf } from "@/lib/categories";
@@ -15,16 +15,8 @@ export default async function Teams() {
   const season = await currentSeason();
   const [teams, categories] = await Promise.all([listTeams(season.id), categoriesOf([season.id])]);
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <h1 className="page-title">Teams</h1>
-          <p className="text-sm text-snow-faint">Tap a category to enter a team in it for {season.name}, or to take it out.</p>
-        </div>
-        <Link href="/people" className="btn-ghost px-3 py-1.5 text-xs">
-          People
-        </Link>
-      </div>
+    <div className="mx-auto max-w-4xl space-y-4">
+      <PageHeader title="Teams" icon="people" back="/people" sub={`Tap a category to enter a team in it for ${season.name}, or to take it out.`} />
       <TeamsEditor initial={teams} categories={categories} />
     </div>
   );

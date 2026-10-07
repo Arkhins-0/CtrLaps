@@ -18,7 +18,7 @@ export function Avatar({ src, name, size = 40, preview = true }: { src: string |
   if (!src) {
     return (
       <div
-        className="flex shrink-0 items-center justify-center rounded-full border border-night-line bg-night text-snow-soft"
+        className="flex shrink-0 items-center justify-center rounded-full bg-gold/15 font-semibold text-gold"
         style={{ width: size, height: size, fontSize: size / 2.6 }}
         aria-hidden
       >

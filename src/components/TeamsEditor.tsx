@@ -5,7 +5,10 @@ import { api } from "@/lib/client";
 import type { Category } from "@/lib/categories";
 import { usePendingEdits } from "@/lib/pendingEdits";
 import type { Team } from "@/lib/teams";
+import { GroupTitle, SQUARE_BUTTON, SearchPill } from "./AppUI";
+import { Avatar } from "./Avatar";
 import { Icon } from "./Icon";
+import { Sheet } from "./Sheet";
 import { SaveBar } from "./SaveBar";
 import { contrastText } from "@/lib/colors";
 
@@ -82,15 +85,16 @@ export function TeamsEditor({ initial, categories }: { initial: Team[]; categori
     <div className="space-y-4">
       {error && <p className="error">{error}</p>}
       {notice && !error && <p className="text-sm text-snow-soft" role="status">{notice}</p>}
-      <div className="flex flex-wrap gap-2">
-        <input className="input min-w-0 flex-1" placeholder="Search teams" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <button className="btn-gold px-4 py-1.5 text-xs" onClick={() => setAdding({ name: "", categoryIds: [] })}>
-          Add team
+      <div className="flex items-center gap-2.5">
+        <SearchPill query={search} onChange={setSearch} placeholder="Search teams" />
+        <button type="button" className={SQUARE_BUTTON} aria-label="New team" onClick={() => setAdding({ name: "", categoryIds: [] })}>
+          <Icon name="plus" className="h-6 w-6" />
         </button>
       </div>
       {adding && (
+        <Sheet title="New team" onClose={() => setAdding(null)}>
         <form
-          className="card space-y-3"
+          className="space-y-3 pb-2"
           onSubmit={async (e) => {
             e.preventDefault();
             if (await act("new", () => api("/api/teams", { method: "POST", json: adding }))) setAdding(null);
@@ -106,23 +110,22 @@ export function TeamsEditor({ initial, categories }: { initial: Team[]; categori
               }
             />
           </div>
-          <div className="flex justify-end gap-2">
-            <button type="button" className="btn-ghost px-4 py-1.5 text-xs" onClick={() => setAdding(null)} disabled={busy === "new"}>
-              Cancel
-            </button>
-            <button className="btn-gold px-4 py-1.5 text-xs" disabled={busy === "new"}>
-              {busy === "new" ? "Saving…" : "Add team"}
-            </button>
-          </div>
+          {error && <p className="error">{error}</p>}
+          <button className="btn-gold w-full py-3" disabled={busy === "new"}>
+            {busy === "new" ? "Saving…" : "Add team"}
+          </button>
         </form>
+        </Sheet>
       )}
-      {teams.length === 0 && <p className="card text-sm text-snow-faint">No teams yet.</p>}
-      <ul className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+      {teams.length === 0 && <p className="text-sm text-snow-faint">No teams yet. Tap + to add the first.</p>}
+      {teams.length > 0 && <GroupTitle title="Teams" count={shown.length} />}
+      <ul className="grid grid-cols-1 gap-x-4 lg:grid-cols-2">
         {shown.map((saved) => {
           const t = pending.view(saved);
           return (
-          <li key={t.id} className={`card space-y-2 p-4 ${pending.isChanged(t.id) ? "border-gold/60" : ""}`}>
-            <div className="flex items-center gap-2">
+          <li key={t.id} className="space-y-2 px-1 py-2.5">
+            <div className="flex items-center gap-3.5">
+              <Avatar src={null} name={t.name} size={46} />
               {renaming?.id === t.id ? (
                 <form
                   className="flex flex-1 gap-2"
@@ -139,10 +142,12 @@ export function TeamsEditor({ initial, categories }: { initial: Team[]; categori
                 </form>
               ) : (
                 <>
-                  <p className="min-w-0 flex-1 truncate font-semibold">{t.name}</p>
-                  <span className="text-xs text-snow-faint">{t.members === 1 ? "1 person" : `${t.members} people`}</span>
-                  <button className="btn-icon" aria-label={`Rename ${t.name}`} onClick={() => setRenaming({ id: t.id, name: t.name })}>
-                    <Icon name="edit" className="h-4 w-4" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-bold">{t.name}</span>
+                    <span className="block text-sm text-snow-soft">{t.members === 1 ? "1 person" : `${t.members} people`}</span>
+                  </span>
+                  <button className="btn-icon text-gold" aria-label={`Rename ${t.name}`} onClick={() => setRenaming({ id: t.id, name: t.name })}>
+                    <Icon name="edit" className="h-5 w-5" />
                   </button>
                   <button
                     className="btn-icon text-danger/80 hover:text-danger"
@@ -154,12 +159,16 @@ export function TeamsEditor({ initial, categories }: { initial: Team[]; categori
                       }
                     }}
                   >
-                    <Icon name="trash" className="h-4 w-4" />
+                    <Icon name="trash" className="h-5 w-5" />
                   </button>
                 </>
               )}
             </div>
-            <Chips selected={t.categoryIds} onToggle={(id) => toggle(saved, id)} disabled={busy === t.id || pending.saving} />
+            {/* In line with the name, under it. */}
+            <div className="space-y-1.5 pl-[60px]">
+              <Chips selected={t.categoryIds} onToggle={(id) => toggle(saved, id)} disabled={busy === t.id || pending.saving} />
+              {pending.isChanged(t.id) && <p className="text-sm text-gold">Not saved</p>}
+            </div>
           </li>
           );
         })}

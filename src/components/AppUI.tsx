@@ -89,6 +89,36 @@ export function DetailRow({ icon, label, value, end }: { icon: IconName; label: 
   );
 }
 
+/** The pill search box at the top of a list (Account, People), with a cross to clear it. */
+export function SearchPill({ query, onChange, placeholder }: { query: string; onChange: (q: string) => void; placeholder: string }) {
+  return (
+    <label className="relative min-w-0 flex-1">
+      <span className="sr-only">{placeholder}</span>
+      <Icon name="search" className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-snow-faint" />
+      <input className="input rounded-full py-3.5 pl-12 pr-10" placeholder={placeholder} value={query} onChange={(e) => onChange(e.target.value)} />
+      {query && (
+        <button type="button" className="btn-icon absolute right-2 top-1/2 -translate-y-1/2" aria-label="Clear" onClick={() => onChange("")}>
+          <Icon name="close" />
+        </button>
+      )}
+    </label>
+  );
+}
+
+/** The square button beside a search pill (QR code, Filter). */
+export const SQUARE_BUTTON =
+  "relative flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[18px] border border-night-line bg-night-panel text-gold hover:border-gold/50";
+
+/** A list's group title, as the app's: bold, with how many beside it. */
+export function GroupTitle({ title, count }: { title: string; count?: number }) {
+  return (
+    <h2 className="mb-1 mt-6 flex items-baseline gap-2 px-1 text-xl font-bold tracking-tight">
+      {title}
+      {count !== undefined && <span className="text-base font-semibold text-snow-faint">{count}</span>}
+    </h2>
+  );
+}
+
 /** A section's title on a flat page. */
 export function SectionHeading({ children }: { children: React.ReactNode }) {
   return <h2 className="mb-1 mt-6 text-xl font-bold tracking-tight">{children}</h2>;

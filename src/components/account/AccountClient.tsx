@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/client";
-import { MenuLink } from "../AppUI";
+import { MenuLink, SQUARE_BUTTON, SearchPill } from "../AppUI";
 import { CopyButton } from "../CopyButton";
 import { Icon, type IconName } from "../Icon";
 import { Scanner } from "../Scanner";
@@ -59,22 +59,8 @@ export function AccountTop({ qrSvg, code, dev, children }: { qrSvg: string; code
   return (
     <>
       <div className="flex items-center gap-2.5">
-        <label className="relative flex-1">
-          <span className="sr-only">Search settings</span>
-          <Icon name="search" className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-snow-faint" />
-          <input
-            className="input rounded-full py-3.5 pl-12 pr-10"
-            placeholder="Search settings"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          {query && (
-            <button type="button" className="btn-icon absolute right-2 top-1/2 -translate-y-1/2" aria-label="Clear" onClick={() => setQuery("")}>
-              <Icon name="close" />
-            </button>
-          )}
-        </label>
-        <button type="button" className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[18px] border border-night-line bg-night-panel text-gold hover:border-gold/50" aria-label="My QR code" onClick={() => setSheet("qr")}>
+        <SearchPill query={query} onChange={setQuery} placeholder="Search settings" />
+        <button type="button" className={SQUARE_BUTTON} aria-label="My QR code" onClick={() => setSheet("qr")}>
           <Icon name="scan" className="h-6 w-6" />
         </button>
       </div>
