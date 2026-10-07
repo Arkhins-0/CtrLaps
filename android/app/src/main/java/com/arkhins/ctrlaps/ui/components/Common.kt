@@ -1,5 +1,8 @@
 package com.arkhins.ctrlaps.ui.components
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -156,6 +159,8 @@ fun Field(
     singleLine: Boolean = true,
     enabled: Boolean = true,
     placeholder: String? = null,
+    /** What the field holds, for the phone's password manager (an email, a password, a new password). */
+    autofill: ContentType? = null,
 ) {
     var shown by remember { mutableStateOf(false) }
     OutlinedTextField(
@@ -163,7 +168,7 @@ fun Field(
         onValueChange = onChange,
         label = { Text(label) },
         placeholder = placeholder?.let { { Text(it, color = SnowFaint) } },
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().then(if (autofill != null) Modifier.semantics { contentType = autofill } else Modifier),
         singleLine = singleLine,
         enabled = enabled,
         visualTransformation = if (password && !shown) PasswordVisualTransformation() else VisualTransformation.None,

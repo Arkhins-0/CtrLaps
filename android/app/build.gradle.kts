@@ -94,6 +94,8 @@ android {
 
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
         manifestPlaceholders["appLinkHost"] = appLinkHost
+        // The site the app shares saved passwords with (its assetlinks.json also lists get_login_creds).
+        resValue("string", "asset_statements", "[{\\\"include\\\": \\\"https://$appLinkHost/.well-known/assetlinks.json\\\"}]")
         buildConfigField("String", "UPDATE_URL", "\"${setting("CTRLAPS_UPDATE_URL", "ctrlaps.updateUrl")}\"")
         buildConfigField("String", "GITHUB_REPO", "\"${setting("CTRLAPS_GITHUB_REPO", "ctrlaps.githubRepo")}\"")
         // Who made it and the organisation's domain (About → License), from POWERED_BY_NAME, POWERED_BY_DOMAIN and

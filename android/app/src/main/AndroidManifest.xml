@@ -63,6 +63,8 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
         android:theme="@style/Theme.Ctrlaps.Starting">
+        <!-- Saved passwords are shared with the website (Google Password Manager reads both sides' asset links). -->
+        <meta-data android:name="asset_statements" android:resource="@string/asset_statements" />
 
         <activity
             android:name=".MainActivity"

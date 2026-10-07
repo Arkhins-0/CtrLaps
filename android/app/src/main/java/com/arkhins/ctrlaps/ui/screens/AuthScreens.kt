@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.ui.platform.LocalAutofillManager
+import androidx.compose.ui.autofill.ContentType
 import com.arkhins.ctrlaps.ui.theme.OnGold
 import com.arkhins.ctrlaps.ui.theme.Night
 import com.arkhins.ctrlaps.ui.theme.Gold
@@ -95,13 +97,15 @@ fun LoginScreen(onSignedIn: (String) -> Unit, onForgot: () -> Unit, onRegister: 
     var password by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    // The phone's password manager: it fills the two fields, and offers to save them once signing in works.
+    val autofill = LocalAutofillManager.current
 
     AuthFrame("Sign in") {
         ErrorText(error)
         if (error != null) Spacer(Modifier.height(10.dp))
-        Field(email, { email = it }, "Email", keyboard = KeyboardType.Email, enabled = !busy)
+        Field(email, { email = it }, "Email", keyboard = KeyboardType.Email, enabled = !busy, autofill = ContentType.Username + ContentType.EmailAddress)
         Spacer(Modifier.height(10.dp))
-        Field(password, { password = it }, "Password", password = true, enabled = !busy)
+        Field(password, { password = it }, "Password", password = true, enabled = !busy, autofill = ContentType.Password)
         Spacer(Modifier.height(16.dp))
         GoldButton(if (busy) "Signing in…" else "Sign in", Modifier.fillMaxWidth(), enabled = !busy && email.isNotBlank() && password.isNotBlank()) {
             busy = true
@@ -109,7 +113,10 @@ fun LoginScreen(onSignedIn: (String) -> Unit, onForgot: () -> Unit, onRegister: 
             scope.launch {
                 try {
                     val r = app.api.login(email.trim(), password)
-                    onSignedIn(r.token ?: throw IllegalStateException("No session returned."))
+                    val token = r.token ?: throw IllegalStateException("No session returned.")
+                    // Signed in: the moment Android offers "Save password?".
+                    autofill?.commit()
+                    onSignedIn(token)
                 } catch (e: Exception) {
                     // A banned account: nothing it left on this phone stays.
                     if ((e as? ApiException)?.reason == "banned") {
@@ -261,14 +268,15 @@ fun SetPasswordScreen(kind: String, token: String, onSignedIn: (String) -> Unit,
             }
             email == null -> Loading()
             else -> {
+                val autofill = LocalAutofillManager.current
                 Text(if (invite) "$email · $roleLabel" else if (register) "$email is confirmed. Choose a password." else email!!, color = SnowSoft, style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(12.dp))
                 ErrorText(error)
                 if (error != null) Spacer(Modifier.height(10.dp))
-                Field(password, { password = it }, "New password", password = true, enabled = !busy)
+                Field(password, { password = it }, "New password", password = true, enabled = !busy, autofill = ContentType.NewPassword)
                 Text("At least 8 characters.", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                 Spacer(Modifier.height(10.dp))
-                Field(again, { again = it }, "Repeat password", password = true, enabled = !busy)
+                Field(again, { again = it }, "Repeat password", password = true, enabled = !busy, autofill = ContentType.NewPassword)
                 Spacer(Modifier.height(16.dp))
                 if (firstPassword) {
                     Agreement(agreed, enabled = !busy, onLegal = onLegal) { agreed = it }
@@ -293,9 +301,12 @@ fun SetPasswordScreen(kind: String, token: String, onSignedIn: (String) -> Unit,
                                     put("platform", "android")
                                     put("acceptTerms", true)
                                 }
-                                onSignedIn(r.token ?: throw IllegalStateException("No session returned."))
+                                val session = r.token ?: throw IllegalStateException("No session returned.")
+                                autofill?.commit()
+                                onSignedIn(session)
                             } else {
                                 app.api.post("/api/auth/reset/$token", Ok.serializer()) { put("password", password) }
+                                autofill?.commit()
                                 done = true
                             }
                         } catch (e: Exception) {
