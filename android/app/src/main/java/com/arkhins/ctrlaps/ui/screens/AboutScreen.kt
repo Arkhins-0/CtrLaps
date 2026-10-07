@@ -1,5 +1,13 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.R
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.material.icons.outlined.Call
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -39,13 +47,13 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
         UpdatePanel(vm)
         Panel {
             Column {
-                MenuRow("What's new", "Changes in each version", onClick = onChangelog)
+                MenuRow("What's new", "Changes in each version", icon = rememberVectorPainter(Icons.Outlined.Star), onClick = onChangelog)
                 HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                MenuRow("Terms and conditions", "The rules for using CTR[L]APS") { onLegal("terms") }
+                MenuRow("Terms and conditions", "The rules for using CTR[L]APS", icon = painterResource(R.drawable.ic_document)) { onLegal("terms") }
                 HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                MenuRow("Privacy Policy", "What CTR[L]APS keeps and why") { onLegal("privacy") }
+                MenuRow("Privacy Policy", "What CTR[L]APS keeps and why", icon = rememberVectorPainter(Icons.Outlined.Lock)) { onLegal("privacy") }
                 HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                MenuRow("License", listOfNotNull("Apache License 2.0", Config.POWERED_BY_NAME.takeIf { it.isNotBlank() }?.let { "© 2026 $it" }).joinToString(" · "), onClick = onLicense)
+                MenuRow("License", listOfNotNull("Apache License 2.0", Config.POWERED_BY_NAME.takeIf { it.isNotBlank() }?.let { "© 2026 $it" }).joinToString(" · "), icon = rememberVectorPainter(Icons.Outlined.Info), onClick = onLicense)
             }
         }
         // Support: FAQs, the support form and tickets.
@@ -55,6 +63,7 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
                 "Support",
                 if (unread > 0) "$unread new ${if (unread == 1) "reply" else "replies"}" else if (vm.me?.isDev == true) "Tickets and FAQs" else "FAQs, the support form and your tickets",
                 highlight = unread > 0,
+                icon = rememberVectorPainter(Icons.Outlined.Call),
                 onClick = onSupport,
             )
         }

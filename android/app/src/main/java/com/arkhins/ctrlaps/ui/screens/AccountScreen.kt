@@ -1,5 +1,25 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.ui.unit.sp
+import com.arkhins.ctrlaps.ui.theme.NightLine
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.ExitToApp
+import androidx.compose.material.icons.Icons
 import com.arkhins.ctrlaps.data.FollowingResponse
 import com.arkhins.ctrlaps.data.CategoryIdsResponse
 import com.arkhins.ctrlaps.ui.components.Chip
@@ -93,6 +113,9 @@ fun AccountScreen(
         }
     }
 
+    val open = LocalOpen.current
+    var query by rememberSaveable { mutableStateOf("") }
+
     Column(
         Modifier
             .fillMaxSize()
@@ -100,6 +123,19 @@ fun AccountScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        SettingsSearchBar(query) { query = it }
+        if (query.isNotBlank()) {
+            val found = searchSettings(query, dev = me.isDev)
+            if (found.isEmpty()) {
+                Column(Modifier.fillMaxWidth().padding(vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("No settings match", style = MaterialTheme.typography.titleMedium, color = Snow)
+                    Text("Try another word, like theme, password or storage.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                }
+            } else {
+                Column { found.forEach { e -> MenuRow(e.title, e.path, icon = rememberVectorPainter(Icons.Outlined.Search)) { query = ""; open(e.route) } } }
+            }
+            return@Column
+        }
         Panel {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Avatar(app.api.absolute(u.photoUrl), u.displayName, 64)
@@ -132,46 +168,39 @@ fun AccountScreen(
         // Users (no role yet) follow race categories as fans; everyone else has theirs by role.
         if (u.role == "user") FollowCategoriesPanel(vm)
 
-        Panel {
-            Column {
-                MenuRow("Account", "Email, date of birth and password", onClick = onDetails)
-                HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                MenuRow("Archive", "Past seasons: their weekends, channels and messages", onClick = onArchive)
-                HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                MenuRow("Storage", "What CTR[L]APS keeps on this phone", onClick = onStorage)
-                HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                MenuRow("Settings", "Permissions and theme", onClick = onSettings)
-                HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                // The support team only: who did what, and when.
-                if (me.isDev) {
-                    MenuRow("Activity log", "Who did what, and when", onClick = onActivity)
-                    HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                }
-                val update = vm.updateInfo
-                val support = vm.me?.unreadSupport ?: 0
-                MenuRow(
-                    "About",
-                    when {
-                        update != null -> "v${update.version} is available"
-                        support > 0 -> "$support new support ${if (support == 1) "reply" else "replies"}"
-                        else -> "Version, updates, terms, privacy and support"
-                    },
-                    highlight = update != null || support > 0,
-                    onClick = onAbout,
-                )
-            }
+        // Arkhime-style settings list: flat rows with an accent icon, a bold title, a quieter line and an arrow.
+        Column {
+            MenuRow("Account", "Email, date of birth and password", icon = rememberVectorPainter(Icons.Outlined.Person), onClick = onDetails)
+            MenuRow("Notifications", "Everything this phone has shown you", icon = painterResource(R.drawable.ic_bell)) { open("notifications") }
+            MenuRow("Archive", "Past seasons: their weekends, channels and messages", icon = painterResource(R.drawable.ic_archive), onClick = onArchive)
+            MenuRow("Storage", "What CTR[L]APS keeps on this phone", icon = painterResource(R.drawable.ic_download), onClick = onStorage)
+            MenuRow("Settings", "Permissions, theme and email", icon = rememberVectorPainter(Icons.Outlined.Settings), onClick = onSettings)
+            // The support team only: who did what, and when.
+            if (me.isDev) MenuRow("Activity log", "Who did what, and when", icon = rememberVectorPainter(Icons.AutoMirrored.Outlined.List), onClick = onActivity)
+            val update = vm.updateInfo
+            val support = vm.me?.unreadSupport ?: 0
+            MenuRow(
+                "About",
+                when {
+                    update != null -> "v${update.version} is available"
+                    support > 0 -> "$support new support ${if (support == 1) "reply" else "replies"}"
+                    else -> "Version, updates, terms, privacy and support"
+                },
+                icon = rememberVectorPainter(Icons.Outlined.Info),
+                highlight = update != null || support > 0,
+                onClick = onAbout,
+            )
+            MenuRow("Sign out", "Your messages and files stay on this phone", icon = rememberVectorPainter(Icons.AutoMirrored.Outlined.ExitToApp), danger = true, arrow = false) { confirmOut = true }
         }
 
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            // The version, and the organisation's main domain (MAIN_DOMAIN at build time) when there is one.
-            Text(
-                "v${BuildConfig.VERSION_NAME}${if (Config.MAIN_DOMAIN.isNotBlank()) " · ${Config.MAIN_DOMAIN}" else ""}",
-                style = MaterialTheme.typography.labelSmall,
-                color = SnowFaint,
-                modifier = Modifier.weight(1f),
-            )
-            GhostButton("Sign out", danger = true) { confirmOut = true }
-        }
+        // The version, and the organisation's main domain (MAIN_DOMAIN at build time) when there is one.
+        Text(
+            "${Config.APP_NAME} v${BuildConfig.VERSION_NAME}${if (Config.MAIN_DOMAIN.isNotBlank()) " · ${Config.MAIN_DOMAIN}" else ""}",
+            style = MaterialTheme.typography.labelSmall,
+            color = SnowFaint,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+        )
     }
 
     if (confirmOut) {
@@ -188,19 +217,114 @@ fun AccountScreen(
     }
 }
 
-/** One line of a menu: a title, a hint under it, and an arrow. */
+/**
+ * One line of a menu: an accent icon (when given), a bold title, a quieter line under it, and an arrow. [danger] is
+ * for Sign out and the like; [arrow] false for a line that acts rather than opens a page.
+ */
 @Composable
-fun MenuRow(title: String, hint: String, highlight: Boolean = false, onClick: () -> Unit) {
+fun MenuRow(
+    title: String,
+    hint: String,
+    highlight: Boolean = false,
+    icon: Painter? = null,
+    danger: Boolean = false,
+    arrow: Boolean = true,
+    onClick: () -> Unit,
+) {
+    val tone = if (danger) Danger else Gold
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = if (icon != null) 14.dp else 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = Snow)
-            Text(hint, style = MaterialTheme.typography.bodySmall, color = if (highlight) Gold else SnowFaint)
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = tone, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(20.dp))
         }
-        Text("›", style = MaterialTheme.typography.titleLarge, color = SnowFaint)
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp, lineHeight = 20.sp), fontWeight = FontWeight.Bold, color = if (danger) Danger else Snow)
+            Text(hint, style = MaterialTheme.typography.bodySmall, color = if (highlight) Gold else SnowSoft.copy(alpha = 0.8f))
+        }
+        if (arrow) Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = if (icon != null) tone else SnowFaint)
     }
+}
+
+/** The pill search box at the top of the Account tab. */
+@Composable
+private fun SettingsSearchBar(query: String, onChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onChange,
+        modifier = Modifier.fillMaxWidth(),
+        placeholder = { Text("Search settings", color = SnowFaint) },
+        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, tint = SnowFaint) },
+        trailingIcon = if (query.isNotEmpty()) ({ IconButton(onClick = { onChange("") }) { Icon(Icons.Outlined.Close, contentDescription = "Clear", tint = SnowFaint) } }) else null,
+        singleLine = true,
+        shape = RoundedCornerShape(28.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = Gold,
+            unfocusedBorderColor = NightLine,
+            focusedContainerColor = NightPanel,
+            unfocusedContainerColor = NightPanel,
+            cursorColor = Gold,
+            focusedTextColor = Snow,
+            unfocusedTextColor = Snow,
+        ),
+    )
+}
+
+/** Something a search can find: where it lives ("Settings › Theme"), the screen that opens, and other words for it. */
+private data class Findable(val title: String, val path: String, val route: String, val words: String = "", val devOnly: Boolean = false)
+
+private val FINDABLE = listOf(
+    Findable("Account details", "Account", "details", "name profile date of birth phone contact"),
+    Findable("Change password", "Account", "details", "password security"),
+    Findable("Change email", "Account", "details", "email address"),
+    Findable("Notifications", "Account › Notifications", "notifications", "alerts history bell"),
+    Findable("Archive", "Account › Archive", "archive", "past seasons old"),
+    Findable("Storage", "Account › Storage", "storage", "space files phone clear"),
+    Findable("Automatic downloads", "Account › Storage", "storage", "download photos audio documents data"),
+    Findable("Permissions", "Settings › Permissions", "permissions", "allow camera location microphone photos"),
+    Findable("Notification permission", "Settings › Permissions", "permissions", "popups alerts channels"),
+    Findable("Run in background", "Settings › Permissions", "permissions", "battery optimisation sleep"),
+    Findable("Battery saver", "Settings › Permissions", "permissions", "xiaomi no restrictions"),
+    Findable("Autostart", "Settings › Permissions", "permissions", "start recent apps"),
+    Findable("Install updates", "Settings › Permissions", "permissions", "unknown apps install"),
+    Findable("Theme", "Settings › Theme", "theme", "dark light mode system appearance"),
+    Findable("Pure black", "Settings › Theme", "theme", "amoled oled black dark battery"),
+    Findable("Accent colour", "Settings › Theme", "theme", "color gold orange green blue violet"),
+    Findable("Email", "Settings › Email", "email-settings", "mail newsletters unsubscribe"),
+    Findable("Delete account", "Settings › Delete account", "delete-account", "remove erase close"),
+    Findable("About", "About", "about", "version"),
+    Findable("Check for updates", "About", "about", "update version new"),
+    Findable("What's new", "About › What's new", "changelog", "changelog release notes changes"),
+    Findable("Support", "About › Support", "support", "help contact"),
+    Findable("FAQs", "About › Support › FAQs", "support/faqs", "questions help"),
+    Findable("Tickets", "About › Support › Tickets", "support/tickets", "requests help"),
+    Findable("Terms and conditions", "About", "legal/terms", "rules legal"),
+    Findable("Privacy Policy", "About", "legal/privacy", "data privacy legal"),
+    Findable("License", "About › License", "license", "apache open source"),
+    Findable("Verify someone", "Account › Scan", "scanner", "qr scan code check gate id"),
+    Findable("Activity log", "Account › Activity log", "activity", "audit who did what", devOnly = true),
+)
+
+/** Settings matching [query], best first: the title exactly, then starting with it, containing it, the path, other words. */
+private fun searchSettings(query: String, dev: Boolean): List<Findable> {
+    val q = query.trim().lowercase()
+    if (q.isEmpty()) return emptyList()
+    val words = q.split(Regex("\\s+"))
+    return FINDABLE.filter { dev || !it.devOnly }.mapNotNull { f ->
+        val title = f.title.lowercase()
+        var score = when {
+            title == q -> 100
+            title.startsWith(q) -> 75
+            q in title -> 50
+            else -> 0
+        }
+        if (q in f.path.lowercase()) score += 15
+        val hay = "$title ${f.path.lowercase()} ${f.words}"
+        score += words.count { w -> w in hay } * 10
+        if (score > 0 && words.all { it in hay }) f to score else null
+    }.sortedByDescending { it.second }.map { it.first }
 }
 
 /** QR bitmaps already drawn, so a screen coming back (as its page slides away) shows its code at once. */

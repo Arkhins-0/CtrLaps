@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui
 
+import com.arkhins.ctrlaps.ui.components.FlatPage
 import com.arkhins.ctrlaps.ui.components.HeaderTabs
 import com.arkhins.ctrlaps.ui.screens.PeopleTab
 import com.arkhins.ctrlaps.ui.screens.peoplePages
@@ -318,8 +319,8 @@ private fun MainNav(vm: AppViewModel) {
 
     /** A tab: its header, its page, and the footer. */
     @Composable
-    fun Tab(current: String, title: String, center: (@Composable () -> Unit)? = null, action: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) =
-        Screen(title, onBack = null, onOpenWeekend = openWeekend, center = center, action = action, footer = {
+    fun Tab(current: String, title: String, center: (@Composable () -> Unit)? = null, action: (@Composable () -> Unit)? = null, flat: Boolean = false, content: @Composable () -> Unit) =
+        Screen(title, onBack = null, onOpenWeekend = openWeekend, center = center, action = action, flat = flat, footer = {
             // A tab always shows its own page: everything above Home is
             // dropped first, nothing is restored (a chat opened from a popup
             // would otherwise come back on top of Home).
@@ -340,8 +341,8 @@ private fun MainNav(vm: AppViewModel) {
 
     /** A screen opened on top: its own header with a back arrow, no footer. */
     @Composable
-    fun Pushed(title: String, showCountdown: Boolean = true, header: (@Composable () -> Unit)? = null, action: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) =
-        Screen(title, onBack = headerBack, onOpenWeekend = openWeekend, showCountdown = showCountdown, header = header, action = action, content = {
+    fun Pushed(title: String, showCountdown: Boolean = true, header: (@Composable () -> Unit)? = null, action: (@Composable () -> Unit)? = null, flat: Boolean = false, content: @Composable () -> Unit) =
+        Screen(title, onBack = headerBack, onOpenWeekend = openWeekend, showCountdown = showCountdown, header = header, action = action, flat = flat, content = {
             CompositionLocalProvider(LocalOpen provides openRoute) { content() }
         })
 
@@ -368,7 +369,7 @@ private fun MainNav(vm: AppViewModel) {
                 }
             }
             composable("account") {
-                Tab("account", "Account") {
+                Tab("account", "Account", flat = true) {
                     AccountScreen(
                         vm,
                         onScan = { nav.open("scanner") },
@@ -437,11 +438,11 @@ private fun MainNav(vm: AppViewModel) {
             composable("email") { Pushed("Email") { EmailScreen(null) { nav.popBackStack() } } }
             composable("email?group={group}") { e -> Pushed("Email") { EmailScreen(e.arguments?.getString("group")) { nav.popBackStack() } } }
 
-            composable("details") { Pushed("Account") { AccountDetailsScreen(vm) } }
-            composable("storage") { Pushed("Storage") { StorageScreen() } }
-            composable("settings") { Pushed("Settings") { SettingsScreen(onPermissions = { nav.open("permissions") }, onTheme = { nav.open("theme") }, onEmail = { nav.open("email-settings") }, onDelete = { nav.open("delete-account") }) } }
-            composable("email-settings") { Pushed("Email") { EmailSettingsScreen() } }
-            composable("activity") { Pushed("Activity log") { ActivityScreen() } }
+            composable("details") { Pushed("Account", flat = true) { AccountDetailsScreen(vm) } }
+            composable("storage") { Pushed("Storage", flat = true) { StorageScreen() } }
+            composable("settings") { Pushed("Settings", flat = true) { SettingsScreen(onPermissions = { nav.open("permissions") }, onTheme = { nav.open("theme") }, onEmail = { nav.open("email-settings") }, onDelete = { nav.open("delete-account") }) } }
+            composable("email-settings") { Pushed("Email", flat = true) { EmailSettingsScreen() } }
+            composable("activity") { Pushed("Activity log", flat = true) { ActivityScreen() } }
             // The Volunteers page on its own (also what a link or a debug route to "volunteers" opens).
             composable("volunteers") { Pushed("Volunteers") { VolunteersScreen(vm, onOpenChat = { openChat(it) }, onManage = { nav.open("group/$it") }, onMade = { nav.open("volunteer-group/$it") }) } }
             composable("delegations") { Pushed("Delegations") { VolunteersScreen(vm, onOpenChat = { openChat(it) }, onManage = { nav.open("group/$it") }, onMade = { nav.open("volunteer-group/$it") }, kind = "delegation") } }
@@ -452,26 +453,26 @@ private fun MainNav(vm: AppViewModel) {
             }
             // The Channels page on its own (also what a link or a debug route to "channels" opens).
             composable("channels") { Pushed("Channels") { ChannelsScreen(vm, openWeekend) { nav.open("category/$it") } } }
-            composable("delete-account") { Pushed("Delete account") { DeleteAccountScreen(onDeleted = { vm.accountDeleted() }) } }
-            composable("theme") { Pushed("Theme") { ThemeScreen() } }
-            composable("permissions") { Pushed("Permissions") { PermissionsScreen() } }
-            composable("notifications") { Pushed("Notifications") { NotificationsScreen() } }
-            composable("about") { Pushed("About") { AboutScreen(vm, onChangelog = { nav.open("changelog") }, onLegal = { nav.open("legal/$it") }, onSupport = { nav.open("support") }, onLicense = { nav.open("license") }) } }
-            composable("license") { Pushed("License") { LicenseScreen() } }
-            composable("support") { Pushed("Support") { SupportScreen(vm, onFaqs = { nav.open("support/faqs") }, onForm = { nav.open("support/new") }, onTickets = { nav.open("support/tickets") }) } }
-            composable("support/faqs") { Pushed("FAQs") { FaqScreen(vm) } }
-            composable("support/new") { Pushed("Support form") { TicketFormScreen(vm) { id -> nav.navigate("support/ticket/$id") { popUpTo("support") } } } }
-            composable("support/tickets") { Pushed("Tickets") { TicketsScreen(vm) { nav.open("support/ticket/$it") } } }
+            composable("delete-account") { Pushed("Delete account", flat = true) { DeleteAccountScreen(onDeleted = { vm.accountDeleted() }) } }
+            composable("theme") { Pushed("Theme", flat = true) { ThemeScreen() } }
+            composable("permissions") { Pushed("Permissions", flat = true) { PermissionsScreen() } }
+            composable("notifications") { Pushed("Notifications", flat = true) { NotificationsScreen() } }
+            composable("about") { Pushed("About", flat = true) { AboutScreen(vm, onChangelog = { nav.open("changelog") }, onLegal = { nav.open("legal/$it") }, onSupport = { nav.open("support") }, onLicense = { nav.open("license") }) } }
+            composable("license") { Pushed("License", flat = true) { LicenseScreen() } }
+            composable("support") { Pushed("Support", flat = true) { SupportScreen(vm, onFaqs = { nav.open("support/faqs") }, onForm = { nav.open("support/new") }, onTickets = { nav.open("support/tickets") }) } }
+            composable("support/faqs") { Pushed("FAQs", flat = true) { FaqScreen(vm) } }
+            composable("support/new") { Pushed("Support form", flat = true) { TicketFormScreen(vm) { id -> nav.navigate("support/ticket/$id") { popUpTo("support") } } } }
+            composable("support/tickets") { Pushed("Tickets", flat = true) { TicketsScreen(vm) { nav.open("support/ticket/$it") } } }
             composable("support/ticket/{id}") { e ->
                 var t by remember { mutableStateOf("Ticket") }
                 Pushed(t) { TicketScreen(vm, e.arguments?.getString("id") ?: "", view) { t = it } }
             }
-            composable("changelog") { Pushed("What's new") { ChangelogScreen(vm.me?.user?.role) } }
+            composable("changelog") { Pushed("What's new", flat = true) { ChangelogScreen(vm.me?.user?.role) } }
             composable("legal/{doc}") { e ->
                 var t by remember { mutableStateOf("") }
-                Pushed(t) { LegalScreen(e.arguments?.getString("doc") ?: "privacy", onOpen = { nav.open("legal/$it") }, onTitle = { t = it }) }
+                Pushed(t, flat = true) { LegalScreen(e.arguments?.getString("doc") ?: "privacy", onOpen = { nav.open("legal/$it") }, onTitle = { t = it }) }
             }
-            composable("archive") { Pushed("Archive") { ArchiveScreen { nav.open("archive/$it") } } }
+            composable("archive") { Pushed("Archive", flat = true) { ArchiveScreen { nav.open("archive/$it") } } }
             composable("archive/{id}") { e ->
                 var t by remember { mutableStateOf("Season") }
                 Pushed(t) { SeasonArchiveScreen(vm, e.arguments?.getString("id") ?: "", onView = view, onDeleted = back) { t = it } }
@@ -585,12 +586,14 @@ private fun Screen(
     header: (@Composable () -> Unit)? = null,
     footer: (@Composable () -> Unit)? = null,
     action: (@Composable () -> Unit)? = null,
+    /** The Account tab's pages: sections, not cards (see FlatPage). */
+    flat: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().background(Night)) {
         if (header != null) header()
         else TopBar(title = title, onBack = onBack, onOpenWeekend = onOpenWeekend, showCountdown = showCountdown, center = center, action = action)
-        Box(Modifier.weight(1f)) { content() }
+        Box(Modifier.weight(1f)) { if (flat) FlatPage(content) else content() }
         footer?.invoke()
     }
 }

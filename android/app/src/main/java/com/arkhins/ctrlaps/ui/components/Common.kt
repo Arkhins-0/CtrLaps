@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.components
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import android.widget.Toast
@@ -80,8 +82,36 @@ import com.arkhins.ctrlaps.ui.contrastText
 
 /* The handful of pieces every screen is built from. */
 
+/**
+ * True on the Account tab's pages (Account, Settings, Storage, About and what opens from them): there a [Panel] is
+ * no card, only a section, and [FlatPage]'s bigger titles do the work a card's edge did.
+ */
+val LocalFlatPanels = staticCompositionLocalOf { false }
+
+/**
+ * The settings pages' look: no cards; section titles larger and bold (20sp), explanations quieter below, small
+ * labels; sections apart by space.
+ */
+@Composable
+fun FlatPage(content: @Composable () -> Unit) {
+    val t = MaterialTheme.typography
+    val typography = t.copy(
+        titleLarge = t.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold),
+        titleMedium = t.titleMedium.copy(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold),
+        bodyMedium = t.bodyMedium.copy(fontSize = 15.sp, lineHeight = 22.sp),
+    )
+    CompositionLocalProvider(LocalFlatPanels provides true) {
+        MaterialTheme(colorScheme = MaterialTheme.colorScheme, typography = typography, shapes = MaterialTheme.shapes, content = content)
+    }
+}
+
 @Composable
 fun Panel(modifier: Modifier = Modifier, padding: PaddingValues = PaddingValues(16.dp), content: @Composable () -> Unit) {
+    if (LocalFlatPanels.current) {
+        // A section, not a card: the page's own edge lines it up, space sets it apart.
+        Box(modifier.fillMaxWidth().padding(vertical = 10.dp)) { content() }
+        return
+    }
     Box(
         modifier
             .fillMaxWidth()

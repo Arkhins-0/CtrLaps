@@ -1,5 +1,11 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.R
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Lock
 import com.arkhins.ctrlaps.ui.theme.palette
 import com.arkhins.ctrlaps.ui.theme.OnGold
 import com.arkhins.ctrlaps.ui.theme.Accent
@@ -124,22 +130,20 @@ fun SettingsScreen(onPermissions: () -> Unit, onTheme: () -> Unit, onEmail: () -
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Panel {
-            Column {
-                MenuRow(
-                    "Permissions",
-                    if (items.isEmpty()) "Notifications, location, camera and more" else "Notifications, location, camera and more · $allowed of ${known.size} allowed",
-                    highlight = known.isNotEmpty() && allowed < known.size,
-                    onClick = onPermissions,
-                )
-                HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                val mode by ThemeSetting.mode.collectAsState()
-                MenuRow("Theme", mode.label, onClick = onTheme)
-                HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
-                MenuRow("Email", "Which emails you get", onClick = onEmail)
-            }
+        // The same flat list as the Account tab: an accent icon, a bold title, a quieter line and an arrow.
+        Column {
+            MenuRow(
+                "Permissions",
+                if (items.isEmpty()) "Notifications, location, camera and more" else "Notifications, location, camera and more · $allowed of ${known.size} allowed",
+                highlight = known.isNotEmpty() && allowed < known.size,
+                icon = rememberVectorPainter(Icons.Outlined.Lock),
+                onClick = onPermissions,
+            )
+            val mode by ThemeSetting.mode.collectAsState()
+            MenuRow("Theme", mode.label, icon = painterResource(R.drawable.ic_eye), onClick = onTheme)
+            MenuRow("Email", "Which emails you get", icon = rememberVectorPainter(Icons.Outlined.Email), onClick = onEmail)
+            MenuRow("Delete account", "Erase your account and the details we hold", icon = rememberVectorPainter(Icons.Outlined.Delete), danger = true, onClick = onDelete)
         }
-        Panel { MenuRow("Delete account", "Erase your account and the details we hold", onClick = onDelete) }
     }
 }
 
@@ -159,7 +163,7 @@ fun ThemeScreen() {
                 ThemeMode.entries.forEachIndexed { i, m ->
                     if (i > 0) HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
                     Row(
-                        Modifier.fillMaxWidth().clickable { ThemeSetting.set(m) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        Modifier.fillMaxWidth().clickable { ThemeSetting.set(m) }.padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f)) {
@@ -182,7 +186,7 @@ fun ThemeScreen() {
         val black by ThemeSetting.black.collectAsState()
         Panel(padding = PaddingValues(vertical = 4.dp)) {
             Row(
-                Modifier.fillMaxWidth().clickable { ThemeSetting.setBlack(!black) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                Modifier.fillMaxWidth().clickable { ThemeSetting.setBlack(!black) }.padding(vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
