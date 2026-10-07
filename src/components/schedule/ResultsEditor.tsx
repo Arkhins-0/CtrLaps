@@ -252,7 +252,7 @@ export function ResultsEditor({
                   </span>
                   <span
                     className={`flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg px-1.5 text-sm font-bold ${
-                      pos === null ? "bg-danger/15 text-danger" : pos <= 3 ? "bg-gold text-night" : "bg-night-line text-snow"
+                      pos === null ? "bg-danger/15 text-danger" : pos <= 3 ? "bg-gold text-ink" : "bg-night-line text-snow"
                     }`}
                   >
                     {pos ?? STATUS_LABEL[r.status]}
@@ -324,10 +324,10 @@ export function ResultsEditor({
                       </option>
                     ))}
                   </select>
-                  <button type="button" className={`chip px-2.5 py-0.5 text-xs ${r.pole ? "border-gold bg-gold text-night" : ""}`} onClick={() => set(r.key, { pole: !r.pole })} aria-pressed={r.pole}>
+                  <button type="button" className={`chip px-2.5 py-0.5 text-xs ${r.pole ? "border-gold bg-gold text-ink" : ""}`} onClick={() => set(r.key, { pole: !r.pole })} aria-pressed={r.pole}>
                     Pole
                   </button>
-                  <button type="button" className={`chip px-2.5 py-0.5 text-xs ${r.fastestLap ? "border-gold bg-gold text-night" : ""}`} onClick={() => set(r.key, { fastestLap: !r.fastestLap })} aria-pressed={r.fastestLap}>
+                  <button type="button" className={`chip px-2.5 py-0.5 text-xs ${r.fastestLap ? "border-gold bg-gold text-ink" : ""}`} onClick={() => set(r.key, { fastestLap: !r.fastestLap })} aria-pressed={r.fastestLap}>
                     Fastest lap
                   </button>
                   <input className="input w-28 px-2 py-1 text-sm" placeholder="Best lap" value={r.bestLap} maxLength={20} onChange={(e) => set(r.key, { bestLap: e.target.value })} aria-label="Best lap" />
@@ -412,7 +412,7 @@ function ResultsTable({ results }: { results: ResultRow[] }) {
               <td className="px-2 py-2">
                 <span
                   className={`inline-flex h-7 min-w-7 items-center justify-center rounded-md px-1 text-xs font-bold ${
-                    r.status !== "finished" ? "bg-danger/15 text-danger" : (r.position ?? 99) <= 3 ? "bg-gold text-night" : "bg-night-line"
+                    r.status !== "finished" ? "bg-danger/15 text-danger" : (r.position ?? 99) <= 3 ? "bg-gold text-ink" : "bg-night-line"
                   }`}
                 >
                   {r.status === "finished" ? (r.position ?? "–") : STATUS_LABEL[r.status]}

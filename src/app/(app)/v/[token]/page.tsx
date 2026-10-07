@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/AppUI";
 import { VerifyCard } from "@/components/VerifyCard";
 import { userColumns, type SessionUser } from "@/lib/auth";
 import { one } from "@/lib/db";
@@ -14,8 +15,8 @@ export default async function Verify({ params }: { params: Promise<{ token: stri
   const user = await one<SessionUser>(`SELECT ${userColumns()} FROM users WHERE qr_token = $1`, [token.slice(0, 100)]);
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-lg font-semibold">Verification</h1>
+    <div className="mx-auto max-w-2xl space-y-4">
+      <PageHeader title="Verification" icon="scan" />
       {user ? (
         <VerifyCard
           v={{

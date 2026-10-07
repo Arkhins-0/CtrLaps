@@ -274,8 +274,8 @@ export function MessageComposer({
             ] as const
           ).map(([icon, label, act]) => (
             <button key={label} type="button" className="flex w-16 flex-col items-center gap-1.5 text-xs text-snow-soft" onClick={act} disabled={locating}>
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gold text-night">
-                {icon === "location" && locating ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-night border-t-transparent" /> : <Icon name={icon} className="h-6 w-6" />}
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gold text-ink">
+                {icon === "location" && locating ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink border-t-transparent" /> : <Icon name={icon} className="h-6 w-6" />}
               </span>
               {label}
             </button>

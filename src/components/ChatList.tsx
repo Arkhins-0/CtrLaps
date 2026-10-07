@@ -68,7 +68,7 @@ export function ChatList({
             <input className="input pl-9" placeholder="Search chats" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           {canOpen && (
-            <Link href="/chats/new" className="btn-icon bg-gold text-night hover:bg-gold-deep hover:text-night" title="New chat" aria-label="New chat">
+            <Link href="/chats/new" className="btn-icon bg-gold text-ink hover:bg-gold-deep hover:text-ink" title="New chat" aria-label="New chat">
               <Icon name="edit" className="h-4 w-4" />
             </Link>
           )}
@@ -79,7 +79,7 @@ export function ChatList({
               key={f.key}
               role="tab"
               aria-selected={filter === f.key}
-              className={`chip transition-colors ${filter === f.key ? "border-gold bg-gold text-night" : "text-snow-soft hover:text-snow"}`}
+              className={`chip transition-colors ${filter === f.key ? "border-gold bg-gold text-ink" : "text-snow-soft hover:text-snow"}`}
               onClick={() => setFilter(f.key)}
             >
               {f.label}

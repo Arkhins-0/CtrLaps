@@ -12,7 +12,7 @@ export function InviteCard({ inv, mine, onAnswer }: { inv: GroupInviteRef; mine:
   const [error, setError] = useState<string | null>(null);
   const open = inviteOpen(inv);
   const onDark = !mine;
-  const note = `text-xs font-medium ${onDark ? "text-snow-soft" : "text-night/70"}`;
+  const note = `text-xs font-medium ${onDark ? "text-snow-soft" : "text-ink/70"}`;
 
   const answer = async (accept: boolean) => {
     if (!onAnswer) return;
@@ -28,9 +28,9 @@ export function InviteCard({ inv, mine, onAnswer }: { inv: GroupInviteRef; mine:
   };
 
   return (
-    <div className={`min-w-[200px] rounded-xl p-2.5 ${onDark ? "bg-night" : "bg-night/10"}`}>
-      <p className={`text-[10px] font-semibold uppercase tracking-wide ${onDark ? "text-gold" : "text-night/60"}`}>{inv.upward ? "Join request" : "Group invitation"}</p>
-      <p className={`text-base font-semibold ${onDark ? "text-snow" : "text-night"}`}>{inv.groupName}</p>
+    <div className={`min-w-[200px] rounded-xl p-2.5 ${onDark ? "bg-night" : "bg-ink/10"}`}>
+      <p className={`text-[10px] font-semibold uppercase tracking-wide ${onDark ? "text-gold" : "text-ink/60"}`}>{inv.upward ? "Join request" : "Group invitation"}</p>
+      <p className={`text-base font-semibold ${onDark ? "text-snow" : "text-ink"}`}>{inv.groupName}</p>
       <div className="mt-1.5">
         {inv.status === "accepted" ? (
           <p className={note}>Joined</p>

@@ -152,7 +152,7 @@ export function ActivityLog({ initial }: { initial: Page }) {
                   {PERIODS.map((p) => (
                     <button
                       key={p.key}
-                      className={`chip ${query.period === p.key ? "border-gold bg-gold text-night" : "hover:border-snow/40"}`}
+                      className={`chip ${query.period === p.key ? "border-gold bg-gold text-ink" : "hover:border-snow/40"}`}
                       onClick={() => setQuery((q) => ({ ...q, period: p.key }))}
                     >
                       {p.label}
@@ -186,7 +186,7 @@ export function ActivityLog({ initial }: { initial: Page }) {
         {KINDS.map((k) => (
           <button
             key={k.key}
-            className={`chip ${query.kind === k.key ? "border-gold bg-gold text-night" : "hover:border-snow/40"}`}
+            className={`chip ${query.kind === k.key ? "border-gold bg-gold text-ink" : "hover:border-snow/40"}`}
             onClick={() => setQuery((q) => (q.kind === k.key ? q : { ...q, kind: k.key }))}
           >
             {k.label}

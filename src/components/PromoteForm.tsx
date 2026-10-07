@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/client";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
+import { MenuButton } from "./AppUI";
+import { Sheet } from "./Sheet";
 import type { PublicUser } from "@/lib/users";
 
 /**
@@ -55,68 +57,74 @@ export function PromoteForm({
     }
   };
 
-  if (!open) {
-    return (
-      <div className="space-y-2">
-        {note && <p className="rounded-xl border border-night-line px-3.5 py-2.5 text-sm text-snow-soft">{note}</p>}
-        <button className="btn-gold w-full sm:w-auto sm:px-6" onClick={() => { setNote(null); setOpen(true); }}>
-          {person.role === "user" ? "Promote" : "Change role"}
-        </button>
-      </div>
-    );
-  }
+  const title = person.role === "user" ? `Promote ${name}` : `Change ${name}'s role`;
+  // A row, as the app's; the form opens in a sheet.
+  const row = (
+    <MenuButton
+      icon="badge"
+      title={person.role === "user" ? "Promote" : "Change role"}
+      hint={note ?? `Now ${ROLE_LABEL[person.role]}`}
+      highlight={!!note}
+      onClick={() => {
+        setNote(null);
+        setOpen(true);
+      }}
+    />
+  );
+  if (!open) return row;
 
   return (
-    <form onSubmit={save} className="card space-y-4">
-      <datalist id="team-names">
-        {teamNames.map((n) => (
-          <option key={n} value={n} />
-        ))}
-      </datalist>
-      <h2 className="font-semibold">{person.role === "user" ? `Promote ${name}` : `Change ${name}'s role`}</h2>
-      {error && <p className="error">{error}</p>}
-      <div>
-        <span className="label">New role</span>
-        <div className="flex flex-wrap gap-2">
-          {choices.map((r) => (
-            <button
-              key={r}
-              type="button"
-              className={`chip ${role === r ? "border-gold bg-gold text-night" : "hover:border-snow/40"}`}
-              onClick={() => setRole(r)}
-              disabled={busy}
-            >
-              {ROLE_LABEL[r]}
-            </button>
-          ))}
-        </div>
-      </div>
-      {role === "team_manager" && (
-        <div>
-          <label className="label" htmlFor="pr-team">Team name</label>
-          <input id="pr-team" list="team-names" autoComplete="off" className="input" required value={team} onChange={(e) => setTeam(e.target.value)} />
-        </div>
-      )}
-      {(role === "racer" || role === "crew") &&
-        (iAmTeamManager ? (
-          myTeam && <p className="text-sm text-snow-soft">Team: {myTeam}</p>
-        ) : (
+    <>
+      {row}
+      <Sheet title={title} onClose={() => setOpen(false)}>
+        <form onSubmit={save} className="space-y-4 pb-2">
+          <datalist id="team-names">
+            {teamNames.map((n) => (
+              <option key={n} value={n} />
+            ))}
+          </datalist>
+          {error && <p className="error">{error}</p>}
           <div>
-            <label className="label" htmlFor="pr-team">
-              Team <span className="text-snow-faint">(optional)</span>
-            </label>
-            <input id="pr-team" list="team-names" autoComplete="off" className="input" value={team} onChange={(e) => setTeam(e.target.value)} />
+            <span className="label">New role</span>
+            <div className="flex flex-wrap gap-2">
+              {choices.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  className={`chip ${role === r ? "border-gold bg-gold text-ink" : "hover:border-snow/40"}`}
+                  onClick={() => setRole(r)}
+                  disabled={busy}
+                >
+                  {ROLE_LABEL[r]}
+                </button>
+              ))}
+            </div>
           </div>
-        ))}
-      <p className="text-xs text-snow-faint">{name} is told by email. Their chats and pages change to the new role at once.</p>
-      <div className="flex justify-end gap-2">
-        <button type="button" className="btn-ghost px-4 py-1.5 text-xs" onClick={() => setOpen(false)} disabled={busy}>
-          Cancel
-        </button>
-        <button className="btn-gold px-4 py-1.5 text-xs" disabled={busy || (role === "team_manager" && !team.trim())}>
-          {busy ? "Saving…" : `Make ${ROLE_LABEL[role]}`}
-        </button>
-      </div>
-    </form>
+          {role === "team_manager" && (
+            <div>
+              <label className="label" htmlFor="pr-team">
+                Team name
+              </label>
+              <input id="pr-team" list="team-names" autoComplete="off" className="input" required value={team} onChange={(e) => setTeam(e.target.value)} />
+            </div>
+          )}
+          {(role === "racer" || role === "crew") &&
+            (iAmTeamManager ? (
+              myTeam && <p className="text-sm text-snow-soft">Team: {myTeam}</p>
+            ) : (
+              <div>
+                <label className="label" htmlFor="pr-team">
+                  Team <span className="text-snow-faint">(optional)</span>
+                </label>
+                <input id="pr-team" list="team-names" autoComplete="off" className="input" value={team} onChange={(e) => setTeam(e.target.value)} />
+              </div>
+            ))}
+          <p className="text-xs text-snow-faint">{name} is told by email. Their chats and pages change to the new role at once.</p>
+          <button className="btn-gold w-full py-3" disabled={busy || (role === "team_manager" && !team.trim())}>
+            {busy ? "Saving…" : `Make ${ROLE_LABEL[role]}`}
+          </button>
+        </form>
+      </Sheet>
+    </>
   );
 }

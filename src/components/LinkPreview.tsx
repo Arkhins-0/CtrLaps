@@ -111,7 +111,7 @@ export function LinkCard({ preview, onDark = true }: { preview: Preview; onDark?
       href={preview.url}
       target="_blank"
       rel="noreferrer noopener"
-      className={`mb-1 block overflow-hidden rounded-xl ${onDark ? "bg-night" : "bg-night/10"}`}
+      className={`mb-1 block overflow-hidden rounded-xl ${onDark ? "bg-night" : "bg-ink/10"}`}
       onClick={(e) => e.stopPropagation()}
     >
       {preview.image && (
@@ -119,9 +119,9 @@ export function LinkCard({ preview, onDark = true }: { preview: Preview; onDark?
         <img src={preview.image} alt="" loading="lazy" className="max-h-56 w-full object-cover" />
       )}
       <span className="block px-3 py-2">
-        <span className={`block text-sm font-semibold ${onDark ? "text-snow" : "text-night"}`}>{preview.title || host(preview.url)}</span>
-        {preview.description && <span className={`line-clamp-3 block text-xs ${onDark ? "text-snow-soft" : "text-night/70"}`}>{preview.description}</span>}
-        <span className={`mt-1 flex items-center gap-1 text-xs ${onDark ? "text-snow-faint" : "text-night/60"}`}>
+        <span className={`block text-sm font-semibold ${onDark ? "text-snow" : "text-ink"}`}>{preview.title || host(preview.url)}</span>
+        {preview.description && <span className={`line-clamp-3 block text-xs ${onDark ? "text-snow-soft" : "text-ink/70"}`}>{preview.description}</span>}
+        <span className={`mt-1 flex items-center gap-1 text-xs ${onDark ? "text-snow-faint" : "text-ink/60"}`}>
           <Icon name="link" className="h-3 w-3" /> {host(preview.url)}
         </span>
       </span>

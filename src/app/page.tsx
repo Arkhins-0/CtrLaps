@@ -282,7 +282,7 @@ function PhoneMockup() {
               <div className="rounded-2xl border border-night-line bg-night-panel p-3">
                 <p className="text-[9px] font-semibold uppercase tracking-wider text-gold">Chats</p>
                 <div className="mt-2 max-w-[85%] rounded-2xl rounded-bl-md bg-night-line px-3 py-1.5 text-[11px]">Tyres are in the pit garage.</div>
-                <div className="ml-auto mt-1.5 max-w-[70%] rounded-2xl rounded-br-md bg-gold px-3 py-1.5 text-[11px] text-night">On my way.</div>
+                <div className="ml-auto mt-1.5 max-w-[70%] rounded-2xl rounded-br-md bg-gold px-3 py-1.5 text-[11px] text-ink">On my way.</div>
               </div>
             </div>
           </div>
@@ -290,7 +290,7 @@ function PhoneMockup() {
       </div>
       <div className="absolute -bottom-8 -left-4 w-60 sm:-bottom-6 rounded-2xl border border-night-line bg-night-panel/95 p-3 shadow-2xl backdrop-blur sm:-left-14">
         <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gold text-[10px] font-bold text-night">RC</span>
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gold text-[10px] font-bold text-ink">RC</span>
           <p className="text-[11px] font-semibold">Race control · Delegation</p>
           <span className="ml-auto text-[9px] text-snow-faint">now</span>
         </div>

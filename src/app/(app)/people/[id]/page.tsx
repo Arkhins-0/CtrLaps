@@ -1,12 +1,15 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import QRCode from "qrcode";
+import { DetailRow, ProfileBanner, SectionHeading } from "@/components/AppUI";
 import { Avatar } from "@/components/Avatar";
+import { Icon } from "@/components/Icon";
 import { PersonPhoto } from "@/components/EditablePhoto";
 import { CopyButton } from "@/components/CopyButton";
 import { DeletePersonAccount } from "@/components/DeleteAccount";
 import { deletionDue } from "@/lib/accountDeletion";
 import { DeveloperToggle } from "@/components/DeveloperToggle";
-import { PersonActions } from "@/components/PersonActions";
+import { PersonActions, PersonStatus } from "@/components/PersonActions";
 import { PromoteForm } from "@/components/PromoteForm";
 import { StatusBadge } from "@/components/StatusBadge";
 import { canChat, canEdit, canPromote, isBelow } from "@/lib/hierarchy";
@@ -43,37 +46,45 @@ export default async function Person({ params }: { params: Promise<{ id: string 
       ? await q<{ id: string; name: string | null; email: string }>("SELECT id, name, email FROM users WHERE role = 'coordinator' AND status = 'active' ORDER BY name")
       : [];
 
+  const name = p.name ?? p.email;
+
   return (
-    <div className="space-y-5">
-      <section className="card flex items-center gap-4">
-        {editable ? (
-          <PersonPhoto personId={p.id} src={p.photoUrl} name={p.name ?? p.email} size={72} />
-        ) : (
-          <Avatar src={p.photoUrl} name={p.name ?? p.email} size={72} />
-        )}
-        <div className="min-w-0">
-          <h1 className="truncate text-lg font-semibold">{p.name ?? p.email}</h1>
-          <p className="text-sm text-snow-soft">
-            {p.roleLabel}
-            {p.teamName ? ` · ${p.teamName}` : ""}
-          </p>
-          <div className="mt-1.5">
-            <StatusBadge status={p.status} />
-          </div>
-        </div>
-      </section>
+    <div className="flat mx-auto max-w-2xl">
+      <Link href="/people" className="btn-icon -ml-2 mb-2" aria-label="Back">
+        <Icon name="back" />
+      </Link>
+      <ProfileBanner
+        photo={p.photoUrl}
+        name={name}
+        role={`${p.roleLabel}${p.teamName ? ` · ${p.teamName}` : ""}`}
+        status={<StatusBadge status={p.status} />}
+        photoSlot={editable ? <PersonPhoto personId={p.id} src={p.photoUrl} name={name} size={80} /> : <Avatar src={p.photoUrl} name={name} size={80} />}
+      />
 
-      <section className="card flex flex-col gap-4 text-sm sm:flex-row sm:items-start">
-        <div className="grid grid-cols-1 flex-1 gap-3 sm:grid-cols-2">
-          <Row label="Email" value={p.email} />
-          <Row label="Contact" value={p.phone ?? "—"} />
-          <Row label="Date of birth" value={p.dob ?? "—"} />
-          <Row label="Account code" value={p.verifyCode} mono copy />
-        </div>
-        <div className="w-36 shrink-0 self-center rounded-xl bg-white p-1.5 sm:self-start" dangerouslySetInnerHTML={{ __html: svg }} />
-      </section>
+      <PersonActions
+        person={p}
+        editable={editable}
+        canChat={canChat(me, user)}
+        coordinators={coordinators.map((c) => ({ id: c.id, name: c.name || c.email }))}
+        qrSvg={svg}
+        qrLink={qrUrl(user)}
+      />
 
-      {canPromote(me, user) && <PromoteForm person={p} roles={CREATE_RULES[me.role] ?? []} myRole={me.role} myTeam={me.team_name} teamNames={teamNames} />}
+      <SectionHeading>Details</SectionHeading>
+      <DetailRow icon="mail" label="Email" value={p.email} end={<CopyButton value={p.email} label="Copy email" />} />
+      <DetailRow icon="call" label="Contact" value={p.phone ?? "—"} end={p.phone ? <CopyButton value={p.phone} label="Copy contact" /> : undefined} />
+      <DetailRow icon="calendar" label="Date of birth" value={p.dob ?? "—"} />
+      {p.teamName && <DetailRow icon="people" label="Team" value={p.teamName} />}
+      <DetailRow icon="badge" label="Account code" value={<span className="font-mono tracking-wider">{p.verifyCode}</span>} end={<CopyButton value={p.verifyCode} label="Copy account code" />} />
+
+      {editable && <PersonStatus person={p} />}
+
+      {canPromote(me, user) && (
+        <>
+          <SectionHeading>Role</SectionHeading>
+          <PromoteForm person={p} roles={CREATE_RULES[me.role] ?? []} myRole={me.role} myTeam={me.team_name} teamNames={teamNames} />
+        </>
+      )}
 
       <RaceCategories
         userId={p.id}
@@ -86,28 +97,9 @@ export default async function Person({ params }: { params: Promise<{ id: string 
 
       {isDeveloper(me) && user.id !== me.id && user.role === "admin" && user.status === "active" && <DeveloperToggle personId={p.id} isDev={p.isDev} />}
 
-      <PersonActions
-        person={p}
-        editable={editable}
-        canChat={canChat(me, user)}
-        coordinators={coordinators.map((c) => ({ id: c.id, name: c.name || c.email }))}
-      />
-
       {isDeveloper(me) && user.id !== me.id && user.status !== "deleted" && (
-        <DeletePersonAccount personId={p.id} name={p.name ?? p.email} dueAt={await deletionDue(user.id)} />
+        <DeletePersonAccount personId={p.id} name={name} dueAt={await deletionDue(user.id)} />
       )}
-    </div>
-  );
-}
-
-function Row({ label, value, mono, copy }: { label: string; value: string; mono?: boolean; copy?: boolean }) {
-  return (
-    <div>
-      <p className="label">{label}</p>
-      <p className="flex items-center gap-1">
-        <span className={mono ? "font-mono tracking-wider" : ""}>{value}</span>
-        {copy && <CopyButton value={value} label={`Copy ${label.toLowerCase()}`} />}
-      </p>
     </div>
   );
 }

@@ -47,12 +47,12 @@ export function EventCard({ event: given, onDark = true }: { event: EventOut; on
     }
   }
 
-  const ink = onDark ? "text-snow" : "text-night";
-  const soft = onDark ? "text-snow-faint" : "text-night/60";
-  const line = onDark ? "border-snow-faint/25" : "border-night/15";
+  const ink = onDark ? "text-snow" : "text-ink";
+  const soft = onDark ? "text-snow-faint" : "text-ink/60";
+  const line = onDark ? "border-snow-faint/25" : "border-ink/15";
   const pill = (on: boolean) =>
     `flex-1 rounded-lg border px-3 py-1.5 text-sm font-semibold ${
-      on ? (onDark ? "border-gold bg-gold text-night" : "border-night bg-night text-gold") : `${line} ${ink}`
+      on ? (onDark ? "border-gold bg-gold text-ink" : "border-ink bg-ink text-gold") : `${line} ${ink}`
     }`;
   const replies = ev.going + ev.notGoing;
   return (
@@ -70,7 +70,7 @@ export function EventCard({ event: given, onDark = true }: { event: EventOut; on
         </button>
       </div>
       {ev.named && replies > 0 && (
-        <button type="button" onClick={() => setOpen(!open)} className={`mt-2 w-full border-t pt-2 text-left text-sm ${line} ${onDark ? "text-gold" : "text-night"}`}>
+        <button type="button" onClick={() => setOpen(!open)} className={`mt-2 w-full border-t pt-2 text-left text-sm ${line} ${onDark ? "text-gold" : "text-ink"}`}>
           {open ? "Hide replies" : "View replies"}
         </button>
       )}

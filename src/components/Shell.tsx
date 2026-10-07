@@ -62,7 +62,7 @@ export function Shell({ user, unreadHome, unreadChats, children }: { user: Shell
             ))}
           </nav>
           <Link href="/account" className={`m-3 flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-snow/5 ${active("/account") ? "bg-snow/10" : ""}`}>
-            <Avatar src={user.photoUrl} name={user.name} size={36} />
+            <Avatar src={user.photoUrl} name={user.name} size={36} preview={false} />
             <span className="min-w-0">
               <span className="block truncate text-sm font-medium">{user.name}</span>
               <span className="block truncate text-xs text-snow-faint">{user.roleLabel}</span>
@@ -106,7 +106,7 @@ export function Shell({ user, unreadHome, unreadChats, children }: { user: Shell
             ))}
             <Link href="/account" aria-label="Account" className={`rounded-2xl p-2 ${active("/account") ? "bg-snow/10" : ""}`}>
               <span className={`block rounded-full border-2 ${active("/account") ? "border-gold" : "border-night-line"}`}>
-                <Avatar src={user.photoUrl} name={user.name} size={30} />
+                <Avatar src={user.photoUrl} name={user.name} size={30} preview={false} />
               </span>
             </Link>
           </div>

@@ -168,7 +168,7 @@ export function VolunteerGroupManager({ initial }: { initial: GroupDetail }) {
                 {PERMISSIONS.map((p) => (
                   <button
                     key={p.key}
-                    className={`chip px-2 py-0.5 text-[11px] ${v.permission === p.key ? (p.key === "full" ? "border-gold bg-gold text-night" : "border-danger bg-danger/15 text-danger") : "hover:border-snow/40"}`}
+                    className={`chip px-2 py-0.5 text-[11px] ${v.permission === p.key ? (p.key === "full" ? "border-gold bg-gold text-ink" : "border-danger bg-danger/15 text-danger") : "hover:border-snow/40"}`}
                     onClick={() => v.permission !== p.key && permission(v.id, p.key)}
                     disabled={busy}
                     aria-pressed={v.permission === p.key}

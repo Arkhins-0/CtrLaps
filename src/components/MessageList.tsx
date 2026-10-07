@@ -31,14 +31,14 @@ function LocationCard({ lat, lng, onDark = true }: { lat: number; lng: number; o
       href={`https://maps.google.com/?q=${lat},${lng}`}
       target="_blank"
       rel="noreferrer"
-      className={`mt-1 flex items-center gap-3 rounded-xl border px-3 py-2 ${onDark ? "border-night-line bg-night text-snow" : "border-night/20 bg-night/10 text-night"}`}
+      className={`mt-1 flex items-center gap-3 rounded-xl border px-3 py-2 ${onDark ? "border-night-line bg-night text-snow" : "border-ink/20 bg-ink/10 text-ink"}`}
     >
       <span className="rounded-lg bg-gold/15 p-2 text-gold">
         <Icon name="location" className="h-5 w-5" />
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-medium">Location</span>
-        <span className={`block text-xs ${onDark ? "text-snow-faint" : "text-night/60"}`}>
+        <span className={`block text-xs ${onDark ? "text-snow-faint" : "text-ink/60"}`}>
           {lat.toFixed(5)}, {lng.toFixed(5)} · open in Maps
         </span>
       </span>
@@ -53,9 +53,9 @@ export function Attachment({ file, onDark = true }: { file: NonNullable<MessageO
   // Sent through "Document": a document card, whatever its type.
   if (!file.document && file.mime.startsWith("audio/")) {
     return (
-      <div className={`mt-2 rounded-xl border px-3 py-2 ${onDark ? "border-night-line bg-night" : "border-night/20 bg-night/10"}`}>
+      <div className={`mt-2 rounded-xl border px-3 py-2 ${onDark ? "border-night-line bg-night" : "border-ink/20 bg-ink/10"}`}>
         <audio controls preload="none" src={`/api/files/${file.id}/content?inline=1`} className="h-9 w-full max-w-xs" />
-        <p className={`mt-1 truncate text-xs ${onDark ? "text-snow-faint" : "text-night/60"}`}>{file.name}</p>
+        <p className={`mt-1 truncate text-xs ${onDark ? "text-snow-faint" : "text-ink/60"}`}>{file.name}</p>
       </div>
     );
   }
@@ -76,14 +76,14 @@ export function Attachment({ file, onDark = true }: { file: NonNullable<MessageO
   return (
     <>
       <button
-        className={`mt-2 flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left hover:border-gold/50 ${onDark ? "border-night-line bg-night" : "border-night/20 bg-night/10"}`}
+        className={`mt-2 flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left hover:border-gold/50 ${onDark ? "border-night-line bg-night" : "border-ink/20 bg-ink/10"}`}
         onClick={() => setOpen(true)}
       >
         {/* On your own (gold) bubble the badge is dark, so it can be read. */}
         <span className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase ${onDark ? "bg-gold/15 text-gold" : "bg-night text-gold"}`}>{file.name.split(".").pop()?.slice(0, 4) || "doc"}</span>
         <span className="min-w-0 flex-1">
-          <span className={`block truncate text-sm ${onDark ? "" : "text-night"}`}>{file.name}</span>
-          <span className={`block text-xs ${onDark ? "text-snow-faint" : "text-night/60"}`}>{formatBytes(file.size)}</span>
+          <span className={`block truncate text-sm ${onDark ? "" : "text-ink"}`}>{file.name}</span>
+          <span className={`block text-xs ${onDark ? "text-snow-faint" : "text-ink/60"}`}>{formatBytes(file.size)}</span>
         </span>
       </button>
       {open &&
@@ -254,7 +254,7 @@ export function Ticks({ status }: { status: NonNullable<MessageOut["status"]> })
   return (
     <svg
       viewBox={`0 0 ${10 + (n - 1) * 5} 10`}
-      className={`ml-1 inline-block h-2.5 align-[-1px] ${status === "read" ? "text-sky-700" : "text-night/60"}`}
+      className={`ml-1 inline-block h-2.5 align-[-1px] ${status === "read" ? "text-sky-700" : "text-ink/60"}`}
       style={{ width: `${(10 + (n - 1) * 5) * 1.1}px` }}
       fill="none"
       stroke="currentColor"
@@ -291,10 +291,10 @@ function Quote({ r, onDark, onClick }: { r: ReplyRef; onDark: boolean; onClick?:
         e.stopPropagation();
         onClick?.();
       }}
-      className={`mb-1 block w-full rounded-lg border-l-4 px-2 py-1 text-left ${onDark ? "border-gold bg-night" : "border-night/50 bg-night/10"}`}
+      className={`mb-1 block w-full rounded-lg border-l-4 px-2 py-1 text-left ${onDark ? "border-gold bg-night" : "border-ink/50 bg-ink/10"}`}
     >
-      <span className={`block text-xs font-semibold ${onDark ? "text-gold" : "text-night"}`}>{r.mine ? "You" : r.senderName}</span>
-      <span className={`line-clamp-2 block text-xs ${r.deleted ? "italic " : ""}${onDark ? "text-snow-soft" : "text-night/70"}`}>{snippet(r)}</span>
+      <span className={`block text-xs font-semibold ${onDark ? "text-gold" : "text-ink"}`}>{r.mine ? "You" : r.senderName}</span>
+      <span className={`line-clamp-2 block text-xs ${r.deleted ? "italic " : ""}${onDark ? "text-snow-soft" : "text-ink/70"}`}>{snippet(r)}</span>
     </button>
   );
 }
@@ -311,7 +311,7 @@ function Highlighted({ text: raw, needle, mine }: { text: string; needle: string
   for (let at = lower.indexOf(n); at >= 0; at = lower.indexOf(n, from)) {
     parts.push(text.slice(from, at));
     parts.push(
-      <mark key={at} className={`rounded-sm ${mine ? "bg-night/25 text-night" : "bg-gold/45 text-snow"}`}>
+      <mark key={at} className={`rounded-sm ${mine ? "bg-ink/25 text-ink" : "bg-gold/45 text-snow"}`}>
         {text.slice(at, at + n.length)}
       </mark>,
     );
@@ -367,7 +367,7 @@ export function Bubble({
       <div className={`flex ${m.mine ? "justify-end" : "justify-start"}`}>
         <div className={m.mine ? "bubble-mine" : "bubble-theirs"}>
           {m.deleted ? (
-            <p className={`italic ${m.mine ? "text-night/70" : "text-snow-faint"}`}>This message was deleted</p>
+            <p className={`italic ${m.mine ? "text-ink/70" : "text-snow-faint"}`}>This message was deleted</p>
           ) : (
             <>
               {senderName &&
@@ -380,7 +380,7 @@ export function Bubble({
                     {senderName}
                   </p>
                 ))}
-              {m.forwarded && <span className={`mb-1 block text-[11px] italic ${m.mine ? "text-night/60" : "text-snow-faint"}`}>↪ Forwarded</span>}
+              {m.forwarded && <span className={`mb-1 block text-[11px] italic ${m.mine ? "text-ink/60" : "text-snow-faint"}`}>↪ Forwarded</span>}
               {quote && <Quote r={quote} onDark={!m.mine} onClick={() => onQuote?.(quote.id)} />}
               {m.groupInvite ? (
                 <InviteCard inv={m.groupInvite} mine={m.mine} onAnswer={onInvite} />
@@ -403,7 +403,7 @@ export function Bubble({
               <Files files={filesOf(m)} onDark={!m.mine} />
             </>
           )}
-          <p className={`mt-1 flex items-center justify-end text-[10px] ${m.mine ? "text-night/60" : "text-snow-faint"}`}>
+          <p className={`mt-1 flex items-center justify-end text-[10px] ${m.mine ? "text-ink/60" : "text-snow-faint"}`}>
             {m.editedAt && !m.deleted ? "edited · " : ""}
             <LocalTime iso={m.createdAt} mode="time" />
             {m.status && !m.deleted && <Ticks status={m.status} />}

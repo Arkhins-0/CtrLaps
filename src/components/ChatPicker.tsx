@@ -35,7 +35,7 @@ export function ChatPicker({ people }: { people: PublicUser[] }) {
       <div className="max-h-[70vh] divide-y divide-night-line overflow-y-auto">
         {shown.map((p) => (
           <button key={p.id} className="row w-full text-left" onClick={() => open(p.id)} disabled={busy}>
-            <Avatar src={p.photoUrl} name={p.name ?? p.email} size={40} />
+            <Avatar src={p.photoUrl} name={p.name ?? p.email} size={40} preview={false} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">{p.name ?? p.email}</span>
               <span className="block truncate text-xs text-snow-faint">

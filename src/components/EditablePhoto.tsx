@@ -26,7 +26,7 @@ export function EditablePhoto({
     <>
       {cropping && <PhotoCropDialog file={cropping} onCancel={() => setCropping(null)} onDone={(f) => { setCropping(null); onPicked(f); }} />}
       <label className={`relative shrink-0 ${disabled ? "pointer-events-none opacity-60" : "cursor-pointer"}`} title="Change photo" style={{ width: size, height: size }}>
-        <Avatar src={src} name={name} size={size} />
+        <Avatar src={src} name={name} size={size} preview={false} />
         <input
           type="file"
           accept="image/*"

@@ -24,7 +24,7 @@ export function ScheduleEditor({ weekends, seasons, categories }: { weekends: We
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Schedule</h1>
+        <h1 className="page-title">Schedule</h1>
         <div className="flex gap-2">
           <button className="btn-ghost px-4 py-1.5 text-xs" onClick={() => setEditingCategories((v) => !v)}>
             Categories

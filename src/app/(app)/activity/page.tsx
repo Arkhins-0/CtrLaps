@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { PageHeader } from "@/components/AppUI";
 import { ActivityLog } from "@/components/ActivityLog";
 import { activity } from "@/lib/activity";
 import { isDeveloper } from "@/lib/roles";
@@ -12,10 +13,12 @@ export default async function ActivityPage() {
   if (!isDeveloper(user)) notFound();
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-lg font-semibold">Activity log</h1>
-        <p className="text-sm text-snow-faint">Who did what, and when. Only the support team sees this. Private chats and groups are never logged.</p>
-      </div>
+      <PageHeader
+        title="Activity log"
+        icon="document"
+        back="/account"
+        sub="Who did what, and when. Only the support team sees this. Private chats and groups are never logged."
+      />
       <ActivityLog initial={await activity({})} />
     </div>
   );

@@ -46,7 +46,7 @@ export function ForwardDialog({ count, onClose, onSend }: { count: number; onClo
         {list?.length === 0 && <p className="p-3 text-sm text-snow-faint">{needle ? "No one matches." : "No chats to forward to."}</p>}
         {list?.map((c) => (
           <label key={c.id} className="row cursor-pointer">
-            <Avatar src={c.other.photoUrl} name={c.other.name} size={40} />
+            <Avatar src={c.other.photoUrl} name={c.other.name} size={40} preview={false} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">{c.other.name}</span>
               <span className="block truncate text-xs text-snow-faint">{c.other.roleLabel}</span>

@@ -3,26 +3,36 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, shrinkImage } from "@/lib/client";
+import { MenuButton, QuickAction, SectionHeading } from "./AppUI";
+import { CopyButton } from "./CopyButton";
 import { EditablePhoto, usePreview } from "./EditablePhoto";
+import { Sheet } from "./Sheet";
 import { STATUS_LABEL, type Status } from "@/lib/roles";
 import type { PublicUser } from "@/lib/users";
 
 const STATUS_CHOICES: Status[] = ["active", "suspended", "dismissed", "banned"];
 
-/** What can be done to a person: open a chat, resend the invite, and — for their manager or an admin — edit and set status. */
+/**
+ * What can be done to a person, as on the app's person page: round actions under the banner (Message, QR code, Edit,
+ * Resend invite), with the edit form and the QR code in sheets.
+ */
 export function PersonActions({
   person,
   editable,
   canChat,
   coordinators,
+  qrSvg,
+  qrLink,
 }: {
   person: PublicUser;
   editable: boolean;
   canChat: boolean;
   coordinators: { id: string; name: string }[];
+  qrSvg: string;
+  qrLink: string;
 }) {
   const router = useRouter();
-  const [editing, setEditing] = useState(false);
+  const [sheet, setSheet] = useState<"edit" | "qr" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -54,9 +64,9 @@ export function PersonActions({
 
   const resend = () => run(() => api(`/api/users/${person.id}/invite`, { method: "POST" }).then(() => undefined), "Invite sent again.");
 
-  const setStatus = (status: Status) => {
-    if (status !== "active" && !confirm(`Set ${person.name ?? person.email} to ${STATUS_LABEL[status].toLowerCase()}? They will be signed out.`)) return;
-    run(() => api(`/api/users/${person.id}`, { method: "PATCH", json: { status } }).then(() => undefined), `Status: ${STATUS_LABEL[status]}.`);
+  const closeEdit = () => {
+    setSheet(null);
+    setNewPhoto(null);
   };
 
   const save = (e: React.FormEvent) => {
@@ -74,69 +84,43 @@ export function PersonActions({
         form.set("photo", await shrinkImage(newPhoto), "photo.jpg");
         await api(`/api/users/${person.id}/photo`, { method: "POST", body: form });
       }
-      setNewPhoto(null);
-      setEditing(false);
+      closeEdit();
     }, "Saved.");
   };
 
-  return (
-    <section className="space-y-3">
-      {error && <p className="error">{error}</p>}
-      {note && <p className="rounded-xl border border-night-line px-3.5 py-2.5 text-sm text-snow-soft">{note}</p>}
+  const name = person.name ?? person.email;
 
-      <div className="flex flex-wrap gap-2">
-        {canChat && person.status === "active" && (
-          <button className="btn-gold px-4 py-1.5 text-xs" onClick={openChat} disabled={busy}>
-            Open private chat
-          </button>
-        )}
-        {person.status === "pending" && (
-          <button className="btn-ghost px-4 py-1.5 text-xs" onClick={resend} disabled={busy}>
-            Resend invite
-          </button>
-        )}
-        {editable && person.profileComplete && !editing && (
-          <button className="btn-ghost px-4 py-1.5 text-xs" onClick={() => setEditing(true)} disabled={busy}>
-            Edit profile
-          </button>
-        )}
+  return (
+    <>
+      <div className="flex justify-center gap-2 py-5">
+        {canChat && person.status === "active" && <QuickAction icon="chat" label="Message" onClick={openChat} disabled={busy} />}
+        <QuickAction icon="scan" label="QR code" onClick={() => setSheet("qr")} />
+        {editable && person.profileComplete && <QuickAction icon="edit" label="Edit" onClick={() => setSheet("edit")} disabled={busy} />}
+        {person.status === "pending" && <QuickAction icon="mail" label="Resend invite" onClick={resend} disabled={busy} />}
       </div>
 
-      {editable && person.status !== "pending" && (
-        <div className="card">
-          <p className="label">Status</p>
-          <div className="flex flex-wrap gap-2">
-            {STATUS_CHOICES.map((s) => (
-              <button
-                key={s}
-                className={`chip ${person.status === s ? "border-gold bg-gold text-night" : "hover:border-snow/40"}`}
-                onClick={() => person.status !== s && setStatus(s)}
-                disabled={busy}
-              >
-                {STATUS_LABEL[s]}
-              </button>
-            ))}
+      {error && sheet !== "edit" && <p className="error mb-3">{error}</p>}
+      {note && <p className="mb-3 rounded-xl border border-night-line px-3.5 py-2.5 text-sm text-snow-soft">{note}</p>}
+
+      {sheet === "qr" && (
+        <Sheet title={`${name}'s QR code`} onClose={() => setSheet(null)}>
+          <div className="mx-auto w-56 rounded-2xl bg-white p-2" dangerouslySetInnerHTML={{ __html: qrSvg }} />
+          <p className="mt-3 text-center text-sm text-snow-soft">Scanned at the gate, it shows who they are and their status.</p>
+          <div className="mt-3 flex items-center justify-center gap-1 pb-2">
+            <span className="font-mono text-sm tracking-wider text-snow-faint">{person.verifyCode}</span>
+            <CopyButton value={qrLink} label="Copy the QR link" />
           </div>
-        </div>
-      )}
-      {editable && person.status === "pending" && (
-        <div className="flex gap-2">
-          <button className="btn-danger px-4 py-1.5 text-xs" onClick={() => setStatus("dismissed")} disabled={busy}>
-            Dismiss
-          </button>
-          <button className="btn-danger px-4 py-1.5 text-xs" onClick={() => setStatus("banned")} disabled={busy}>
-            Ban
-          </button>
-        </div>
+        </Sheet>
       )}
 
-      {editing && (
-        <form onSubmit={save} className="card space-y-3">
-          <div className="flex items-center gap-4">
-            <EditablePhoto src={preview ?? person.photoUrl} name={person.name ?? person.email} size={72} disabled={busy} onPicked={setNewPhoto} />
-            <p className="text-xs text-snow-faint">Tap the photo to change it.</p>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {sheet === "edit" && (
+        <Sheet title={`Edit ${name}`} onClose={closeEdit}>
+          <form id="person-edit" onSubmit={save} className="space-y-3 pb-2">
+            {error && <p className="error">{error}</p>}
+            <div className="flex items-center gap-4">
+              <EditablePhoto src={preview ?? person.photoUrl} name={name} size={72} disabled={busy} onPicked={setNewPhoto} />
+              <p className="text-xs text-snow-faint">Tap the photo to change it.</p>
+            </div>
             <label className="block">
               <span className="label">Full name</span>
               <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
@@ -167,17 +151,64 @@ export function PersonActions({
                 </select>
               </label>
             )}
-          </div>
-          <div className="flex justify-end gap-2">
-            <button type="button" className="btn-ghost px-4 py-1.5 text-xs" onClick={() => { setEditing(false); setNewPhoto(null); }} disabled={busy}>
-              Cancel
-            </button>
-            <button className="btn-gold px-4 py-1.5 text-xs" disabled={busy}>
+            <button className="btn-gold w-full py-3" disabled={busy}>
               {busy ? "Saving…" : "Save"}
             </button>
-          </div>
-        </form>
+          </form>
+        </Sheet>
       )}
-    </section>
+
+    </>
+  );
+}
+
+/** A person's status, for their manager or an admin: chips once they've joined, Dismiss or Ban while invited. */
+export function PersonStatus({ person }: { person: PublicUser }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const setStatus = async (status: Status) => {
+    if (status !== "active" && !confirm(`Set ${person.name ?? person.email} to ${STATUS_LABEL[status].toLowerCase()}? They will be signed out.`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/users/${person.id}`, { method: "PATCH", json: { status } });
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      {error && <p className="error mt-3">{error}</p>}
+      {person.status !== "pending" && (
+        <section>
+          <SectionHeading>Status</SectionHeading>
+          <div className="flex flex-wrap gap-2 px-2 py-2">
+            {STATUS_CHOICES.map((s) => (
+              <button
+                key={s}
+                className={`chip ${person.status === s ? "border-gold bg-gold text-ink" : "hover:border-snow/40"}`}
+                onClick={() => person.status !== s && setStatus(s)}
+                disabled={busy}
+              >
+                {STATUS_LABEL[s]}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+      {person.status === "pending" && (
+        <section>
+          <SectionHeading>Invite</SectionHeading>
+          <MenuButton icon="close" title="Dismiss" hint="Turn down the invite: it can no longer be used" danger onClick={() => setStatus("dismissed")} disabled={busy} />
+          <MenuButton icon="lock" title="Ban" hint="Turn down the invite and keep them out" danger onClick={() => setStatus("banned")} disabled={busy} />
+        </section>
+      )}
+    </>
   );
 }

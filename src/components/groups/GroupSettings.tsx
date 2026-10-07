@@ -121,13 +121,13 @@ export function GroupSettings({ initial, meId }: { initial: GroupInfo; meId: str
       <section className="card flex items-center gap-4 p-4">
         {admin ? (
           <button className="group relative shrink-0 rounded-full" onClick={() => file.current?.click()} disabled={busy} title="Change the picture" aria-label="Change the picture">
-            <Avatar src={photo} name={g.name} size={72} />
+            <Avatar src={photo} name={g.name} size={72} preview={false} />
             <span className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full border border-night-line bg-night-panel text-snow-soft group-hover:text-gold">
               <Icon name="edit" className="h-3.5 w-3.5" />
             </span>
           </button>
         ) : (
-          <Avatar src={photo} name={g.name} size={72} />
+          <Avatar src={photo} name={g.name} size={72} preview={false} />
         )}
         <input
           ref={file}
@@ -187,7 +187,7 @@ export function GroupSettings({ initial, meId }: { initial: GroupInfo; meId: str
             {POLICIES.map((p) => (
               <button
                 key={p.key}
-                className={`chip transition-colors ${g.sendPolicy === p.key ? "border-gold bg-gold text-night" : "text-snow-soft hover:text-snow"}`}
+                className={`chip transition-colors ${g.sendPolicy === p.key ? "border-gold bg-gold text-ink" : "text-snow-soft hover:text-snow"}`}
                 onClick={() => patch({ sendPolicy: p.key })}
                 disabled={busy || g.sendPolicy === p.key}
                 aria-pressed={g.sendPolicy === p.key}

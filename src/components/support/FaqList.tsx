@@ -76,7 +76,7 @@ export function FaqList({ initial, canEdit = false }: { initial: Faq[]; canEdit?
                       <ol className="space-y-1.5">
                         {f.steps.map((s, i) => (
                           <li key={i} className="flex gap-3">
-                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gold text-[11px] font-bold text-night">{i + 1}</span>
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gold text-[11px] font-bold text-ink">{i + 1}</span>
                             <span>{s}</span>
                           </li>
                         ))}

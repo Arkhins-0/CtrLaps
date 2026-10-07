@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/AppUI";
 import { SupportHub } from "@/components/support/SupportHub";
 import { isDeveloper } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
@@ -11,11 +12,13 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
   const { tab } = await searchParams;
   const dev = isDeveloper(user);
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-lg font-semibold">Support</h1>
-        <p className="text-sm text-snow-faint">{dev ? "Answer tickets as Support, and keep the FAQs up to date." : "Find an answer, or ask Support."}</p>
-      </div>
+    <div className="mx-auto max-w-2xl space-y-4">
+      <PageHeader
+        title="Help & support"
+        icon="help"
+        back="/account"
+        sub={dev ? "Answer tickets as Support, and keep the FAQs up to date." : "Find an answer, or ask Support."}
+      />
       <SupportHub
         faqs={await listFaqs()}
         prefill={{ name: user.name ?? "", email: user.email, phone: user.phone ?? "" }}

@@ -192,7 +192,7 @@ export function WeekendCard({
                         </span>
                       )}
                       {s.name}
-                      {live && <span className="chip ml-2 border-gold bg-gold px-2 py-0 text-[10px] text-night">LIVE</span>}
+                      {live && <span className="chip ml-2 border-gold bg-gold px-2 py-0 text-[10px] text-ink">LIVE</span>}
                     </p>
                     <p className="text-xs text-snow-soft">
                       <LocalTime iso={s.startsAt} /> – <LocalTime iso={s.endsAt} mode="time" />

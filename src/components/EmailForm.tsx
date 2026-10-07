@@ -29,7 +29,7 @@ export function EmailForm({ mode, group }: { mode: "relay"; group: "volunteers" 
       {mode === "bulk" && (
         <div className="card flex flex-wrap gap-2">
           {ROLES.map((r) => (
-            <label key={r} className={`chip cursor-pointer ${roles.has(r) ? "border-gold bg-gold text-night" : "hover:border-snow/40"}`}>
+            <label key={r} className={`chip cursor-pointer ${roles.has(r) ? "border-gold bg-gold text-ink" : "hover:border-snow/40"}`}>
               <input
                 type="checkbox"
                 className="hidden"

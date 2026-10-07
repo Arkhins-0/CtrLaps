@@ -34,7 +34,7 @@ export function CategoryChips({
   mine?: string[] | null;
 }) {
   if (categories.length === 0) return null;
-  const chip = (on: boolean) => `chip ${on ? "border-gold bg-gold text-night" : "hover:border-snow/40"}`;
+  const chip = (on: boolean) => `chip ${on ? "border-gold bg-gold text-ink" : "hover:border-snow/40"}`;
   return (
     <div className="flex flex-wrap gap-2" role="group" aria-label="Show sessions of">
       {mine && mine.length > 0 && (

@@ -30,7 +30,7 @@ export function PeoplePicker({
     <div className="divide-y divide-night-line">
       {shown.map((p) => (
         <label key={p.id} className="row cursor-pointer rounded-none">
-          <Avatar src={p.photoUrl} name={p.name} size={40} />
+          <Avatar src={p.photoUrl} name={p.name} size={40} preview={false} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium">{p.name}</span>
             <span className="block truncate text-xs text-snow-faint">

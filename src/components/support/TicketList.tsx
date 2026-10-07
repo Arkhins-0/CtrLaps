@@ -61,7 +61,7 @@ export function TicketList({ isDev }: { isDev: boolean }) {
           </span>
           <span className="flex shrink-0 flex-col items-end gap-1">
             <span className={`chip px-2 py-0 text-[10px] ${t.status === "open" ? "border-gold/40 text-gold" : "text-snow-faint"}`}>{t.status === "open" ? "Open" : "Closed"}</span>
-            {t.unread > 0 && <span className="rounded-full bg-gold px-1.5 text-[10px] font-bold text-night">{t.unread}</span>}
+            {t.unread > 0 && <span className="rounded-full bg-gold px-1.5 text-[10px] font-bold text-ink">{t.unread}</span>}
           </span>
         </Link>
       ))}

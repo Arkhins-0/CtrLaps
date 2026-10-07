@@ -73,7 +73,7 @@ export function AccountActions({ appVersion, isDev = false }: { appVersion: stri
   );
 }
 
-function ChangePassword({ onDone }: { onDone: () => void }) {
+export function ChangePassword({ onDone }: { onDone: () => void }) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [again, setAgain] = useState("");

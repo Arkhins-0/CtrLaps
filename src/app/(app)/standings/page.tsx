@@ -11,7 +11,7 @@ const STATUS: Record<string, string> = { dnf: "DNF", dns: "DNS", dsq: "DSQ" };
 /** A position badge: gold for the podium. */
 function Place({ n }: { n: number }) {
   return (
-    <span className={`inline-flex h-7 min-w-7 items-center justify-center rounded-md px-1 text-xs font-bold ${n <= 3 ? "bg-gold text-night" : "bg-night-line"}`}>{n}</span>
+    <span className={`inline-flex h-7 min-w-7 items-center justify-center rounded-md px-1 text-xs font-bold ${n <= 3 ? "bg-gold text-ink" : "bg-night-line"}`}>{n}</span>
   );
 }
 

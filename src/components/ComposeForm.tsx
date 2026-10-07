@@ -55,7 +55,7 @@ export function ComposeForm({ people, categories = [] }: { people: PublicUser[];
             const ids = people.filter((p) => p.role === r);
             const all = ids.every((p) => picked.has(p.id));
             return (
-              <button key={r} type="button" className={`chip ${all ? "border-gold bg-gold text-night" : "hover:border-snow/40"}`} onClick={() => toggleRole(r)}>
+              <button key={r} type="button" className={`chip ${all ? "border-gold bg-gold text-ink" : "hover:border-snow/40"}`} onClick={() => toggleRole(r)}>
                 All {ROLE_LABEL[r].toLowerCase()}s · {ids.length}
               </button>
             );
@@ -88,7 +88,7 @@ export function ComposeForm({ people, categories = [] }: { people: PublicUser[];
           {shown.map((p) => (
             <label key={p.id} className="row cursor-pointer">
               <input type="checkbox" className="accent-gold" checked={picked.has(p.id)} onChange={() => toggle(p.id)} />
-              <Avatar src={p.photoUrl} name={p.name ?? p.email} size={30} />
+              <Avatar src={p.photoUrl} name={p.name ?? p.email} size={30} preview={false} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm">{p.name ?? p.email}</span>
                 <span className="block truncate text-xs text-snow-faint">

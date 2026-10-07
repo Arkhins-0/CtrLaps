@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { PageHeader } from "@/components/AppUI";
 import { EmailForm } from "@/components/EmailForm";
 import { requireProfile } from "@/lib/session";
 
@@ -10,20 +11,21 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
   if (user.role === "coordinator") {
     if (group !== "volunteers" && group !== "security") notFound();
     return (
-      <div className="space-y-4">
-        <h1 className="text-lg font-semibold">Email my {group}</h1>
-        <p className="text-sm text-snow-soft">
-          Goes by email and as an urgent message to the {group} {group === "volunteers" ? "assigned to you" : "under you"}.
-        </p>
+      <div className="mx-auto max-w-2xl space-y-4">
+        <PageHeader
+          title={`Email my ${group}`}
+          icon="mail"
+          back="/people"
+          sub={`Goes by email and as an urgent message to the ${group} ${group === "volunteers" ? "assigned to you" : "under you"}.`}
+        />
         <EmailForm mode="relay" group={group} />
       </div>
     );
   }
   if (user.role === "admin") {
     return (
-      <div className="space-y-4">
-        <h1 className="text-lg font-semibold">Email everyone</h1>
-        <p className="text-sm text-snow-soft">Tick the groups. Every active person in them gets the email and an urgent message.</p>
+      <div className="mx-auto max-w-2xl space-y-4">
+        <PageHeader title="Email everyone" icon="mail" back="/people" sub="Tick the groups. Every active person in them gets the email and an urgent message." />
         <EmailForm mode="bulk" />
       </div>
     );

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { AppChooser } from "@/components/AppChooser";
 import { APP_NAME, SITE_URL } from "@/lib/config";
+import { THEME_SCRIPT } from "@/lib/themeScript";
 import "./globals.css";
 
 // The same face as the app (Plus Jakarta Sans, SIL Open Font License).
@@ -34,7 +35,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={body.variable}>
+    // The theme (light/dark, pure black, accent) is this browser's choice: set before the first paint, so the
+    // server's html and the browser's differ on purpose.
+    <html lang="en" className={body.variable} data-mode="dark" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="min-h-screen antialiased">
         {children}
         <AppChooser />

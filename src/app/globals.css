@@ -3,6 +3,39 @@
 @tailwind utilities;
 
 @layer base {
+  /* The palettes, as the app's (ui/theme/Theme.kt): "r g b" so Tailwind's /opacity works. */
+  :root {
+    --night: 11 11 12;
+    --panel: 22 22 24;
+    --line: 38 38 42;
+    --high: 30 30 33;
+    --snow: 244 244 245;
+    --snow-soft: 180 180 186;
+    --snow-faint: 122 122 130;
+    --gold: 255 209 0;
+    --gold-deep: 224 168 0;
+    --ink: 11 11 12;
+    --danger: 255 90 95;
+  }
+  html[data-mode="dark"][data-black] {
+    --night: 0 0 0;
+    --panel: 14 14 15;
+    --line: 31 31 34;
+    --high: 22 22 24;
+  }
+  html[data-mode="light"] {
+    --night: 243 243 245;
+    --panel: 255 255 255;
+    --line: 226 226 231;
+    --high: 255 255 255;
+    --snow: 17 17 20;
+    --snow-soft: 69 69 77;
+    --snow-faint: 120 120 128;
+    --gold: 200 155 0;
+    --gold-deep: 166 127 0;
+    --danger: 229 72 77;
+    color-scheme: light;
+  }
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -14,7 +47,7 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
   :focus-visible {
-    outline: 2px solid #ffd100;
+    outline: 2px solid rgb(var(--gold));
     outline-offset: 2px;
   }
   ::-webkit-scrollbar {
@@ -22,16 +55,16 @@
     height: 10px;
   }
   ::-webkit-scrollbar-thumb {
-    background: #26262a;
+    background: rgb(var(--line));
     border-radius: 999px;
-    border: 2px solid #0b0b0c;
+    border: 2px solid rgb(var(--night));
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #3a3a40;
+    background: rgb(var(--snow-faint));
   }
   * {
     scrollbar-width: thin;
-    scrollbar-color: #26262a #0b0b0c;
+    scrollbar-color: rgb(var(--line)) rgb(var(--night));
   }
 }
 
@@ -43,7 +76,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-gold {
-    @apply btn bg-gold text-night hover:bg-gold-deep;
+    @apply btn bg-gold text-ink hover:bg-gold-deep;
   }
   .btn-ghost {
     @apply btn border border-snow/15 bg-snow/5 text-snow hover:bg-snow/10;
@@ -75,8 +108,9 @@
   .section-title {
     @apply text-xs font-semibold uppercase tracking-wide text-snow-faint;
   }
+  /* As the app's large titles. */
   .page-title {
-    @apply text-xl font-semibold tracking-tight;
+    @apply text-3xl font-bold tracking-tight;
   }
   .nav-link {
     @apply relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-snow-soft transition-colors hover:bg-snow/5 hover:text-snow;
@@ -130,5 +164,19 @@
     50% {
       transform: translateY(-10px);
     }
+  }
+}
+
+/* The Account pages and sheets, as the app's: a card is a plain section there, set apart by space, not a box. */
+@layer components {
+  .flat .card {
+    @apply rounded-none border-0 bg-transparent px-0 shadow-none;
+  }
+  .flat .card h2 {
+    @apply text-xl font-bold tracking-tight;
+  }
+  /* On a page, in line with the rows' icons. */
+  .flat > .card {
+    @apply mt-4 px-2;
   }
 }

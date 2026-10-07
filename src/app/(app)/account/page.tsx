@@ -1,28 +1,29 @@
 import QRCode from "qrcode";
-import { AccountActions } from "@/components/AccountActions";
-import { CopyButton } from "@/components/CopyButton";
-import { DeleteMyAccount } from "@/components/DeleteAccount";
-import { EmailSettings } from "@/components/EmailSettings";
-import { FollowCategories } from "@/components/FollowCategories";
-import { ProfileEditor } from "@/components/ProfileEditor";
+import { MenuLink, ProfileBanner } from "@/components/AppUI";
+import { AccountTop, SignOutRow } from "@/components/account/AccountClient";
 import { Avatar } from "@/components/Avatar";
+import { FollowCategories } from "@/components/FollowCategories";
 import { StatusBadge } from "@/components/StatusBadge";
 import { latestRelease } from "@/lib/appReleases";
 import { categoriesOf } from "@/lib/categories";
-import { editsOwnProfile } from "@/lib/roles";
+import { env } from "@/lib/env";
+import { isDeveloper } from "@/lib/roles";
 import { currentSeason } from "@/lib/seasons";
-import { followedCategories } from "@/lib/teams";
-import { isDeveloper, roleLabel } from "@/lib/roles";
 import { requireProfile } from "@/lib/session";
-import { qrUrl, toPublic, userById } from "@/lib/users";
+import { followedCategories } from "@/lib/teams";
+import { qrUrl, toPublic } from "@/lib/users";
 
 export const metadata = { title: "Account" };
 
+/**
+ * The Account tab, as the app's: Search settings and the QR, a profile banner, then flat rows into Account, Archive,
+ * Settings, Help & support and About, and Sign out.
+ */
 export default async function Account() {
   const user = await requireProfile();
   const p = toPublic(user);
-  const parent = user.parent_id ? await userById(user.parent_id) : undefined;
   const season = await currentSeason();
+  const dev = isDeveloper(user);
   const [svg, release, categories, following] = await Promise.all([
     QRCode.toString(qrUrl(user), { type: "svg", margin: 1, color: { dark: "#0B0B0C", light: "#FFFFFF" } }),
     latestRelease().catch(() => null),
@@ -32,66 +33,32 @@ export default async function Account() {
   ]);
 
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_24rem]">
-      <div className="space-y-5">
-      <section className="card flex items-center gap-4">
-        <Avatar src={p.photoUrl} name={p.name ?? p.email} size={72} />
-        <div className="min-w-0">
-          <h1 className="truncate text-lg font-semibold">{p.name}</h1>
-          <p className="text-sm text-snow-soft">
-            {p.roleLabel}
-            {p.teamName ? ` · ${p.teamName}` : ""}
+    <div className="flat mx-auto max-w-2xl space-y-4">
+      <AccountTop qrSvg={svg} code={p.verifyCode} dev={dev}>
+        <div className="space-y-4">
+          <ProfileBanner
+            photo={p.photoUrl}
+            name={p.name ?? p.email}
+            role={`${p.roleLabel}${p.teamName ? ` · ${p.teamName}` : ""}`}
+            status={<StatusBadge status={p.status} />}
+            photoSlot={<Avatar src={p.photoUrl} name={p.name ?? p.email} size={80} />}
+          />
+          {user.role === "user" && <FollowCategories categories={categories} initial={following} />}
+          <nav>
+            <MenuLink href="/account/details" icon="person" title="Account" hint="Email, date of birth and password" />
+            <MenuLink href="/archive" icon="archive" title="Archive" hint="Past seasons: their weekends, channels and messages" />
+            <MenuLink href="/account/settings" icon="settings" title="Settings" hint="Theme, email and your account" />
+            {dev && <MenuLink href="/activity" icon="filter" title="Activity log" hint="Who did what, and when" />}
+            <MenuLink href="/support" icon="call" title="Help & support" hint="FAQs, the support form and your tickets" />
+            <MenuLink href="/account/about" icon="info" title="About" hint={release ? `The Android app is at v${release.version}` : "The app, the team, terms and privacy"} />
+            <SignOutRow />
+          </nav>
+          <p className="py-2 text-center text-xs text-snow-faint">
+            CTR[L]APS{release ? ` v${release.version}` : ""}
+            {env.brand.mainDomain ? ` · ${env.brand.mainDomain}` : ""}
           </p>
-          <div className="mt-1.5">
-            <StatusBadge status={p.status} />
-          </div>
         </div>
-      </section>
-
-      <section className="card grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
-        <div className="mx-auto w-40 rounded-xl bg-white p-2" dangerouslySetInnerHTML={{ __html: svg }} />
-        <div className="space-y-3 text-sm">
-          <div>
-            <p className="label">Account code</p>
-            <p className="flex items-center gap-1">
-              <span className="font-mono text-2xl tracking-[0.2em]">{p.verifyCode}</span>
-              <CopyButton value={p.verifyCode} label="Copy account code" />
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <div>
-              <p className="label">Email</p>
-              <p className="truncate">{p.email}</p>
-            </div>
-            <div>
-              <p className="label">Contact</p>
-              <p>{p.phone}</p>
-            </div>
-            <div>
-              <p className="label">Date of birth</p>
-              <p>{p.dob}</p>
-            </div>
-            {parent && (
-              <div>
-                <p className="label">Reports to</p>
-                <p className="truncate">
-                  {parent.name || parent.email} <span className="text-snow-faint">· {roleLabel(parent.role, isDeveloper(parent))}</span>
-                </p>
-              </div>
-            )}
-          </div>
-          {!editsOwnProfile(user.role) && <p className="text-xs text-snow-faint">Profile details are locked. Your manager or an admin can change them.</p>}
-        </div>
-      </section>
-
-      {editsOwnProfile(user.role) && (
-        <ProfileEditor profile={{ name: p.name ?? "", dob: p.dob ?? "", phone: p.phone ?? "", email: p.email, photoUrl: p.photoUrl, admin: user.role === "admin" }} />
-      )}
-      {user.role === "user" && <FollowCategories categories={categories} initial={following} />}
-      <EmailSettings />
-      <DeleteMyAccount />
-      </div>
-      <AccountActions appVersion={release?.version ?? null} isDev={isDeveloper(user)} />
+      </AccountTop>
     </div>
   );
 }

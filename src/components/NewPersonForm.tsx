@@ -105,7 +105,7 @@ export function NewPersonForm({ roles, teamName, creatorRole, teamNames = [] }: 
             <button
               key={r}
               type="button"
-              className={`chip ${role === r ? "border-gold bg-gold text-night" : "hover:border-snow/40"}`}
+              className={`chip ${role === r ? "border-gold bg-gold text-ink" : "hover:border-snow/40"}`}
               onClick={() => setRole(r)}
             >
               {ROLE_LABEL[r]}

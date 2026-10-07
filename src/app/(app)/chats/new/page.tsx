@@ -25,7 +25,7 @@ export default async function NewChat() {
       {/* Delegates have their delegation's chat: they start no groups. */}
       {user.role !== "race_official" && (
         <Link href="/chats/new-group" className="card flex items-center gap-3 p-3.5 transition-colors hover:bg-snow/5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-night">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-ink">
             <Icon name="people" className="h-5 w-5" />
           </span>
           <span className="text-sm font-semibold">New group</span>

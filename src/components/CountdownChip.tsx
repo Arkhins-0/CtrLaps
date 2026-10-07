@@ -44,7 +44,7 @@ export function CountdownChip() {
   return (
     <Link
       href={`/w/${next.weekend.id}`}
-      className={`chip ${live ? "border-gold bg-gold text-night" : "border-gold/40 text-gold"}`}
+      className={`chip ${live ? "border-gold bg-gold text-ink" : "border-gold/40 text-gold"}`}
       title={`${next.weekend.name} · ${next.session.name}`}
     >
       {live && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-night" />}
