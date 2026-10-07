@@ -1,6 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
 import com.arkhins.ctrlaps.ui.theme.NightLine
+import com.arkhins.ctrlaps.ui.theme.NightHigh
 import com.arkhins.ctrlaps.ui.components.ColorPickerDialog
 import com.arkhins.ctrlaps.ui.components.ColorDot
 import androidx.compose.ui.unit.sp
@@ -292,7 +293,18 @@ private fun ThemeSwitch(icon: Int, title: String, hint: String, on: Boolean, onC
             Text(hint, style = MaterialTheme.typography.bodySmall, color = SnowSoft.copy(alpha = 0.8f))
         }
         Spacer(Modifier.width(12.dp))
-        Switch(checked = on, onCheckedChange = onChange, colors = SwitchDefaults.colors(checkedThumbColor = OnGold, checkedTrackColor = Gold))
+        // Off is outlined, so it still shows on a pure black page.
+        Switch(
+            checked = on,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = OnGold,
+                checkedTrackColor = Gold,
+                uncheckedThumbColor = SnowFaint,
+                uncheckedTrackColor = NightHigh,
+                uncheckedBorderColor = SnowFaint,
+            ),
+        )
     }
 }
 
