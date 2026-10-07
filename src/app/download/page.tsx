@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import QRCode from "qrcode";
 import { Icon } from "@/components/Icon";
+import { DownloadButton } from "@/components/DownloadButton";
 import { latestRelease } from "@/lib/appReleases";
 import { currentUser } from "@/lib/auth";
 import { APP_NAME, SITE_URL } from "@/lib/config";
@@ -68,11 +69,8 @@ export default async function DownloadPage({ searchParams }: { searchParams: Pro
             </div>
           </div>
 
-          {/* A plain link, not prefetched: it leaves for the APK. */}
-          <a href="/download/apk?direct=1" className="btn-gold mt-8 w-full gap-2 py-4 text-base sm:w-auto sm:px-10">
-            <Icon name="download" className="h-6 w-6" />
-            Download{release ? ` v${release.version}` : ""}
-          </a>
+          {/* Downloads, and shows what comes next (installing, Play Protect's warning) in a sheet. */}
+          <DownloadButton href="/download/apk?direct=1" version={release?.version ?? null} />
           {android && (
             <p className="mt-3 text-sm text-snow-soft">
               Already have it?{" "}
