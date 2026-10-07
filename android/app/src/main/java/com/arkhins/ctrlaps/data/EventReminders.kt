@@ -1,11 +1,11 @@
 package com.arkhins.ctrlaps.data
 
-import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.arkhins.ctrlaps.push.Notifications
+import com.arkhins.ctrlaps.reminders.Alarms
 import com.arkhins.ctrlaps.ui.instant
 import java.time.Duration
 import java.time.Instant
@@ -14,14 +14,15 @@ import java.time.Instant
  * Event reminders, set on the phone itself so they come even offline or with the app closed: one alarm per upcoming
  * event with a reminder that this person hasn't said "Not going" to, at its start less the reminder. [sync] is given
  * the upcoming list (by Home and every background run), sets what is due and takes back what no longer is, so a
- * restart of the phone (which clears alarms) is made good within 15 minutes.
+ * restart of the phone (which clears alarms) is made good at once from the phone's copy (RemindersBootReceiver), and
+ * by the next background run. On time when exact alarms are allowed, otherwise a few minutes either way ([Alarms]).
  */
 object EventReminders {
     private const val PREFS = "event_reminders"
     private const val KEY = "set"
 
+    @Synchronized
     fun sync(context: Context, events: List<UpcomingEvent>) {
-        val alarms = context.getSystemService(AlarmManager::class.java) ?: return
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val before = prefs.getStringSet(KEY, emptySet()).orEmpty()
         val now = Instant.now()
@@ -31,12 +32,9 @@ object EventReminders {
             val at = instant(e.startsAt).minus(Duration.ofMinutes(minutes.toLong()))
             if (at.isBefore(now)) null else e to at
         }
-        due.forEach { (e, at) ->
-            // Inexact but allowed while the phone dozes, and needs no special permission.
-            alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), pending(context, e.id, e))
-        }
+        due.forEach { (e, at) -> Alarms.set(context, at.toEpochMilli(), pending(context, e.id, e)) }
         val kept = due.map { it.first.id }.toSet()
-        (before - kept).forEach { id -> alarms.cancel(pending(context, id, null)) }
+        (before - kept).forEach { id -> Alarms.cancel(context, pending(context, id, null)) }
         prefs.edit().putStringSet(KEY, kept).apply()
     }
 

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The home-screen widgets' names and lines in the widget picker. -->
+    <string name="widget_next_session_label">Next session</string>
+    <string name="widget_next_session_description">The next race session in your categories, and how long until it starts</string>
+    <string name="widget_unread_label">Unread chats</string>
+    <string name="widget_unread_description">How many chat messages are waiting for you</string>
+    <string name="widget_standings_label">Standings</string>
+    <string name="widget_standings_description">The top five of your race category this season</string>
+</resources>

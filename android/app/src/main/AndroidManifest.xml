@@ -28,6 +28,11 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- So the phone does not put the app to sleep and hold back its popups. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Race-session and event reminders right on time (Settings → Permissions → Exact reminders). Never asked for:
+         without it they are set inexact and may come a few minutes late. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Reminders set again after the phone restarts (alarms don't survive it). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
@@ -144,6 +149,60 @@
         <!-- An event's reminder, set on the phone (EventReminders). -->
         <receiver
             android:name=".data.EventReminderReceiver"
+            android:exported="false" />
+
+        <!-- A race session's reminder, set on the phone (SessionReminders). -->
+        <receiver
+            android:name=".reminders.SessionReminderReceiver"
+            android:exported="false" />
+
+        <!-- Every reminder set again after a restart of the phone, an update, or once exact alarms are allowed. -->
+        <receiver
+            android:name=".reminders.RemindersBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Home-screen widgets (widgets/), drawn from the phone's copy; and the Next session countdown's alarm. -->
+        <receiver
+            android:name=".widgets.NextSessionWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_next_session_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/next_session_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widgets.UnreadWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_unread_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/unread_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widgets.StandingsWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_standings_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/standings_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widgets.WidgetTickReceiver"
             android:exported="false" />
 
         <!-- After the app has updated itself, a notification brings it back. -->

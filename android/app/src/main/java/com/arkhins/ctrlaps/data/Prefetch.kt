@@ -11,6 +11,8 @@ import androidx.work.WorkerParameters
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.arkhins.ctrlaps.CtrlapsApplication
+import com.arkhins.ctrlaps.reminders.SessionReminders
+import com.arkhins.ctrlaps.widgets.Widgets
 import com.arkhins.ctrlaps.ui.screens.refreshHomeSnapshot
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -154,6 +156,11 @@ class Prefetch(private val app: CtrlapsApplication) {
 
         // Home, rebuilt from all of the above.
         runCatching { refreshHomeSnapshot(app) }
+
+        // Race-session reminders set again, and the home-screen widgets redrawn, from what was just kept.
+        runCatching { SessionReminders.syncFromCache(app) }
+        store.read("/api/me", Me.serializer())?.let { Widgets.unreadChats(app, it.unreadChats) }
+        runCatching { Widgets.updateAll(app) }
 
         // Profile and group photos into the image cache, so faces show offline too.
         photos.filterNotNull().forEach { url ->

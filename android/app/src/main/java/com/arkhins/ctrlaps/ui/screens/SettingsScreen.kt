@@ -517,6 +517,18 @@ private fun accessList(context: Context): List<Access> = buildList {
             background = true,
         ),
     )
+    add(
+        Access(
+            R.drawable.ic_alarm,
+            "Exact reminders",
+            "Race-session and event reminders right on time",
+            "Reminders may come a few minutes late.",
+            com.arkhins.ctrlaps.reminders.Alarms.exactAllowed(context),
+            // Android 12+ only; below it exact alarms are always allowed and the line shows as on.
+            page = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")) else details,
+            background = true,
+        ),
+    )
     // Xiaomi's own battery saver holds an app back even with Android's optimisation off; it can't be read, only opened.
     Battery.xiaomiBatteryIntent(context)?.let { page ->
         add(
