@@ -56,18 +56,6 @@ function useSavedPhoto(url: string): PhotoEdit {
   };
 }
 
-/** A person's photo at the top of their page: their manager or an admin taps it to see, change or remove it. */
-export function PersonPhoto({ personId, src, name, size }: { personId: string; src: string | null; name: string; size: number }) {
-  const edit = useSavedPhoto(`/api/users/${personId}/photo`);
-  return <Avatar src={src} name={name} size={size} edit={edit} />;
-}
-
-/** Your own photo on the Account page, for those who edit their own profile. */
-export function MyPhoto({ src, name, size }: { src: string | null; name: string; size: number }) {
-  const edit = useSavedPhoto("/api/me/photo");
-  return <Avatar src={src} name={name} size={size} edit={edit} />;
-}
-
 /** A team's photo at the top of its page: an admin, a coordinator or the team's manager taps it to see, change or remove it. */
 export function TeamPhoto({ teamId, src, name, size }: { teamId: string; src: string | null; name: string; size: number }) {
   const edit = useSavedPhoto(`/api/teams/${teamId}/photo`);

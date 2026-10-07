@@ -1,6 +1,5 @@
 package com.arkhins.ctrlaps.ui.screens
 
-import com.arkhins.ctrlaps.ui.components.rememberPhotoChanger
 import com.arkhins.ctrlaps.ui.components.PhotoPreview
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.BorderStroke
@@ -123,22 +122,6 @@ fun AccountScreen(
     val qr = rememberQr(me.qrUrl)
     var confirmOut by remember { mutableStateOf(false) }
     var showQr by remember { mutableStateOf(false) }
-    // Your own photo, for those who change their own details (users, admins, coordinators); others' is their manager's.
-    val editsOwn = u.role == "user" || u.role == "admin" || u.role == "coordinator"
-    val context = LocalContext.current
-    val photoScope = rememberCoroutineScope()
-    val changeOwnPhoto = rememberPhotoChanger(
-        upload = { file -> app.api.postForm("/api/me/photo", emptyMap(), "photo" to file, "image/jpeg", com.arkhins.ctrlaps.data.Ok.serializer()); vm.refreshMe() },
-        onError = { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_SHORT).show() },
-    )
-    val removeOwnPhoto = {
-        photoScope.launch {
-            runCatching { app.api.delete("/api/me/photo") }
-                .onSuccess { vm.refreshMe() }
-                .onFailure { android.widget.Toast.makeText(context, it.message ?: "Could not remove the photo.", android.widget.Toast.LENGTH_SHORT).show() }
-        }
-        Unit
-    }
     // Debug builds: `--es sheet qr` opens the QR sheet over adb (see DebugHooks).
     if (BuildConfig.DEBUG) {
         val asked by com.arkhins.ctrlaps.ui.DebugHooks.sheet.collectAsState()
@@ -152,6 +135,7 @@ fun AccountScreen(
         }
     }
     // Settings and Storage look things up on the phone; done now, in the background, they open already filled.
+    val context = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.runtime.LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             runCatching { preloadSettings(context) }
@@ -201,13 +185,8 @@ fun AccountScreen(
             }
             return@Column
         }
-        ProfileBanner(
-            app.api.absolute(u.photoUrl),
-            u.displayName,
-            u.roleLabel + (u.teamName?.let { " · $it" } ?: ""),
-            onChange = if (editsOwn) changeOwnPhoto else null,
-            onRemove = if (editsOwn && u.photoUrl != null) removeOwnPhoto else null,
-        ) { StatusChip(u.status, u.statusLabel) }
+        // Your photo only shows here; it is changed in Account details → Edit details.
+        ProfileBanner(app.api.absolute(u.photoUrl), u.displayName, u.roleLabel + (u.teamName?.let { " · $it" } ?: "")) { StatusChip(u.status, u.statusLabel) }
 
         // Users (no role yet) follow race categories as fans; everyone else has theirs by role.
         if (u.role == "user") FollowCategoriesPanel(vm)

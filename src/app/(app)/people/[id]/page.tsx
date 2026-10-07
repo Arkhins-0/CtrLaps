@@ -4,7 +4,6 @@ import QRCode from "qrcode";
 import { DetailRow, ProfileBanner, SectionHeading } from "@/components/AppUI";
 import { Avatar } from "@/components/Avatar";
 import { Icon } from "@/components/Icon";
-import { PersonPhoto } from "@/components/EditablePhoto";
 import { CopyButton } from "@/components/CopyButton";
 import { DeletePersonAccount } from "@/components/DeleteAccount";
 import { deletionDue } from "@/lib/accountDeletion";
@@ -63,7 +62,8 @@ export default async function Person({ params }: { params: Promise<{ id: string 
         name={name}
         role={`${p.roleLabel}${p.teamName ? ` · ${p.teamName}` : ""}`}
         status={<StatusBadge status={p.status} />}
-        photoSlot={editable ? <PersonPhoto personId={p.id} src={p.photoUrl} name={name} size={80} /> : <Avatar src={p.photoUrl} name={name} size={80} sayNone />}
+        // The photo only shows here; it is changed in Edit, with the rest of their profile.
+        photoSlot={<Avatar src={p.photoUrl} name={name} size={80} sayNone />}
       />
 
       <PersonActions

@@ -483,15 +483,8 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
         }
         val u = d.user
         // The banner, as on the Account tab: photo blurred behind, name in the accent; a tap on the photo pulls it up.
-        item {
-            ProfileBanner(
-                app.api.absolute(u.photoUrl),
-                u.displayName,
-                u.roleLabel + (u.teamName?.let { " · $it" } ?: ""),
-                onChange = if (d.canEdit && !editing) ({ pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) else null,
-                onRemove = if (d.canEdit && !editing && u.photoUrl != null) ({ run("Photo removed.") { app.api.delete("/api/users/$userId/photo") } }) else null,
-            ) { StatusChip(u.status, u.statusLabel) }
-        }
+        // The photo only shows here; it is changed in Edit, with the rest of their profile.
+        item { ProfileBanner(app.api.absolute(u.photoUrl), u.displayName, u.roleLabel + (u.teamName?.let { " · $it" } ?: "")) { StatusChip(u.status, u.statusLabel) } }
         item {
             val starred by app.verifyHistory.starred.collectAsState()
             val on = u.id in starred
