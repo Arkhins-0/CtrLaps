@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.arkhins.ctrlaps.ui.theme.Snow
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -66,8 +65,8 @@ fun SquareCropDialog(source: Bitmap, onCancel: () -> Unit, onDone: (Bitmap) -> U
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                GhostButton("Cancel", onClick = onCancel)
-                Text("Crop photo", style = MaterialTheme.typography.titleMedium, color = Snow)
+                androidx.compose.material3.TextButton(onClick = onCancel) { Text("Cancel", color = Color.White) }
+                Text("Crop photo", style = MaterialTheme.typography.titleMedium, color = Color.White)
                 GoldButton("Done") {
                     val r = crop.rect ?: return@GoldButton
                     val square = Bitmap.createBitmap(source, r.left, r.top, r.width(), r.height())
@@ -128,7 +127,7 @@ fun SquareCropDialog(source: Bitmap, onCancel: () -> Unit, onDone: (Bitmap) -> U
                     drawCircle(Color.White, radius = side / 2f, center = sq + Offset(side / 2f, side / 2f), style = Stroke(2.dp.toPx()))
                 }
                 Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)) {
-                    Text("Drag to move · pinch to zoom", style = MaterialTheme.typography.labelSmall, color = Snow.copy(alpha = 0.7f))
+                    Text("Drag to move · pinch to zoom", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
                 }
             }
         }

@@ -1,6 +1,15 @@
 package com.arkhins.ctrlaps.ui.components
 
-import android.net.Uri
+import androidx.core.graphics.drawable.toBitmap
+import coil.imageLoader
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import com.arkhins.ctrlaps.ui.screens.loadShrunk
+import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,7 +41,6 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.arkhins.ctrlaps.LocalApp
 import com.arkhins.ctrlaps.data.Ok
-import com.arkhins.ctrlaps.data.PhotoShrink
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -60,13 +68,15 @@ fun WeekendPhotoHeader(weekendId: String, photoUrl: String?, isAdmin: Boolean, p
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    fun upload(uri: Uri) {
+    // The picked photo, waiting in the crop page: only the framed part is uploaded.
+    var cropping by remember { mutableStateOf<Bitmap?>(null) }
+    fun upload(part: Bitmap) {
         busy = true
         error = null
         scope.launch {
             try {
                 val file = File(context.cacheDir, "weekend-photo.jpg")
-                withContext(Dispatchers.IO) { PhotoShrink.shrink(context, uri, file) } ?: throw IllegalStateException("Could not read that picture.")
+                withContext(Dispatchers.IO) { file.outputStream().use { part.compress(Bitmap.CompressFormat.JPEG, 88, it) } }
                 app.api.postForm("/api/weekends/$weekendId/photo", emptyMap(), "photo" to file, "image/jpeg", Ok.serializer())
                 file.delete()
                 onChanged()
@@ -77,16 +87,33 @@ fun WeekendPhotoHeader(weekendId: String, photoUrl: String?, isAdmin: Boolean, p
             }
         }
     }
-    val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) upload(uri) }
-    // Over the photo the buttons get a dark backing, so they read on a bright picture.
-    val backing = if (photoUrl != null) Modifier.background(Color.Black.copy(alpha = 0.6f), CircleShape) else Modifier
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            cropping = withContext(Dispatchers.IO) { loadShrunk(context, uri, max = 2400) }
+            if (cropping == null) error = "Could not read that picture."
+        }
+    }
+    cropping?.let { src -> HeaderCropDialog(src, onCancel = { cropping = null }) { part -> cropping = null; upload(part) } }
+    // Debug builds: `--es sheet cropheader` opens the crop page with the current photo (see DebugHooks).
+    if (com.arkhins.ctrlaps.BuildConfig.DEBUG && photoUrl != null) {
+        val asked by com.arkhins.ctrlaps.ui.DebugHooks.sheet.collectAsState()
+        LaunchedEffect(asked) {
+            if (asked != "cropheader") return@LaunchedEffect
+            com.arkhins.ctrlaps.ui.DebugHooks.sheet.value = null
+            val result = context.imageLoader.execute(coil.request.ImageRequest.Builder(context).data(app.api.absolute(photoUrl)).allowHardware(false).build())
+            cropping = (result as? coil.request.SuccessResult)?.drawable?.toBitmap()
+        }
+    }
+    val label = if (busy) "Uploading…" else if (photoUrl == null) "Add a track photo" else "Change photo"
+    val choose = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
     val controls: @Composable () -> Unit = {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GhostButton(if (busy) "Uploading…" else if (photoUrl == null) "Add a track photo" else "Change photo", backing, enabled = !busy) {
-                pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-            }
+            // Over the photo: white on a dark pill in either theme, so they read on any picture.
+            if (photoUrl != null) PhotoPill(label, Color.White, enabled = !busy) { choose() }
+            else GhostButton(label, enabled = !busy) { choose() }
             if (photoUrl != null) {
-                GhostButton("Remove", backing, enabled = !busy, danger = true) {
+                PhotoPill("Remove", Color(0xFFFF8A8E), enabled = !busy) {
                     busy = true
                     scope.launch {
                         runCatching { app.api.delete("/api/weekends/$weekendId/photo") }.onFailure { error = it.message }
@@ -99,8 +126,9 @@ fun WeekendPhotoHeader(weekendId: String, photoUrl: String?, isAdmin: Boolean, p
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (photoUrl != null) {
-            Box(Modifier.clip(MaterialTheme.shapes.large)) {
-                FadingPhoto(photoUrl, pageColor, 180.dp)
+            BoxWithConstraints(Modifier.clip(MaterialTheme.shapes.large)) {
+                // The header's shape is the crop frame's, 16:9, so it shows exactly what was framed.
+                FadingPhoto(photoUrl, pageColor, maxWidth * 9f / 16f)
                 if (isAdmin) Box(Modifier.align(Alignment.TopEnd).padding(10.dp)) { controls() }
             }
         } else {
@@ -108,4 +136,17 @@ fun WeekendPhotoHeader(weekendId: String, photoUrl: String?, isAdmin: Boolean, p
         }
         ErrorText(error)
     }
+}
+
+/** A button laid over a photo: white words on a dark pill, the same in both themes. */
+@Composable
+private fun PhotoPill(text: String, color: Color, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.62f))
+            .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+    ) { Text(text, style = MaterialTheme.typography.labelLarge, color = if (enabled) color else color.copy(alpha = 0.5f)) }
 }
