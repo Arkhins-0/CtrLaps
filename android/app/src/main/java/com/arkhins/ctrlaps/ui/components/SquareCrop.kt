@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.components
 
+import androidx.compose.ui.draw.clipToBounds
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -74,7 +75,8 @@ fun SquareCropDialog(source: Bitmap, onCancel: () -> Unit, onDone: (Bitmap) -> U
                     onDone(if (side == square.width) square else Bitmap.createScaledBitmap(square, side, side, true))
                 }
             }
-            BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            // Clipped: a tall photo must not spill over the bar with Cancel and Save.
+            BoxWithConstraints(Modifier.fillMaxSize().clipToBounds(), contentAlignment = Alignment.Center) {
                 val density = LocalDensity.current
                 val areaW = with(density) { maxWidth.toPx() }
                 val areaH = with(density) { maxHeight.toPx() }
@@ -102,7 +104,7 @@ fun SquareCropDialog(source: Bitmap, onCancel: () -> Unit, onDone: (Bitmap) -> U
                 }
 
                 Canvas(
-                    Modifier.fillMaxSize().pointerInput(source, side) {
+                    Modifier.fillMaxSize().clipToBounds().pointerInput(source, side) {
                         detectTransformGestures { centroid, pan, gestureZoom, _ ->
                             val oldK = base * zoom
                             val newZoom = (zoom * gestureZoom).coerceIn(1f, MAX_ZOOM)
