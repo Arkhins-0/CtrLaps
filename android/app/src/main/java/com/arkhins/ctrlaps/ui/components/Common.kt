@@ -20,6 +20,8 @@ import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.unit.em
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -240,6 +242,42 @@ fun Empty(text: String) {
     Panel { Text(text, color = SnowFaint, style = MaterialTheme.typography.bodyMedium) }
 }
 
+/** The pill search box at the top of a list (Account, People, Teams): a search icon, and a cross to clear. */
+@Composable
+fun SearchPill(query: String, placeholder: String, modifier: Modifier = Modifier, onChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onChange,
+        modifier = modifier.fillMaxWidth(),
+        placeholder = { Text(placeholder, color = SnowFaint, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, tint = SnowFaint) },
+        trailingIcon = if (query.isNotEmpty()) ({ IconButton(onClick = { onChange("") }) { Icon(Icons.Outlined.Close, contentDescription = "Clear", tint = SnowFaint) } }) else null,
+        singleLine = true,
+        shape = RoundedCornerShape(28.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = Gold,
+            unfocusedBorderColor = NightLine,
+            focusedContainerColor = NightPanel,
+            unfocusedContainerColor = NightPanel,
+            cursorColor = Gold,
+            focusedTextColor = Snow,
+            unfocusedTextColor = Snow,
+        ),
+    )
+}
+
+/** A list's group title on a flat page, as the Account pages': bold, with how many beside it. */
+@Composable
+fun GroupTitle(text: String, count: Int? = null, modifier: Modifier = Modifier) {
+    Row(modifier.padding(top = 8.dp, bottom = 2.dp), verticalAlignment = Alignment.Bottom) {
+        Text(text, style = MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp, lineHeight = 26.sp), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = Snow)
+        if (count != null) {
+            Spacer(Modifier.width(8.dp))
+            Text(count.toString(), style = MaterialTheme.typography.titleSmall, color = SnowFaint, modifier = Modifier.padding(bottom = 2.dp))
+        }
+    }
+}
+
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(text, style = MaterialTheme.typography.labelMedium, color = SnowFaint, modifier = modifier)
@@ -265,10 +303,9 @@ fun Avatar(url: String?, name: String, size: Int = 40, preview: Boolean = true) 
             Modifier
                 .size(size.dp)
                 .clip(CircleShape)
-                .background(Night)
-                .border(1.dp, NightLine, CircleShape),
+                .background(Gold.copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
-        ) { Text(initials.ifBlank { "?" }, color = SnowSoft, style = MaterialTheme.typography.labelLarge) }
+        ) { Text(initials.ifBlank { "?" }, color = Gold, style = MaterialTheme.typography.labelLarge) }
     }
 }
 
@@ -281,7 +318,8 @@ fun Chip(text: String, tone: Color = SnowSoft, filled: Boolean = false, onClick:
         .border(1.dp, if (filled) tone else tone.copy(alpha = 0.4f), shape)
     val clickable = if (onClick != null) base.clickable(onClick = onClick) else base
     Box(clickable.padding(horizontal = 10.dp, vertical = 4.dp)) {
-        Text(text, style = MaterialTheme.typography.labelSmall, color = if (filled) tone.contrastText() else tone)
+        // Without labelSmall's wide spacing: a status or a code reads as a word.
+        Text(text, style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.2.sp), color = if (filled) tone.contrastText() else tone)
     }
 }
 
@@ -296,7 +334,7 @@ fun statusTone(status: String): Color = when (status) {
 fun StatusChip(status: String, label: String) = Chip(label, statusTone(status))
 
 @Composable
-fun Divider() = Box(Modifier.fillMaxWidth().height(1.dp).background(NightLine))
+fun Divider(modifier: Modifier = Modifier) = Box(modifier.fillMaxWidth().height(1.dp).background(NightLine))
 
 @Composable
 fun Centered(text: String) {

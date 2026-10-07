@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Person
@@ -465,9 +466,9 @@ private fun MainNav(vm: AppViewModel) {
                 var t by remember { mutableStateOf("") }
                 Pushed(t, flat = true) { PersonScreen(vm.me, e.arguments?.getString("id") ?: "", onOpenChat = openChat) { t = it } }
             }
-            composable("newperson") { Pushed("Add or promote") { NewPersonScreen(vm.me) { id -> nav.navigate("person/$id") { popUpTo("people") } } } }
-            composable("email") { Pushed("Email") { EmailScreen(null) { nav.popBackStack() } } }
-            composable("email?group={group}") { e -> Pushed("Email") { EmailScreen(e.arguments?.getString("group")) { nav.popBackStack() } } }
+            composable("newperson") { Pushed("Add or promote", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Add)) { NewPersonScreen(vm.me) { id -> nav.navigate("person/$id") { popUpTo("people") } } } }
+            composable("email") { Pushed("Email everyone", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Email)) { EmailScreen(null) { nav.popBackStack() } } }
+            composable("email?group={group}") { e -> Pushed("Email", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Email)) { EmailScreen(e.arguments?.getString("group")) { nav.popBackStack() } } }
 
             composable("details") { Pushed("Account", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Person)) { AccountDetailsScreen(vm) } }
             composable("storage") { Pushed("Storage", flat = true, bigIcon = BigIcon(drawable = R.drawable.ic_download)) { StorageScreen() } }

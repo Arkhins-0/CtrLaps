@@ -96,6 +96,9 @@ import com.arkhins.ctrlaps.data.SentResponse
 import com.arkhins.ctrlaps.data.UserResponse
 import com.arkhins.ctrlaps.data.UsersResponse
 import com.arkhins.ctrlaps.ui.components.Avatar
+import androidx.compose.ui.unit.sp
+import com.arkhins.ctrlaps.ui.components.GroupTitle
+import com.arkhins.ctrlaps.ui.components.SearchPill
 import com.arkhins.ctrlaps.ui.components.Chip
 import com.arkhins.ctrlaps.ui.components.Composer
 import com.arkhins.ctrlaps.ui.components.DateField
@@ -130,6 +133,12 @@ val ROLE_LABELS = mapOf(
     "developer" to "Developer", "admin" to "Admin", "coordinator" to "Coordinator", "race_official" to "Delegate", "team_manager" to "Team manager",
     "racer" to "Racer", "crew" to "Crew", "security_head" to "Security head", "security" to "Security", "volunteer" to "Volunteer", "user" to "User",
 )
+
+/** A role group's title: Admins, Delegates; Security and Crew stay as they are. */
+private fun rolePlural(role: String): String = when (role) {
+    "security", "crew" -> ROLE_LABELS[role].orEmpty()
+    else -> "${ROLE_LABELS[role] ?: role}s"
+}
 
 /** The People list's group for a person: developers show apart from other admins. */
 private val PublicUser.group: String get() = if (isDev) "developer" else role
@@ -200,10 +209,12 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
             (inCategory == null || u.id in inCategory) && (team.isBlank() || u.teamName?.trim().equals(team, ignoreCase = true)) && (query.isBlank() || "${u.displayName} ${u.roleLabel} ${u.teamName ?: ""}".contains(query.trim(), ignoreCase = true))
     }
     val presentRoles = PEOPLE_GROUPS.filter { r -> people?.any { it.group == r } == true }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    // Each person's race category codes, for the line under their name.
+    val codes = remember(roster) { roster.flatMap { c -> c.memberIds.map { it to c.code } }.groupBy({ it.first }, { it.second }) }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Field(query, { query = it }, "Search", modifier = Modifier.weight(1f), placeholder = "Name, designation or team")
+                SearchPill(query, "Name, designation or team", Modifier.weight(1f)) { query = it }
                 if (presentRoles.isNotEmpty()) {
                     Box {
                         IconAction(painterResource(R.drawable.ic_filter), "Filter by role", Gold) { filterMenu = true }
@@ -298,6 +309,19 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
                 }
             }
         }
+        // What the filter narrows to, each with a tap to take it off.
+        val cat = roster.firstOrNull { it.id == category }
+        if (starredOnly || cat != null || team.isNotBlank()) {
+            item {
+                @OptIn(ExperimentalLayoutApi::class)
+                FlowRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (starredOnly) Chip("Starred  ✕", Gold, filled = true) { starredOnly = false }
+                    if (cat != null) Chip("${cat.code}  ✕", Gold, filled = true) { category = "" }
+                    if (team.isNotBlank()) Chip("$team  ✕", Gold, filled = true) { team = "" }
+                }
+            }
+        }
+        item { Spacer(Modifier.height(8.dp)) }
         when {
             error != null && p == null -> item { ErrorText(error) }
             p == null -> item { Loading() }
@@ -314,47 +338,54 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
             }
             else -> {
                 val groups = PEOPLE_GROUPS.mapNotNull { r -> p.filter { it.group == r }.takeIf { it.isNotEmpty() }?.let { r to it } }
-                items(groups, key = { it.first }) { (role, list) ->
-                    Column {
-                        SectionTitle("${ROLE_LABELS[role]}s · ${list.size}".uppercase())
-                        Spacer(Modifier.height(6.dp))
-                        Panel(padding = PaddingValues(6.dp)) {
-                            Column {
-                                list.forEachIndexed { i, u ->
-                                    if (i > 0) Divider()
-                                    Row(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .clickable { onOpen(u.id) }
-                                            .padding(10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Avatar(app.api.absolute(u.photoUrl), u.displayName)
-                                        Spacer(Modifier.width(12.dp))
-                                        Column(Modifier.weight(1f)) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(u.displayName, style = MaterialTheme.typography.titleSmall, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                                                if (u.id in starred) {
-                                                    Spacer(Modifier.width(6.dp))
-                                                    Icon(painterResource(R.drawable.ic_star), contentDescription = "Starred", tint = Gold, modifier = Modifier.size(14.dp))
-                                                }
-                                            }
-                                            Text(
-                                                (if (u.name != null) u.email else "Invite not accepted") + (u.teamName?.let { " · $it" } ?: ""),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = SnowFaint,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
-                                        }
-                                        StatusChip(u.status, u.statusLabel)
-                                    }
-                                }
-                            }
-                        }
-                    }
+                groups.forEach { (role, list) ->
+                    item(key = "g-$role") { GroupTitle(rolePlural(role), list.size, Modifier.padding(top = 10.dp)) }
+                    items(list, key = { it.id }) { u -> PersonRow(app.api.absolute(u.photoUrl), u, u.id in starred, codes[u.id].orEmpty()) { onOpen(u.id) } }
                 }
             }
+        }
+    }
+}
+
+/**
+ * A person in the People list, flat as the Account pages: their photo, their name (a star if starred), and under it
+ * their team and race categories (else their email); "Invite not accepted" in the accent while invited. A status
+ * shows only when it is not the usual one.
+ */
+@Composable
+private fun PersonRow(photo: String?, u: PublicUser, starred: Boolean, codes: List<String>, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(horizontal = 4.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Avatar(photo, u.displayName, size = 46)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    u.displayName,
+                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp, lineHeight = 20.sp),
+                    fontWeight = FontWeight.Bold,
+                    color = Snow,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (starred) {
+                    Spacer(Modifier.width(6.dp))
+                    Icon(painterResource(R.drawable.ic_star), contentDescription = "Starred", tint = Gold, modifier = Modifier.size(14.dp))
+                }
+            }
+            val invited = u.name == null
+            val line = when {
+                invited -> "Invite not accepted"
+                else -> listOfNotNull(u.teamName?.trim()?.takeIf { it.isNotEmpty() }, codes.joinToString(" · ").takeIf { it.isNotEmpty() }).joinToString(" · ").ifEmpty { u.email }
+            }
+            Text(line, style = MaterialTheme.typography.bodySmall, color = if (invited) Gold else SnowSoft.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (u.status != "active" && u.status != "pending") {
+            Spacer(Modifier.width(8.dp))
+            StatusChip(u.status, u.statusLabel)
         }
     }
 }
@@ -651,12 +682,12 @@ fun NewPersonScreen(me: Me?, onCreated: (String) -> Unit) {
                     ) {
                         val bmp = photo
                         if (bmp != null) Image(bmp.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(72.dp))
-                        else Text("Photo", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                        else Text("Photo", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
                     }
                     Spacer(Modifier.width(14.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         GhostButton(if (photo == null) "Add photo" else "Change photo", enabled = !busy && createdId == null) { choosePhoto() }
-                        Text("Optional. They can add their own when they set up.", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                        Text("Optional. They can add their own when they set up.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
                     }
                 }
 
@@ -672,13 +703,13 @@ fun NewPersonScreen(me: Me?, onCreated: (String) -> Unit) {
 
                 if (role == "team_manager") Field(team, { team = it }, "Team", enabled = !busy && createdId == null)
                 if (role == "racer" || role == "crew") {
-                    if (iAmTeamManager) me?.user?.teamName?.let { Text("Team: $it", style = MaterialTheme.typography.labelSmall, color = SnowFaint) }
+                    if (iAmTeamManager) me?.user?.teamName?.let { Text("Team: $it", style = MaterialTheme.typography.bodySmall, color = SnowFaint) }
                     else Field(team, { team = it }, "Team (optional)", enabled = !busy && createdId == null)
                 }
 
                 Text(
                     "A new email gets a link to choose a password and fill in their profile. If the email already has an account, they are given this role and told by email.",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = SnowFaint,
                 )
 

@@ -65,6 +65,14 @@ import com.arkhins.ctrlaps.data.SessionResultsResponse
 import com.arkhins.ctrlaps.data.TeamRecord
 import com.arkhins.ctrlaps.data.TeamsResponse
 import com.arkhins.ctrlaps.ui.components.Chip
+import com.arkhins.ctrlaps.ui.components.Divider
+import com.arkhins.ctrlaps.ui.components.FlatPage
+import com.arkhins.ctrlaps.ui.components.Avatar
+import com.arkhins.ctrlaps.ui.components.GroupTitle
+import com.arkhins.ctrlaps.ui.components.SearchPill
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import com.arkhins.ctrlaps.ui.components.Empty
 import com.arkhins.ctrlaps.ui.components.ErrorText
 import com.arkhins.ctrlaps.ui.components.Field
@@ -140,7 +148,9 @@ fun CategoriesEditorScreen(onSaved: () -> Unit) {
     }
 
     val r = rows
-    LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    // Flat as the Account pages: each category a section, a thin line between them.
+    FlatPage {
+    LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         item {
             Text("Each category has a name, a short code shown on tags (like ITC) and a colour. The order here is the order everywhere.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
         }
@@ -151,6 +161,7 @@ fun CategoriesEditorScreen(onSaved: () -> Unit) {
                 itemsIndexed(r) { i, c ->
                     Panel {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (i > 0) Divider(Modifier.padding(bottom = 6.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     Modifier.size(30.dp).background(hex(c.color), CircleShape).border(2.dp, Snow.copy(alpha = 0.3f), CircleShape).clickable { picking = if (picking == i) null else i },
@@ -228,6 +239,7 @@ fun CategoriesEditorScreen(onSaved: () -> Unit) {
             }
         }
     }
+    }
 }
 
 /** A common table to start from. */
@@ -274,7 +286,7 @@ private fun PointsTablePanel(categoryId: String, scoring: Scoring?, onSaved: (Sc
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Points table", style = MaterialTheme.typography.labelMedium, color = SnowSoft)
-                Text(scoring?.summary() ?: "None: points are typed", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                Text(scoring?.summary() ?: "None: points are typed", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
             }
             if (!editing) Chip(if (scoring == null) "Add" else "Edit", Gold) { editing = true }
         }
@@ -319,7 +331,7 @@ fun TeamsScreen() {
     val scope = rememberCoroutineScope()
     var data by remember { mutableStateOf<TeamsResponse?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    var newName by remember { mutableStateOf("") }
+    var creating by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var renaming by remember { mutableStateOf<TeamRecord?>(null) }
     var deleting by remember { mutableStateOf<TeamRecord?>(null) }
@@ -397,46 +409,39 @@ fun TeamsScreen() {
     LazyColumn(
         Modifier.fillMaxSize().imePadding(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = if (waiting.isNotEmpty()) 96.dp else 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         item {
-            Panel {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SectionTitle("NEW TEAM")
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Field(newName, { newName = it }, "Team name", modifier = Modifier.weight(1f))
-                        Spacer(Modifier.width(8.dp))
-                        GoldButton("Add", enabled = !busy && newName.trim().length >= 2) {
-                            val name = newName.trim()
-                            newName = ""
-                            act { app.api.post("/api/teams", TeamsResponse.serializer()) { put("name", name); putJsonArray("categoryIds") {} } }
-                        }
-                    }
-                }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                SearchPill(query, "Search teams", Modifier.weight(1f)) { query = it }
+                IconAction(Icons.Outlined.Add, "New team", Gold, enabled = !busy) { creating = true }
             }
         }
         item { ErrorText(error) }
         when {
             d == null && error == null -> item { Loading() }
             d != null -> {
-                item { Field(query, { query = it }, "Search teams") }
-                if (shown.isNullOrEmpty()) item { Empty(if (d.teams.isEmpty()) "No teams yet." else "No team matches.") }
+                if (shown.isNullOrEmpty()) item { Empty(if (d.teams.isEmpty()) "No teams yet. Tap + to add the first." else "No team matches.") }
                 shown?.let { list ->
+                    item { GroupTitle("Teams", list.size) }
                     itemsIndexed(list, key = { _, t -> t.id }) { _, t ->
-                        Panel {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(names[t.id] ?: t.name, style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(if (t.members == 1) "1 person" else "${t.members} people", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
-                                    }
-                                    IconAction(Icons.Outlined.Edit, "Rename", Gold) { renaming = t }
-                                    IconAction(Icons.Outlined.Delete, "Delete", Danger) { deleting = t }
+                        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            val name = names[t.id] ?: t.name
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Avatar(null, name, size = 46)
+                                Spacer(Modifier.width(14.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(name, style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp, lineHeight = 20.sp), fontWeight = FontWeight.Bold, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(if (t.members == 1) "1 person" else "${t.members} people", style = MaterialTheme.typography.bodySmall, color = SnowSoft.copy(alpha = 0.8f))
                                 }
+                                IconAction(Icons.Outlined.Edit, "Rename", Gold) { renaming = t }
+                                IconAction(Icons.Outlined.Delete, "Delete", Danger) { deleting = t }
+                            }
+                            // In line with the name, under it.
+                            Column(Modifier.padding(start = 60.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 if (d.categories.isNotEmpty()) {
                                     val saved = t.categoryIds.toSet()
                                     val picked = drafts[t.id] ?: saved
-                                    val changed = picked != saved
                                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                         d.categories.forEach { c ->
                                             val on = c.id in picked
@@ -448,10 +453,10 @@ fun TeamsScreen() {
                                         }
                                     }
                                 }
-                                // A card with changes says so, and can put just its own back.
+                                // A team with changes says so, and can put just its own back.
                                 if (t.id in waiting) {
                                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                        Text("Not saved", style = MaterialTheme.typography.labelSmall, color = Gold, modifier = Modifier.weight(1f))
+                                        Text("Not saved", style = MaterialTheme.typography.bodySmall, color = Gold, modifier = Modifier.weight(1f))
                                         IconAction(painterResource(R.drawable.ic_undo), "Put back", SnowSoft, enabled = progress == null) {
                                             drafts = drafts - t.id
                                             names = names - t.id
@@ -462,7 +467,7 @@ fun TeamsScreen() {
                         }
                     }
                 }
-                item { Text("Tap categories to enter a team in them this season (or withdraw it), and rename teams; then Save at the bottom saves them all.", style = MaterialTheme.typography.labelSmall, color = SnowFaint) }
+        item { Text("Tap categories to enter a team in them this season (or withdraw it), and rename teams; then Save at the bottom saves them all.", style = MaterialTheme.typography.bodySmall, color = SnowFaint, modifier = Modifier.padding(top = 8.dp)) }
             }
         }
     }
@@ -494,6 +499,23 @@ fun TeamsScreen() {
         )
     }
 
+    if (creating) {
+        var name by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { creating = false },
+            containerColor = NightPanel,
+            title = { Text("New team", color = Snow) },
+            text = { Field(name, { name = it }, "Team name") },
+            confirmButton = {
+                TextButton(enabled = name.trim().length >= 2, onClick = {
+                    creating = false
+                    val n = name.trim()
+                    act { app.api.post("/api/teams", TeamsResponse.serializer()) { put("name", n); putJsonArray("categoryIds") {} } }
+                }) { Text("Add", color = Gold) }
+            },
+            dismissButton = { TextButton(onClick = { creating = false }) { Text("Cancel", color = SnowFaint) } },
+        )
+    }
     renaming?.let { t ->
         var name by remember(t.id) { mutableStateOf(names[t.id] ?: t.name) }
         AlertDialog(

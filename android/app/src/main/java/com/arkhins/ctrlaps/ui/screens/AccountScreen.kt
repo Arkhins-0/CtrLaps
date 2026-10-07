@@ -86,6 +86,7 @@ import com.arkhins.ctrlaps.ui.components.Avatar
 import com.arkhins.ctrlaps.ui.components.GhostButton
 import com.arkhins.ctrlaps.ui.components.KeyValue
 import com.arkhins.ctrlaps.ui.components.Panel
+import com.arkhins.ctrlaps.ui.components.SearchPill
 import com.arkhins.ctrlaps.ui.components.StatusChip
 import com.arkhins.ctrlaps.ui.theme.Gold
 import com.arkhins.ctrlaps.ui.theme.Snow
@@ -152,7 +153,7 @@ fun AccountScreen(
     ) {
         // Search, and beside it the QR: your code for the gate, and Verify someone, in one sheet.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            SettingsSearchBar(query, Modifier.weight(1f)) { query = it }
+            SearchPill(query, "Search settings", Modifier.weight(1f)) { query = it }
             Spacer(Modifier.width(10.dp))
             Box(
                 Modifier
@@ -293,30 +294,6 @@ fun MenuRow(
         }
         if (arrow) Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = if (icon != null) tone else SnowFaint)
     }
-}
-
-/** The pill search box at the top of the Account tab. */
-@Composable
-private fun SettingsSearchBar(query: String, modifier: Modifier = Modifier, onChange: (String) -> Unit) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onChange,
-        modifier = modifier.fillMaxWidth(),
-        placeholder = { Text("Search settings", color = SnowFaint) },
-        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, tint = SnowFaint) },
-        trailingIcon = if (query.isNotEmpty()) ({ IconButton(onClick = { onChange("") }) { Icon(Icons.Outlined.Close, contentDescription = "Clear", tint = SnowFaint) } }) else null,
-        singleLine = true,
-        shape = RoundedCornerShape(28.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Gold,
-            unfocusedBorderColor = NightLine,
-            focusedContainerColor = NightPanel,
-            unfocusedContainerColor = NightPanel,
-            cursorColor = Gold,
-            focusedTextColor = Snow,
-            unfocusedTextColor = Snow,
-        ),
-    )
 }
 
 /** Something a search can find: where it lives ("Settings › Theme"), the screen that opens, and other words for it. */
