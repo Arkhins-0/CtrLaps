@@ -65,6 +65,7 @@ import com.arkhins.ctrlaps.data.SessionResultsResponse
 import com.arkhins.ctrlaps.data.TeamRecord
 import com.arkhins.ctrlaps.data.TeamsResponse
 import com.arkhins.ctrlaps.ui.components.Chip
+import androidx.compose.ui.draw.clip
 import com.arkhins.ctrlaps.ui.components.Divider
 import com.arkhins.ctrlaps.ui.components.FlatPage
 import com.arkhins.ctrlaps.ui.components.Avatar
@@ -403,6 +404,12 @@ fun TeamsScreen() {
         }
     }
 
+    // A team's photo: tap its circle, pick, crop square; the row shows it at once.
+    val changePhoto = rememberTeamPhotoPicker(
+        onSaved = { id, url -> data = data?.let { r -> r.copy(teams = r.teams.map { if (it.id == id) it.copy(photoUrl = url) else it }) } },
+        onError = { error = it },
+    )
+    val openRoute = LocalOpen.current
     val d = data
     val shown = d?.teams?.filter { query.isBlank() || (names[it.id] ?: it.name).contains(query.trim(), ignoreCase = true) }
     Box(Modifier.fillMaxSize()) {
@@ -428,9 +435,9 @@ fun TeamsScreen() {
                         Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             val name = names[t.id] ?: t.name
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Avatar(null, name, size = 46)
+                                Box(Modifier.clip(CircleShape).clickable { changePhoto(t.id) }) { Avatar(app.api.absolute(t.photoUrl), name, size = 46, preview = false) }
                                 Spacer(Modifier.width(14.dp))
-                                Column(Modifier.weight(1f)) {
+                                Column(Modifier.weight(1f).clickable { openRoute("team/${t.id}") }) {
                                     Text(name, style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp, lineHeight = 20.sp), fontWeight = FontWeight.Bold, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(if (t.members == 1) "1 person" else "${t.members} people", style = MaterialTheme.typography.bodySmall, color = SnowSoft.copy(alpha = 0.8f))
                                 }

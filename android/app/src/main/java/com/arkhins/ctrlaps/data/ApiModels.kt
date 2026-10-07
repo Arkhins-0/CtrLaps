@@ -19,6 +19,8 @@ data class PublicUser(
     val dob: String? = null,
     val phone: String? = null,
     val teamName: String? = null,
+    /** The team as a record, for its page. */
+    val teamId: String? = null,
     val parentId: String? = null,
     val photoUrl: String? = null,
     val verifyCode: String,
@@ -654,6 +656,10 @@ data class DriverStanding(
     val userId: String? = null,
     val carNumber: String = "",
     val teamName: String? = null,
+    /** Their latest team, for its page. */
+    val teamId: String? = null,
+    /** Their account's photo (none for a name typed in). */
+    val photoUrl: String? = null,
     val points: Double = 0.0,
     val wins: Int = 0,
     val podiums: Int = 0,
@@ -671,7 +677,7 @@ data class DriverRound(val position: Int? = null, val status: String = "finished
 data class StandingsSeason(val id: String, val name: String, val current: Boolean = false)
 
 @Serializable
-data class TeamStanding(val id: String, val name: String, val points: Double = 0.0, val wins: Int = 0, val podiums: Int = 0, val rounds: Map<String, Double> = emptyMap())
+data class TeamStanding(val id: String, val name: String, val photoUrl: String? = null, val points: Double = 0.0, val wins: Int = 0, val podiums: Int = 0, val rounds: Map<String, Double> = emptyMap())
 
 @Serializable
 data class StandingSession(val id: String, val name: String, val startsAt: String, val weekendName: String = "", val rows: Int = 0)
@@ -708,7 +714,7 @@ data class ResultTeam(val id: String, val name: String, val entered: Boolean = f
 data class TeamsResponse(val teams: List<TeamRecord> = emptyList(), val categories: List<Category> = emptyList(), val seasonId: String = "")
 
 @Serializable
-data class TeamRecord(val id: String, val name: String, val categoryIds: List<String> = emptyList(), val members: Int = 0)
+data class TeamRecord(val id: String, val name: String, val categoryIds: List<String> = emptyList(), val members: Int = 0, val photoUrl: String? = null)
 
 @Serializable
 data class CategoriesResponse(val categories: List<Category> = emptyList())
@@ -847,3 +853,41 @@ data class Dashboard(
 @Serializable
 data class DashboardSession(val id: String, val name: String, val weekendId: String, val weekendName: String, val startsAt: String, val track: String)
 
+/** A team's page: its photo, categories, people, where it stands and its latest results. */
+@Serializable
+data class TeamPageResponse(
+    val team: TeamInfo,
+    val categories: List<Category> = emptyList(),
+    val people: List<TeamMember> = emptyList(),
+    val standings: List<TeamStandingLine> = emptyList(),
+    val results: List<TeamResult> = emptyList(),
+    /** May change the team's photo. */
+    val canEdit: Boolean = false,
+    /** The people whose own page this viewer may open. */
+    val canOpen: List<String> = emptyList(),
+)
+
+@Serializable
+data class TeamInfo(val id: String, val name: String, val photoUrl: String? = null)
+
+@Serializable
+data class TeamMember(val id: String, val name: String, val role: String, val photoUrl: String? = null, val pending: Boolean = false)
+
+@Serializable
+data class TeamStandingLine(val category: Category, val position: Int, val of: Int, val points: Double = 0.0, val wins: Int = 0, val podiums: Int = 0)
+
+@Serializable
+data class TeamResult(
+    val sessionId: String,
+    val sessionName: String,
+    val weekendName: String = "",
+    val categoryId: String? = null,
+    val startsAt: String,
+    val driverName: String,
+    val position: Int? = null,
+    val status: String = "finished",
+    val points: Double = 0.0,
+)
+
+@Serializable
+data class PhotoUrlResponse(val photoUrl: String? = null)

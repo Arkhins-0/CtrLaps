@@ -5,6 +5,8 @@ import com.arkhins.ctrlaps.ui.components.CopyButton
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DateRange
@@ -95,6 +97,8 @@ import com.arkhins.ctrlaps.data.PublicUser
 import com.arkhins.ctrlaps.data.SentResponse
 import com.arkhins.ctrlaps.data.UserResponse
 import com.arkhins.ctrlaps.data.UsersResponse
+import com.arkhins.ctrlaps.data.VolunteerGroupsResponse
+import com.arkhins.ctrlaps.data.VolunteerGroupRow
 import com.arkhins.ctrlaps.ui.components.Avatar
 import androidx.compose.ui.unit.sp
 import com.arkhins.ctrlaps.ui.components.GroupTitle
@@ -502,6 +506,15 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
                 DetailRow(Icons.Outlined.Email, "Email", u.email)
                 DetailRow(Icons.Outlined.Phone, "Contact", u.phone ?: "—")
                 DetailRow(Icons.Outlined.DateRange, "Date of birth", u.dob ?: "—")
+                // The team opens its page.
+                if (u.teamName != null) {
+                    val openTeam = LocalOpen.current
+                    Box(Modifier.then(if (u.teamId != null) Modifier.clickable { openTeam("team/${u.teamId}") } else Modifier)) {
+                        DetailRow(Icons.Outlined.Person, "Team", u.teamName) {
+                            if (u.teamId != null) Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = "Open the team", tint = Gold)
+                        }
+                    }
+                }
                 DetailRow(Icons.Outlined.Lock, "Account code", u.verifyCode) { CopyButton(u.verifyCode) }
             }
         }
@@ -531,12 +544,13 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
             item {
                 AboutSheet(if (u.role == "user") "Promote" else "Change role", onClose = { promoting = false }, expanded = true) {
                 Column(Modifier.padding(horizontal = 16.dp)) {
-                PromotePanel(me!!, u, busy = busy, onCancel = { promoting = false }) { role, team ->
+                PromotePanel(me!!, u, busy = busy, onCancel = { promoting = false }) { role, team, delegation ->
                     run("Now a ${ROLE_LABELS[role] ?: role}.") {
                         app.api.post("/api/users", UserResponse.serializer()) {
                             put("email", u.email)
                             put("role", role)
                             put("teamName", team)
+                            delegation?.let { put("delegationId", it) }
                         }
                         promoting = false
                     }
@@ -657,6 +671,14 @@ fun NewPersonScreen(me: Me?, onCreated: (String) -> Unit) {
     var createdId by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    // A delegate can go straight into their delegation (JK Tyre, FMSCI…); none leaves them for the Delegations page.
+    var delegations by remember { mutableStateOf<List<VolunteerGroupRow>>(emptyList()) }
+    var delegation by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(role) {
+        if (role == "race_official" && delegations.isEmpty()) {
+            delegations = runCatching { app.api.get("/api/volunteer-groups?kind=delegation", VolunteerGroupsResponse.serializer()).groups }.getOrDefault(emptyList())
+        }
+    }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) scope.launch { cropping = withContext(Dispatchers.IO) { loadShrunk(context, uri, 1600) } }
     }
@@ -702,6 +724,22 @@ fun NewPersonScreen(me: Me?, onCreated: (String) -> Unit) {
                 }
 
                 if (role == "team_manager") Field(team, { team = it }, "Team", enabled = !busy && createdId == null)
+                if (role == "race_official") {
+                    Column {
+                        SectionTitle("DELEGATION")
+                        Spacer(Modifier.height(8.dp))
+                        if (delegations.isEmpty()) {
+                            Text("No delegations yet. Make one under Chats → Delegations; they can be put in it later.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                        } else {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Chip("None for now", SnowSoft, filled = delegation == null) { if (!busy && createdId == null) delegation = null }
+                                delegations.forEach { g -> Chip(g.name, Gold, filled = delegation == g.id) { if (!busy && createdId == null) delegation = g.id } }
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Text("They join its group chat straight away.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                        }
+                    }
+                }
                 if (role == "racer" || role == "crew") {
                     if (iAmTeamManager) me?.user?.teamName?.let { Text("Team: $it", style = MaterialTheme.typography.bodySmall, color = SnowFaint) }
                     else Field(team, { team = it }, "Team (optional)", enabled = !busy && createdId == null)
@@ -722,6 +760,7 @@ fun NewPersonScreen(me: Me?, onCreated: (String) -> Unit) {
                                 put("email", email.trim())
                                 put("role", role)
                                 put("teamName", team.trim())
+                                if (role == "race_official") delegation?.let { put("delegationId", it) }
                             }.user.id
                         } catch (e: Exception) {
                             error = e.message ?: "Could not save."
@@ -845,10 +884,19 @@ private fun EditablePhoto(url: String?, picked: Bitmap?, name: String, size: Int
 /** The roles [me] may give, as chips, then only what the chosen role needs: a team for a team manager, racers and crew. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PromotePanel(me: Me, u: PublicUser, busy: Boolean, onCancel: () -> Unit, onSave: (String, String) -> Unit) {
+private fun PromotePanel(me: Me, u: PublicUser, busy: Boolean, onCancel: () -> Unit, onSave: (role: String, team: String, delegation: String?) -> Unit) {
+    val app = LocalApp.current
     val roles = me.canCreate.filter { it != u.role }
     var role by remember { mutableStateOf(roles.firstOrNull() ?: "") }
     var team by remember { mutableStateOf(u.teamName ?: "") }
+    // Made a delegate: their delegation can be picked here too.
+    var delegations by remember { mutableStateOf<List<VolunteerGroupRow>>(emptyList()) }
+    var delegation by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(role) {
+        if (role == "race_official" && delegations.isEmpty()) {
+            delegations = runCatching { app.api.get("/api/volunteer-groups?kind=delegation", VolunteerGroupsResponse.serializer()).groups }.getOrDefault(emptyList())
+        }
+    }
     val iAmTeamManager = me.user.role == "team_manager"
     val needsTeam = role == "team_manager"
     Panel {
@@ -863,6 +911,13 @@ private fun PromotePanel(me: Me, u: PublicUser, busy: Boolean, onCancel: () -> U
                 "racer", "crew" ->
                     if (iAmTeamManager) me.user.teamName?.let { Text("Team: $it", style = MaterialTheme.typography.bodySmall, color = SnowSoft) }
                     else Field(team, { team = it }, "Team (optional)", enabled = !busy)
+                "race_official" -> if (delegations.isNotEmpty()) {
+                    SectionTitle("DELEGATION")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Chip("None for now", SnowSoft, filled = delegation == null) { if (!busy) delegation = null }
+                        delegations.forEach { g -> Chip(g.name, Gold, filled = delegation == g.id) { if (!busy) delegation = g.id } }
+                    }
+                }
             }
             Text(
                 "${u.displayName} is told by email. " + if (u.role == "user") "They get the chats and pages of the new role at once." else "Their chats and pages change to the new role at once.",
@@ -874,7 +929,7 @@ private fun PromotePanel(me: Me, u: PublicUser, busy: Boolean, onCancel: () -> U
                 GoldButton(
                     if (busy) "Saving…" else "Make ${ROLE_LABELS[role] ?: role}",
                     enabled = !busy && role.isNotBlank() && (!needsTeam || team.isNotBlank()),
-                ) { onSave(role, if (role == "team_manager" || ((role == "racer" || role == "crew") && !iAmTeamManager)) team.trim() else "") }
+                ) { onSave(role, if (role == "team_manager" || ((role == "racer" || role == "crew") && !iAmTeamManager)) team.trim() else "", delegation.takeIf { role == "race_official" }) }
             }
         }
     }
@@ -1010,7 +1065,7 @@ private fun DeveloperPanel(isDev: Boolean, busy: Boolean, onChange: (Boolean) ->
 
 /** A quick action under a person's banner: an icon over a word, on a soft tile. */
 @Composable
-private fun QuickAction(icon: Painter, label: String, modifier: Modifier = Modifier, enabled: Boolean = true, highlight: Boolean = false, onClick: () -> Unit) {
+fun QuickAction(icon: Painter, label: String, modifier: Modifier = Modifier, enabled: Boolean = true, highlight: Boolean = false, onClick: () -> Unit) {
     Column(
         modifier
             .clip(RoundedCornerShape(16.dp))

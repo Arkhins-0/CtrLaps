@@ -190,6 +190,7 @@ private fun CategoryStandings(vm: AppViewModel, pastSeason: String?, category: C
 
     val d = data
     val tone = categoryColor(category)
+    val openRoute = LocalOpen.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp)) {
         when {
             error != null && d == null -> item { ErrorText(error) }
@@ -217,7 +218,7 @@ private fun CategoryStandings(vm: AppViewModel, pastSeason: String?, category: C
                     }
                     val leader = d.drivers.first().points
                     itemsIndexed(d.drivers, key = { _, s -> "d-" + s.key }) { i, s ->
-                        DriverRow(i + 1, s, leader, rounds, tone, open == s.key) { open = if (open == s.key) null else s.key }
+                        DriverRow(i + 1, s, leader, rounds, tone, open == s.key, onTeam = { id -> openRoute("team/$id") }) { open = if (open == s.key) null else s.key }
                     }
                 } else {
                     item { Text("No results yet. They appear here once a session's results are in.", style = MaterialTheme.typography.bodyMedium, color = SnowFaint, modifier = Modifier.padding(vertical = 12.dp)) }
@@ -226,7 +227,10 @@ private fun CategoryStandings(vm: AppViewModel, pastSeason: String?, category: C
                     item { GroupTitle("Teams", d.teams.size, Modifier.padding(top = 12.dp)) }
                     val top = d.teams.first().points
                     itemsIndexed(d.teams, key = { _, t -> "t-" + t.id }) { i, t ->
-                        StandingRow(i + 1, t.name, "${t.wins} ${if (t.wins == 1) "win" else "wins"} · ${t.podiums} ${if (t.podiums == 1) "podium" else "podiums"}", t.points, top, tone, initials = true)
+                        StandingRow(
+                            i + 1, t.name, "${t.wins} ${if (t.wins == 1) "win" else "wins"} · ${t.podiums} ${if (t.podiums == 1) "podium" else "podiums"}",
+                            t.points, top, tone, photo = app.api.absolute(t.photoUrl), onClick = { openRoute("team/${t.id}") },
+                        )
                     }
                 }
                 if (rounds.isNotEmpty()) {
@@ -257,12 +261,13 @@ private fun CategoryStandings(vm: AppViewModel, pastSeason: String?, category: C
 /** The top three as a podium: second, first (tallest, in the category's colour), third. */
 @Composable
 private fun Podium(top: List<DriverStanding>, tone: Color) {
+    val app = LocalApp.current
     val order = listOfNotNull(top.getOrNull(1)?.let { 2 to it }, top.getOrNull(0)?.let { 1 to it }, top.getOrNull(2)?.let { 3 to it })
     Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
         order.forEach { (place, s) ->
             val height = when (place) { 1 -> 96.dp; 2 -> 72.dp; else -> 56.dp }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Avatar(null, s.name, size = if (place == 1) 56 else 46)
+                Avatar(app.api.absolute(s.photoUrl), s.name, size = if (place == 1) 56 else 46)
                 Spacer(Modifier.height(6.dp))
                 Text(s.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                 Text(s.teamName ?: "No team", style = MaterialTheme.typography.bodySmall, color = SnowSoft.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
@@ -297,22 +302,20 @@ private fun PlaceNumber(place: Int, tone: Color) {
 
 /** A team (or any entry) in the standings: place, name, a quieter line, the points and a bar against the leader. */
 @Composable
-private fun StandingRow(place: Int, name: String, line: String, points: Double, leader: Double, tone: Color, initials: Boolean = false) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+private fun StandingRow(place: Int, name: String, line: String, points: Double, leader: Double, tone: Color, photo: String?, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             PlaceNumber(place, tone)
             Spacer(Modifier.width(10.dp))
-            if (initials) {
-                Avatar(null, name, size = 36)
-                Spacer(Modifier.width(10.dp))
-            }
+            Avatar(photo, name, size = 36, preview = false)
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(name, style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp, lineHeight = 20.sp), fontWeight = FontWeight.Bold, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(line, style = MaterialTheme.typography.bodySmall, color = SnowSoft.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Text(pointsText(points), style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp), color = Snow, fontWeight = FontWeight.Bold)
         }
-        PointsBar(points, leader, tone, Modifier.padding(start = 42.dp, top = 6.dp))
+        PointsBar(points, leader, tone, Modifier.padding(start = 88.dp, top = 6.dp))
     }
 }
 
@@ -328,10 +331,13 @@ private fun PointsBar(points: Double, leader: Double, tone: Color, modifier: Mod
 /** A driver in the standings; open, their points session by session. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun DriverRow(place: Int, s: DriverStanding, leader: Double, rounds: List<StandingSession>, tone: Color, open: Boolean, onToggle: () -> Unit) {
+private fun DriverRow(place: Int, s: DriverStanding, leader: Double, rounds: List<StandingSession>, tone: Color, open: Boolean, onTeam: (String) -> Unit, onToggle: () -> Unit) {
+    val app = LocalApp.current
     Column(Modifier.fillMaxWidth().animateContentSize().clip(RoundedCornerShape(14.dp)).clickable(onClick = onToggle).padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             PlaceNumber(place, tone)
+            Spacer(Modifier.width(10.dp))
+            Avatar(app.api.absolute(s.photoUrl), s.name, size = 36)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -342,21 +348,28 @@ private fun DriverRow(place: Int, s: DriverStanding, leader: Double, rounds: Lis
                     }
                 }
                 val gap = leader - s.points
-                Text(
-                    listOfNotNull(s.teamName ?: "No team", if (place > 1 && gap > 0) "${pointsText(Math.round(gap * 100) / 100.0)} behind" else null).joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SnowSoft.copy(alpha = 0.8f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row {
+                    // The team opens its page.
+                    Text(
+                        s.teamName ?: "No team",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (s.teamId != null) tone else SnowSoft.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false).then(if (s.teamId != null) Modifier.clickable { onTeam(s.teamId) } else Modifier),
+                    )
+                    if (place > 1 && gap > 0) {
+                        Text(" · ${pointsText(Math.round(gap * 100) / 100.0)} behind", style = MaterialTheme.typography.bodySmall, color = SnowSoft.copy(alpha = 0.8f), maxLines = 1)
+                    }
+                }
             }
             Text("${s.wins} · ${s.podiums}", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
             Spacer(Modifier.width(12.dp))
             Text(pointsText(s.points), style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp), color = Snow, fontWeight = FontWeight.Bold)
         }
-        PointsBar(s.points, leader, tone, Modifier.padding(start = 42.dp, top = 6.dp))
+        PointsBar(s.points, leader, tone, Modifier.padding(start = 88.dp, top = 6.dp))
         if (open && rounds.isNotEmpty()) {
-            FlowRow(Modifier.padding(start = 42.dp, top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            FlowRow(Modifier.padding(start = 88.dp, top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 rounds.forEachIndexed { i, session -> RoundTile("R${i + 1}", s.rounds[session.id]) }
             }
         }

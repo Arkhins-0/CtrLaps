@@ -38,6 +38,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import com.arkhins.ctrlaps.ui.screens.LocalOpen
 import com.arkhins.ctrlaps.ui.screens.NotificationsScreen
 import com.arkhins.ctrlaps.ui.screens.NotificationSettingsScreen
+import com.arkhins.ctrlaps.ui.screens.TeamScreen
 import com.arkhins.ctrlaps.ui.components.NotificationBell
 import com.arkhins.ctrlaps.ui.components.PhotoViewerActions
 import com.arkhins.ctrlaps.ui.screens.StandingsScreen
@@ -463,6 +464,10 @@ private fun MainNav(vm: AppViewModel) {
             composable("results/{id}") { e -> Pushed("Results") { ResultsScreen(vm, e.arguments?.getString("id") ?: "") } }
             composable("results/{id}/edit") { e -> Pushed("Results") { ResultsScreen(vm, e.arguments?.getString("id") ?: "", startEditing = true) } }
             composable("category/{id}") { e -> Pushed("Category channel") { CategoryChannelScreen(vm, e.arguments?.getString("id") ?: "", view) } }
+            composable("team/{id}") { e ->
+                var t by remember { mutableStateOf("") }
+                Pushed(t, flat = true) { TeamScreen(e.arguments?.getString("id") ?: "") { t = it } }
+            }
             composable("person/{id}") { e ->
                 var t by remember { mutableStateOf("") }
                 Pushed(t, flat = true) { PersonScreen(vm.me, e.arguments?.getString("id") ?: "", onOpenChat = openChat) { t = it } }
