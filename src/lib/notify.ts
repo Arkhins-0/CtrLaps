@@ -59,7 +59,9 @@ export async function deliver(d: Delivery): Promise<void> {
       ? new Set((await q<{ user_id: string }>("SELECT user_id FROM channel_mutes WHERE conversation_id = $1", [d.muteConversation])).map((m) => m.user_id))
       : null;
     const pushIds = muted ? ids.filter((id) => !muted.has(id)) : ids;
-    await pushTo(pushIds, d.push).catch((error) => console.error("[notify] push", error));
+    // An urgent message reaches everyone, whatever kinds they switched off.
+    const urgent = (await q<{ urgent: boolean }>("SELECT urgent FROM messages WHERE id = $1", [d.messageId]))[0]?.urgent ?? false;
+    await pushTo(pushIds, { ...d.push, urgent: d.push.urgent ?? urgent }).catch((error) => console.error("[notify] push", error));
     if (!d.email) return;
     const roles = d.email.force ? null : NO_AUTO_EMAIL;
     const kind = d.email.kind;

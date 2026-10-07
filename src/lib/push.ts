@@ -1,5 +1,6 @@
 import "server-only";
 
+import { pushKindOf, wantsPush, type PushKind } from "./pushPrefs";
 import fs from "node:fs";
 import path from "node:path";
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
@@ -51,13 +52,21 @@ export type Push = {
   tag?: string;
   /** Extra data for the app's in-app popup: who sent it, what kind, any attachment. */
   popup?: Record<string, string>;
+  /** Which choice it falls under (pushPrefs.ts) when the popup doesn't say: results. */
+  kind?: PushKind;
+  /** Urgent: comes to everyone, whatever they chose. */
+  urgent?: boolean;
 };
 
 /** Send one notification to everyone in `userIds`. Fire and forget; never throws. */
 export async function pushTo(userIds: string[], push: Push): Promise<void> {
   const firebase = app();
   if (!firebase || userIds.length === 0) return;
-  const rows = await q<{ token: string }>("SELECT token FROM push_tokens WHERE user_id = ANY($1::uuid[])", [userIds]);
+  // People who switched this kind off don't get it, unless it is urgent.
+  const kind = push.urgent ? null : pushKindOf(push.popup?.kind, push.kind);
+  const to = kind ? await wantsPush(userIds, kind) : userIds;
+  if (to.length === 0) return;
+  const rows = await q<{ token: string }>("SELECT token FROM push_tokens WHERE user_id = ANY($1::uuid[])", [to]);
   const tokens = rows.map((r) => r.token);
   if (tokens.length === 0) return;
 

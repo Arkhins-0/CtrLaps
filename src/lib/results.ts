@@ -91,7 +91,7 @@ export async function notifyResults(sessionId: string): Promise<void> {
   const podium = rows.filter((r) => r.status === "finished" && r.position !== null).slice(0, 3).map((r) => `${r.position}. ${r.driverName}`).join(" · ");
   const audience = await resultsAudience(info.category_id);
   const link = `/results/${sessionId}`;
-  await pushTo(audience.push, { title: `${info.code} · ${info.name} results`, body: podium || "The results are in.", link, tag: `r-${sessionId}` }).catch(
+  await pushTo(audience.push, { title: `${info.code} · ${info.name} results`, body: podium || "The results are in.", link, tag: `r-${sessionId}`, kind: "results" }).catch(
     (error) => console.error("[results] push", error),
   );
   if (audience.email.length === 0) return;
