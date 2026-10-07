@@ -3,15 +3,19 @@
 import { useState } from "react";
 import { api } from "@/lib/client";
 import type { Category } from "@/lib/categories";
+import { usePendingEdits } from "@/lib/pendingEdits";
 import type { Team } from "@/lib/teams";
 import { Icon } from "./Icon";
+import { SaveBar } from "./SaveBar";
 
 /**
- * Teams and the race categories each is entered in this season: tap a category to enter or withdraw the team, rename
- * or delete it, or add a new one. Every change saves at once.
+ * Teams and the race categories each is entered in this season. Tapping categories and renaming wait, so many teams
+ * can be set up and saved together from the bar at the bottom; adding or deleting a team happens at once.
  */
 export function TeamsEditor({ initial, categories }: { initial: Team[]; categories: Category[] }) {
   const [teams, setTeams] = useState(initial);
+  const pending = usePendingEdits<Team>();
+  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
@@ -33,9 +37,20 @@ export function TeamsEditor({ initial, categories }: { initial: Team[]; categori
   };
 
   const toggle = (t: Team, id: string) => {
-    const next = t.categoryIds.includes(id) ? t.categoryIds.filter((x) => x !== id) : [...t.categoryIds, id];
-    setTeams((ts) => ts.map((x) => (x.id === t.id ? { ...x, categoryIds: next } : x)));
-    act(t.id, () => api(`/api/teams/${t.id}`, { method: "PATCH", json: { categoryIds: next } }));
+    const now = pending.view(t).categoryIds;
+    pending.change(t, { categoryIds: now.includes(id) ? now.filter((x) => x !== id) : [...now, id] });
+  };
+
+  const saveAll = async () => {
+    setError(null);
+    setNotice(null);
+    let latest: Team[] | null = null;
+    const r = await pending.saveAll(async (id, patch) => {
+      latest = (await api<{ teams: Team[] }>(`/api/teams/${id}`, { method: "PATCH", json: patch })).teams;
+    });
+    if (latest) setTeams(latest);
+    if (r.failed > 0) setError(`${r.saved > 0 ? `Saved ${r.saved}. ` : ""}${r.failed} could not be saved (${r.error}). They're still here to try again.`);
+    else setNotice(r.saved === 1 ? "Saved." : `Saved ${r.saved} teams.`);
   };
 
   const Chips = ({ selected, onToggle, disabled }: { selected: string[]; onToggle: (id: string) => void; disabled?: boolean }) => (
@@ -65,6 +80,7 @@ export function TeamsEditor({ initial, categories }: { initial: Team[]; categori
   return (
     <div className="space-y-4">
       {error && <p className="error">{error}</p>}
+      {notice && !error && <p className="text-sm text-snow-soft" role="status">{notice}</p>}
       <div className="flex flex-wrap gap-2">
         <input className="input min-w-0 flex-1" placeholder="Search teams" value={search} onChange={(e) => setSearch(e.target.value)} />
         <button className="btn-gold px-4 py-1.5 text-xs" onClick={() => setAdding({ name: "", categoryIds: [] })}>
@@ -101,19 +117,23 @@ export function TeamsEditor({ initial, categories }: { initial: Team[]; categori
       )}
       {teams.length === 0 && <p className="card text-sm text-snow-faint">No teams yet.</p>}
       <ul className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-        {shown.map((t) => (
-          <li key={t.id} className="card space-y-2 p-4">
+        {shown.map((saved) => {
+          const t = pending.view(saved);
+          return (
+          <li key={t.id} className={`card space-y-2 p-4 ${pending.isChanged(t.id) ? "border-gold/60" : ""}`}>
             <div className="flex items-center gap-2">
               {renaming?.id === t.id ? (
                 <form
                   className="flex flex-1 gap-2"
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    if (await act(t.id, () => api(`/api/teams/${t.id}`, { method: "PATCH", json: { name: renaming.name } }))) setRenaming(null);
+                    if (renaming.name.trim().length < 2) return;
+                    pending.change(saved, { name: renaming.name.trim() });
+                    setRenaming(null);
                   }}
                 >
                   <input className="input flex-1 py-1.5 text-sm" autoFocus value={renaming.name} onChange={(e) => setRenaming({ id: t.id, name: e.target.value })} />
-                  <button className="btn-gold px-3 py-1 text-xs" disabled={busy === t.id}>Save</button>
+                  <button className="btn-gold px-3 py-1 text-xs">Done</button>
                   <button type="button" className="btn-ghost px-3 py-1 text-xs" onClick={() => setRenaming(null)}>Cancel</button>
                 </form>
               ) : (
@@ -127,8 +147,10 @@ export function TeamsEditor({ initial, categories }: { initial: Team[]; categori
                     className="btn-icon text-danger/80 hover:text-danger"
                     aria-label={`Delete ${t.name}`}
                     onClick={() => {
-                      if (confirm(`Delete ${t.name}?${t.members > 0 ? " Its people keep no team." : ""}`))
+                      if (confirm(`Delete ${t.name}?${t.members > 0 ? " Its people keep no team." : ""}`)) {
+                        pending.change(saved, { name: saved.name, categoryIds: saved.categoryIds });
                         act(t.id, () => api(`/api/teams/${t.id}`, { method: "DELETE" }));
+                      }
                     }}
                   >
                     <Icon name="trash" className="h-4 w-4" />
@@ -136,10 +158,14 @@ export function TeamsEditor({ initial, categories }: { initial: Team[]; categori
                 </>
               )}
             </div>
-            <Chips selected={t.categoryIds} onToggle={(id) => toggle(t, id)} disabled={busy === t.id} />
+            <Chips selected={t.categoryIds} onToggle={(id) => toggle(saved, id)} disabled={busy === t.id || pending.saving} />
           </li>
-        ))}
+          );
+        })}
       </ul>
+      {/* Room for the save bar, so it never covers the last team. */}
+      {pending.count > 0 && <div className="h-16" />}
+      <SaveBar count={pending.count} progress={pending.progress} onSave={saveAll} onDiscard={pending.discard} />
     </div>
   );
 }

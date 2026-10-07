@@ -1,5 +1,9 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.SaveProgress
+import com.arkhins.ctrlaps.ui.components.SaveBar
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.ui.res.painterResource
 import com.arkhins.ctrlaps.R
@@ -304,7 +308,10 @@ private fun PointsTablePanel(categoryId: String, scoring: Scoring?, onSaved: (Sc
 
 /* ─────────────────────────────── Teams ──────────────────────────────── */
 
-/** Admins and coordinators: add, rename and delete teams, and tap a category to enter a team in it (or withdraw it). */
+/**
+ * Admins and coordinators: add and delete teams (at once), and rename them or tap a category to enter a team in it
+ * (or withdraw it). Renames and taps wait, so many teams can be set up and saved together from the bar at the bottom.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TeamsScreen() {
@@ -317,8 +324,15 @@ fun TeamsScreen() {
     var renaming by remember { mutableStateOf<TeamRecord?>(null) }
     var deleting by remember { mutableStateOf<TeamRecord?>(null) }
     var busy by remember { mutableStateOf(false) }
-    // Categories tapped on a card but not saved yet, by team.
+    // Categories tapped on a card but not saved yet, by team; and new names, by team.
     var drafts by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
+    var names by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var progress by remember { mutableStateOf<SaveProgress?>(null) }
+    var askDiscard by remember { mutableStateOf(false) }
+    val waiting = drafts.keys + names.keys
+    val dispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+    // Leaving with changes not saved asks first (system Back and the header's arrow alike).
+    BackHandler(enabled = waiting.isNotEmpty() && progress == null) { askDiscard = true }
 
     // The phone's copy first (it opens offline), then the server's.
     LaunchedEffect(Unit) {
@@ -346,9 +360,45 @@ fun TeamsScreen() {
         }
     }
 
+    /** Every waiting change, one team after another; the ones that fail stay for another try. */
+    fun saveAll() {
+        val current = data ?: return
+        val ids = waiting.toList()
+        error = null
+        progress = SaveProgress(0, ids.size)
+        scope.launch {
+            var failed = 0
+            var reason: String? = null
+            ids.forEachIndexed { i, id ->
+                try {
+                    val order = drafts[id]?.let { p -> current.categories.map { it.id }.filter { it in p } }
+                    val newName = names[id]
+                    val r = app.api.patch("/api/teams/$id", TeamsResponse.serializer()) {
+                        if (newName != null) put("name", newName)
+                        if (order != null) putJsonArray("categoryIds") { order.forEach { add(JsonPrimitive(it)) } }
+                    }
+                    data = r.copy(categories = r.categories.ifEmpty { data?.categories.orEmpty() }, seasonId = r.seasonId.ifBlank { data?.seasonId.orEmpty() })
+                    drafts = drafts - id
+                    names = names - id
+                } catch (e: Exception) {
+                    failed++
+                    if (reason == null) reason = e.message
+                }
+                progress = SaveProgress(i + 1, ids.size)
+            }
+            progress = null
+            if (failed > 0) error = "$failed could not be saved (${reason ?: "no connection"}). They're still here to try again."
+        }
+    }
+
     val d = data
-    val shown = d?.teams?.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
-    LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val shown = d?.teams?.filter { query.isBlank() || (names[it.id] ?: it.name).contains(query.trim(), ignoreCase = true) }
+    Box(Modifier.fillMaxSize()) {
+    LazyColumn(
+        Modifier.fillMaxSize().imePadding(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = if (waiting.isNotEmpty()) 96.dp else 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         item {
             Panel {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -377,7 +427,7 @@ fun TeamsScreen() {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f)) {
-                                        Text(t.name, style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(names[t.id] ?: t.name, style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Text(if (t.members == 1) "1 person" else "${t.members} people", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                                     }
                                     IconAction(Icons.Outlined.Edit, "Rename", Gold) { renaming = t }
@@ -391,24 +441,20 @@ fun TeamsScreen() {
                                         d.categories.forEach { c ->
                                             val on = c.id in picked
                                             Chip(c.code, categoryColor(c), filled = on) {
-                                                if (busy) return@Chip
+                                                if (busy || progress != null) return@Chip
                                                 val next = if (on) picked - c.id else picked + c.id
                                                 drafts = if (next == saved) drafts - t.id else drafts + (t.id to next)
                                             }
                                         }
                                     }
-                                    // Only a card with changes offers to keep them or put them back.
-                                    if (changed) {
-                                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                            Text("Not saved", style = MaterialTheme.typography.labelSmall, color = Gold, modifier = Modifier.weight(1f))
-                                            IconAction(painterResource(R.drawable.ic_undo), "Revert", SnowSoft, enabled = !busy) { drafts = drafts - t.id }
-                                            Spacer(Modifier.width(4.dp))
-                                            IconAction(Icons.Filled.Check, "Save", OnGold, filled = true, enabled = !busy) {
-                                                val order = d.categories.map { it.id }.filter { it in picked }
-                                                act(onDone = { drafts = drafts - t.id }) {
-                                                    app.api.patch("/api/teams/${t.id}", TeamsResponse.serializer()) { putJsonArray("categoryIds") { order.forEach { add(JsonPrimitive(it)) } } }
-                                                }
-                                            }
+                                }
+                                // A card with changes says so, and can put just its own back.
+                                if (t.id in waiting) {
+                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Not saved", style = MaterialTheme.typography.labelSmall, color = Gold, modifier = Modifier.weight(1f))
+                                        IconAction(painterResource(R.drawable.ic_undo), "Put back", SnowSoft, enabled = progress == null) {
+                                            drafts = drafts - t.id
+                                            names = names - t.id
                                         }
                                     }
                                 }
@@ -416,13 +462,40 @@ fun TeamsScreen() {
                         }
                     }
                 }
-                item { Text("Tap categories to enter a team in them this season (or withdraw it), then ✓ to save or ↺ to put them back.", style = MaterialTheme.typography.labelSmall, color = SnowFaint) }
+                item { Text("Tap categories to enter a team in them this season (or withdraw it), and rename teams; then Save at the bottom saves them all.", style = MaterialTheme.typography.labelSmall, color = SnowFaint) }
             }
         }
     }
+    SaveBar(
+        count = waiting.size,
+        progress = progress,
+        onSave = ::saveAll,
+        onDiscard = { drafts = emptyMap(); names = emptyMap(); error = null },
+        modifier = Modifier.align(Alignment.BottomCenter),
+    )
+    }
+
+    if (askDiscard) {
+        AlertDialog(
+            onDismissRequest = { askDiscard = false },
+            containerColor = NightPanel,
+            title = { Text("Discard changes?", color = Snow) },
+            text = { Text("${waiting.size} ${if (waiting.size == 1) "team has" else "teams have"} changes that aren't saved.", color = SnowSoft) },
+            confirmButton = {
+                TextButton(onClick = {
+                    askDiscard = false
+                    drafts = emptyMap()
+                    names = emptyMap()
+                    // With nothing waiting the handler is off, so this Back leaves the screen.
+                    scope.launch { dispatcher?.onBackPressed() }
+                }) { Text("Discard", color = Danger) }
+            },
+            dismissButton = { TextButton(onClick = { askDiscard = false }) { Text("Keep editing", color = SnowFaint) } },
+        )
+    }
 
     renaming?.let { t ->
-        var name by remember(t.id) { mutableStateOf(t.name) }
+        var name by remember(t.id) { mutableStateOf(names[t.id] ?: t.name) }
         AlertDialog(
             onDismissRequest = { renaming = null },
             containerColor = NightPanel,
@@ -431,8 +504,8 @@ fun TeamsScreen() {
             confirmButton = {
                 TextButton(enabled = name.trim().length >= 2, onClick = {
                     renaming = null
-                    act { app.api.patch("/api/teams/${t.id}", TeamsResponse.serializer()) { put("name", name.trim()) } }
-                }) { Text("Save", color = Gold) }
+                    names = if (name.trim() == t.name) names - t.id else names + (t.id to name.trim())
+                }) { Text("Done", color = Gold) }
             },
             dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel", color = SnowFaint) } },
         )
