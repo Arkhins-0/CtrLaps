@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Category } from "@/lib/categories";
 import type { Weekend } from "@/lib/races";
-import { CategoryChips, filterIds, type CategoryFilter } from "./CategoryTag";
+import { CategoryChips, filterIds, type CategoryFilter, type WeekendCounts } from "./CategoryTag";
 import { WeekendCard } from "./WeekendCard";
 
 /** Everyone's schedule: the category chips, then upcoming weekends and the past ones dimmed. */
@@ -11,12 +11,15 @@ export function ScheduleList({
   upcoming,
   past,
   categories,
+  counts,
   mine,
   editTimes = false,
 }: {
   upcoming: Weekend[];
   past: Weekend[];
   categories: Category[];
+  /** How many weekends each category runs, for the chips. */
+  counts?: WeekendCounts;
   /** The person's own categories ("Mine", the default when they have any); null = none. */
   mine: string[] | null;
   /** A coordinator: may change sessions' times. */
@@ -32,7 +35,7 @@ export function ScheduleList({
   const shown = [...upcoming, ...past].filter(fits);
   return (
     <div className="space-y-5">
-      <CategoryChips categories={chips} value={filter} onChange={setFilter} mine={mine} />
+      <CategoryChips categories={chips} value={filter} onChange={setFilter} mine={mine} counts={counts} />
       {only && shown.length === 0 && <p className="card text-sm text-snow-faint">No weekend has this category yet.</p>}
       {/* Sessions start folded, as in the app: the arrow opens them. */}
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">

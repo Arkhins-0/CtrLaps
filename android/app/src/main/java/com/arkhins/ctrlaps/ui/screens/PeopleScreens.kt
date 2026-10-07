@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.TeamPicker
 import com.arkhins.ctrlaps.ui.components.PullRefresh
 import com.arkhins.ctrlaps.ui.components.LoadingShape
 import com.arkhins.ctrlaps.ui.theme.NightHigh
@@ -351,7 +352,16 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
                 else -> {
                     val groups = PEOPLE_GROUPS.mapNotNull { r -> p.filter { it.group == r }.takeIf { it.isNotEmpty() }?.let { r to it } }
                     groups.forEach { (role, list) ->
-                        item(key = "g-$role") { GroupTitle(rolePlural(role), list.size, Modifier.padding(top = 10.dp)) }
+                        item(key = "g-$role") {
+                        // Volunteers and security can be emailed from their heading, by those who may.
+                        val mail = when {
+                            role != "volunteer" && role != "security" -> null
+                            me?.canBulkEmail == true -> ({ onEmail(null) })
+                            me?.canRelay == true -> ({ onEmail(if (role == "volunteer") "volunteers" else "security") })
+                            else -> null
+                        }
+                        GroupTitle(rolePlural(role), list.size, Modifier.padding(top = 10.dp), action = if (mail != null) "Email" else null, onAction = mail)
+                    }
                         items(list, key = { it.id }) { u -> PersonRow(app.api.absolute(u.photoUrl), u, u.id in starred, codes[u.id].orEmpty()) { onOpen(u.id) } }
                     }
                 }
@@ -655,7 +665,7 @@ private fun EditProfilePanel(
             Field(name, { name = it }, "Full name", enabled = !busy)
             DateField(dob, { dob = it }, "Date of birth", enabled = !busy, maxToday = true)
             Field(phone, { phone = it }, "Contact number", keyboard = KeyboardType.Phone, enabled = !busy)
-            if (u.role == "team_manager") Field(team, { team = it }, "Team", enabled = !busy)
+            if (u.role == "team_manager") TeamPicker(team, { team = it }, "Team", enabled = !busy)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GhostButton("Cancel", enabled = !busy, onClick = onCancel)
                 GoldButton(if (busy) "Saving…" else "Save", enabled = !busy) { onSave(name.trim(), dob.trim(), phone.trim(), team.trim()) }
@@ -733,7 +743,7 @@ fun NewPersonScreen(me: Me?, onCreated: (String) -> Unit) {
                     }
                 }
 
-                if (role == "team_manager") Field(team, { team = it }, "Team", enabled = !busy && createdId == null)
+                if (role == "team_manager") TeamPicker(team, { team = it }, "Team", enabled = !busy && createdId == null)
                 if (role == "race_official") {
                     Column {
                         SectionTitle("DELEGATION")
@@ -752,7 +762,7 @@ fun NewPersonScreen(me: Me?, onCreated: (String) -> Unit) {
                 }
                 if (role == "racer" || role == "crew") {
                     if (iAmTeamManager) me?.user?.teamName?.let { Text("Team: $it", style = MaterialTheme.typography.bodySmall, color = SnowFaint) }
-                    else Field(team, { team = it }, "Team (optional)", enabled = !busy && createdId == null)
+                    else TeamPicker(team, { team = it }, "Team (optional)", enabled = !busy && createdId == null)
                 }
 
                 Text(
@@ -917,10 +927,10 @@ private fun PromotePanel(me: Me, u: PublicUser, busy: Boolean, onCancel: () -> U
                 roles.forEach { r -> Chip(ROLE_LABELS[r] ?: r, Gold, filled = role == r) { if (!busy) role = r } }
             }
             when (role) {
-                "team_manager" -> Field(team, { team = it }, "Team name", enabled = !busy)
+                "team_manager" -> TeamPicker(team, { team = it }, "Team name", enabled = !busy)
                 "racer", "crew" ->
                     if (iAmTeamManager) me.user.teamName?.let { Text("Team: $it", style = MaterialTheme.typography.bodySmall, color = SnowSoft) }
-                    else Field(team, { team = it }, "Team (optional)", enabled = !busy)
+                    else TeamPicker(team, { team = it }, "Team (optional)", enabled = !busy)
                 "race_official" -> if (delegations.isNotEmpty()) {
                     SectionTitle("DELEGATION")
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

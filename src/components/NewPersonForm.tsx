@@ -1,6 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
+import { NewTeamNote } from "./NewTeamNote";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -138,6 +139,7 @@ export function NewPersonForm({
             Team
           </label>
           <input id="team" list="team-names" autoComplete="off" className="input" required value={team} onChange={(e) => setTeam(e.target.value)} />
+          <NewTeamNote name={team} teams={teamNames} />
         </div>
       )}
       {(role === "racer" || role === "crew") &&
@@ -149,6 +151,7 @@ export function NewPersonForm({
               Team <span className="text-snow-faint">(optional)</span>
             </label>
             <input id="team" list="team-names" autoComplete="off" className="input" value={team} onChange={(e) => setTeam(e.target.value)} />
+            <NewTeamNote name={team} teams={teamNames} />
           </div>
         ))}
       {role === "race_official" && (

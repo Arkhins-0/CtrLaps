@@ -164,7 +164,7 @@ fun TeamScreen(teamId: String, onTitle: (String) -> Unit) {
         }
         item { ErrorText(error) }
         // Where it stands in each category.
-        item { GroupTitle("Standings", modifier = Modifier.padding(top = 12.dp)) }
+        item { GroupTitle("Standings", modifier = Modifier.padding(top = 12.dp), action = "See all", onAction = { open("standings") }) }
         if (d.standings.isEmpty()) item { Text("No results yet this season.", style = MaterialTheme.typography.bodyMedium, color = SnowFaint, modifier = Modifier.padding(vertical = 8.dp)) }
         items(d.standings, key = { "s-" + it.category.id }) { line ->
             val tone = categoryColor(line.category)

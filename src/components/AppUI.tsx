@@ -109,13 +109,36 @@ export function SearchPill({ query, onChange, placeholder }: { query: string; on
 export const SQUARE_BUTTON =
   "relative flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[18px] border border-night-line bg-night-panel text-gold hover:border-gold/50";
 
-/** A list's group title, as the app's: bold, with how many beside it. */
-export function GroupTitle({ title, count }: { title: string; count?: number }) {
-  return (
-    <h2 className="mb-1 mt-6 flex items-baseline gap-2 px-1 text-xl font-bold tracking-tight">
+/** A small accent link at the end of a heading's row ("See all", "Email"): the next step without scrolling for it. */
+export type HeadingActionProps = { label: string; href?: string; onClick?: () => void };
+
+export function HeadingAction({ label, href, onClick }: HeadingActionProps) {
+  const look = "shrink-0 text-sm font-bold text-gold hover:underline underline-offset-2";
+  return href ? (
+    <Link href={href} className={look}>
+      {label}
+    </Link>
+  ) : (
+    <button type="button" className={look} onClick={onClick}>
+      {label}
+    </button>
+  );
+}
+
+/** A list's group title, as the app's: bold, with how many beside it, and a link on the right if there's a next step. */
+export function GroupTitle({ title, count, action }: { title: string; count?: number; action?: HeadingActionProps }) {
+  const heading = (
+    <h2 className={`flex items-baseline gap-2 text-xl font-bold tracking-tight ${action ? "min-w-0" : "mb-1 mt-6 px-1"}`}>
       {title}
       {count !== undefined && <span className="text-base font-semibold text-snow-faint">{count}</span>}
     </h2>
+  );
+  if (!action) return heading;
+  return (
+    <div className="mb-1 mt-6 flex items-baseline justify-between gap-3 px-1">
+      {heading}
+      <HeadingAction {...action} />
+    </div>
   );
 }
 

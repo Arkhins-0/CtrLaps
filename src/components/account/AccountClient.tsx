@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
 import { MenuLink, SQUARE_BUTTON, SearchPill } from "../AppUI";
 import { CopyButton } from "../CopyButton";
 import { Icon, type IconName } from "../Icon";
 import { Scanner } from "../Scanner";
-import { Sheet } from "../Sheet";
+import { ConfirmSheet, Sheet, askAllAgain, askedBefore, questionsTurnedOff } from "../Sheet";
+import { toast } from "../Toasts";
 
 /** Something Search settings finds: where it lives ("Settings › Theme"), the page, other words for it. */
 type Findable = { title: string; path: string; href: string; words?: string; icon: IconName; dev?: boolean };
@@ -108,18 +109,27 @@ export function AccountTop({ qrSvg, code, dev, children }: { qrSvg: string; code
   );
 }
 
-/** Sign out, as a red row; it asks first. */
+const SIGN_OUT_QUESTION = "sign-out";
+
+/** Sign out, as a red row; it asks first, unless the person ticked "Don't ask me again" before. */
 export function SignOutRow() {
   const router = useRouter();
   const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
   const signOut = async () => {
+    setBusy(true);
     await api("/api/auth/logout", { method: "POST", json: {} }).catch(() => null);
     router.replace("/login");
     router.refresh();
   };
   return (
     <>
-      <button type="button" className="flex w-full items-center gap-5 rounded-xl px-2 py-3.5 text-left transition-colors hover:bg-snow/5" onClick={() => setAsking(true)}>
+      <button
+        type="button"
+        className="flex w-full items-center gap-5 rounded-xl px-2 py-3.5 text-left transition-colors hover:bg-snow/5 disabled:opacity-50"
+        onClick={() => (askedBefore(SIGN_OUT_QUESTION) ? signOut() : setAsking(true))}
+        disabled={busy}
+      >
         <Icon name="logout" className="h-6 w-6 shrink-0 text-danger" />
         <span className="min-w-0 flex-1">
           <span className="block font-bold text-danger">Sign out</span>
@@ -127,15 +137,33 @@ export function SignOutRow() {
         </span>
       </button>
       {asking && (
-        <Sheet title="Sign out?" onClose={() => setAsking(false)}>
-          <div className="space-y-4 pb-2">
-            <p className="text-center text-sm text-snow-soft">You can sign in again any time with your email and password.</p>
-            <button type="button" className="btn-danger w-full py-3" onClick={signOut}>
-              Sign out
-            </button>
-          </div>
-        </Sheet>
+        <ConfirmSheet title="Sign out?" confirmLabel="Sign out" danger busy={busy} dontAskKey={SIGN_OUT_QUESTION} onConfirm={signOut} onClose={() => setAsking(false)}>
+          <p className="pb-2 text-center text-sm text-snow-soft">You can sign in again any time with your email and password.</p>
+        </ConfirmSheet>
       )}
     </>
+  );
+}
+
+/**
+ * On Settings: a quiet line that asks again every question the person turned off with "Don't ask me again". Those
+ * are kept in this browser, so the line appears once the page has loaded, and only when there is one.
+ */
+export function AskAgainLine() {
+  const [any, setAny] = useState(false);
+  useEffect(() => setAny(questionsTurnedOff().length > 0), []);
+  if (!any) return null;
+  return (
+    <button
+      type="button"
+      className="mt-4 px-2 text-sm text-snow-faint underline-offset-2 hover:text-snow hover:underline"
+      onClick={() => {
+        askAllAgain();
+        setAny(false);
+        toast({ text: "The questions you turned off will be asked again", tone: "success" });
+      }}
+    >
+      Show the questions I turned off
+    </button>
   );
 }

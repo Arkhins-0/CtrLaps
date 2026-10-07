@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.Snack
+import com.arkhins.ctrlaps.ui.components.DontAsk
 import com.arkhins.ctrlaps.ui.theme.NightLine
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import com.arkhins.ctrlaps.ui.components.GroupTitle
@@ -165,6 +167,16 @@ fun SettingsScreen(onPermissions: () -> Unit, onTheme: () -> Unit, onEmail: () -
             MenuRow("Theme", mode.label, icon = painterResource(R.drawable.ic_eye), onClick = onTheme)
             MenuRow("Email", "Which emails you get", icon = rememberVectorPainter(Icons.Outlined.Email), onClick = onEmail)
             MenuRow("Delete account", "Erase your account and the details we hold", icon = rememberVectorPainter(Icons.Outlined.Delete), danger = true, onClick = onDelete)
+            // Shown only when some "Don't ask me again" was ticked.
+            val context = LocalContext.current
+            var turnedOff by remember { mutableStateOf(DontAsk.any(context)) }
+            if (turnedOff) {
+                MenuRow("Show the questions I turned off", "Ask again before signing out and the like", arrow = false) {
+                    DontAsk.askAgain(context)
+                    turnedOff = false
+                    Snack.show("Questions will be asked again")
+                }
+            }
         }
     }
 }

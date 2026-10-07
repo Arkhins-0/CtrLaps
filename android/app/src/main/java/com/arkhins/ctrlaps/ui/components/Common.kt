@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.components
 
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentType
@@ -329,14 +331,27 @@ fun SearchPill(query: String, placeholder: String, modifier: Modifier = Modifier
     )
 }
 
-/** A list's group title on a flat page, as the Account pages': bold, with how many beside it. */
+/**
+ * A list's group title on a flat page, as the Account pages': bold, with how many beside it, and at the far right a
+ * small link in the accent when there is a step to take from here ([action]).
+ */
 @Composable
-fun GroupTitle(text: String, count: Int? = null, modifier: Modifier = Modifier) {
-    Row(modifier.padding(top = 8.dp, bottom = 2.dp), verticalAlignment = Alignment.Bottom) {
+fun GroupTitle(text: String, count: Int? = null, modifier: Modifier = Modifier, action: String? = null, onAction: (() -> Unit)? = null) {
+    Row(modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp), verticalAlignment = Alignment.Bottom) {
         Text(text, style = MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp, lineHeight = 26.sp), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = Snow)
         if (count != null) {
             Spacer(Modifier.width(8.dp))
             Text(count.toString(), style = MaterialTheme.typography.titleSmall, color = SnowFaint, modifier = Modifier.padding(bottom = 2.dp))
+        }
+        if (action != null && onAction != null) {
+            Spacer(Modifier.weight(1f))
+            Text(
+                action,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                color = Gold,
+                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onAction).padding(horizontal = 6.dp, vertical = 4.dp),
+            )
         }
     }
 }
@@ -349,6 +364,9 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 @Composable
 fun Avatar(url: String?, name: String, size: Int = 40, preview: Boolean = true, onChange: (() -> Unit)? = null, onRemove: (() -> Unit)? = null) {
     val context = LocalContext.current
+    // Where it is on screen, for the viewer to grow from.
+    var bounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    val placed = Modifier.onGloballyPositioned { bounds = it.boundsInWindow() }
     val initials = name.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }
     if (url != null) {
         AsyncImage(
@@ -360,7 +378,8 @@ fun Avatar(url: String?, name: String, size: Int = 40, preview: Boolean = true, 
                 .clip(CircleShape)
                 .border(1.dp, NightLine, CircleShape)
                 // A tap pulls the photo up large (PhotoPreview); off where a tap does something else.
-                .then(if (preview) Modifier.clickable { openPhoto(context, url, name, onChange, onRemove) } else Modifier),
+                .then(placed)
+                .then(if (preview) Modifier.clickable { openPhoto(context, url, name, onChange, onRemove, from = bounds, round = true) } else Modifier),
         )
     } else {
         Box(
@@ -501,12 +520,29 @@ fun PreviewLine(text: String, color: Color, style: TextStyle, modifier: Modifier
  * A photo pulled up large, shown by [PhotoPreviewHost]. [onChange] and [onRemove] are there for those who may change
  * it (they show as Change and Remove under the photo); [wide] for a 16:9 weekend photo.
  */
-data class PhotoView(val url: String, val name: String, val onChange: (() -> Unit)? = null, val onRemove: (() -> Unit)? = null, val wide: Boolean = false)
+data class PhotoView(
+    val url: String,
+    val name: String,
+    val onChange: (() -> Unit)? = null,
+    val onRemove: (() -> Unit)? = null,
+    val wide: Boolean = false,
+    /** Where the tapped photo is on screen, for it to grow from; [round] when it was a circle. */
+    val from: androidx.compose.ui.geometry.Rect? = null,
+    val round: Boolean = false,
+)
 
 object PhotoPreview {
     val shown = androidx.compose.runtime.mutableStateOf<PhotoView?>(null)
-    fun show(url: String, name: String, onChange: (() -> Unit)? = null, onRemove: (() -> Unit)? = null, wide: Boolean = false) {
-        shown.value = PhotoView(url, name, onChange, onRemove, wide)
+    fun show(
+        url: String,
+        name: String,
+        onChange: (() -> Unit)? = null,
+        onRemove: (() -> Unit)? = null,
+        wide: Boolean = false,
+        from: androidx.compose.ui.geometry.Rect? = null,
+        round: Boolean = false,
+    ) {
+        shown.value = PhotoView(url, name, onChange, onRemove, wide, from, round)
     }
 }
 
@@ -514,9 +550,18 @@ object PhotoPreview {
  * What a tap on a photo does, everywhere in the app: a photo pulls up large (with Change and Remove for those who may);
  * no photo opens the gallery for those who may add one, and tells everyone else there is none.
  */
-fun openPhoto(context: android.content.Context, url: String?, name: String, onChange: (() -> Unit)? = null, onRemove: (() -> Unit)? = null, wide: Boolean = false) {
+fun openPhoto(
+    context: android.content.Context,
+    url: String?,
+    name: String,
+    onChange: (() -> Unit)? = null,
+    onRemove: (() -> Unit)? = null,
+    wide: Boolean = false,
+    from: androidx.compose.ui.geometry.Rect? = null,
+    round: Boolean = false,
+) {
     when {
-        url != null -> PhotoPreview.show(url, name, onChange, onRemove, wide)
+        url != null -> PhotoPreview.show(url, name, onChange, onRemove, wide, from, round)
         onChange != null -> onChange()
         else -> Snack.show("No photo yet")
     }

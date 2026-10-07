@@ -156,7 +156,8 @@ fun StandingsScreen(vm: AppViewModel, onOpenResults: (String) -> Unit, startSeas
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     itemsIndexed(h.categories, key = { _, c -> c.id }) { i, c ->
-                        Chip(c.code, categoryColor(c), filled = i == pager.currentPage) { scope.launch { pager.animateScrollToPage(i) } }
+                        // With how many sessions have results in it.
+                        Chip(c.code + (h.counts[c.id]?.let { "  $it" } ?: ""), categoryColor(c), filled = i == pager.currentPage) { scope.launch { pager.animateScrollToPage(i) } }
                     }
                 }
                 // A past season is asked for by id; the current one without, as the background download keeps it.

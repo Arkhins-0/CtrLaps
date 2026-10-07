@@ -158,7 +158,12 @@ fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive:
             }
             val currentSeason = seasons.firstOrNull { it.current }?.id ?: w?.firstOrNull()?.seasonId
             val chips = categories.filter { it.seasonId == currentSeason }
-            if (chips.isNotEmpty()) item { CategoryChips(chips, filter, hasMine = !mine.isNullOrEmpty()) { filter = it } }
+            if (chips.isNotEmpty()) item {
+            // How many weekends each one runs: those listing it, with a session in it, or listing none (for everyone), as the list shows them.
+            val season = w.orEmpty().filter { it.seasonId == currentSeason }
+            val counts = chips.associate { c -> c.id to season.count { wk -> wk.categoryIds.isEmpty() || c.id in wk.categoryIds || wk.sessions.any { it.categoryId == c.id } } }
+            CategoryChips(chips, filter, hasMine = !mine.isNullOrEmpty(), counts = counts, total = season.size) { filter = it }
+        }
             // A weekend that lists no categories is for everyone.
             val shown = w?.filter { wk -> only == null || wk.categoryIds.isEmpty() || wk.categoryIds.any { it in only } || wk.sessions.any { it.categoryId in only } }
             when {
@@ -812,11 +817,11 @@ fun CategoryTag(c: Category) {
 
 /** "Mine" (when the person has categories), "All" and a chip per category. */
 @Composable
-private fun CategoryChips(categories: List<Category>, filter: String?, hasMine: Boolean, onChange: (String?) -> Unit) {
+private fun CategoryChips(categories: List<Category>, filter: String?, hasMine: Boolean, counts: Map<String, Int> = emptyMap(), total: Int? = null, onChange: (String?) -> Unit) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (hasMine) Chip("Mine", Gold, filled = filter == "mine") { onChange("mine") }
-        Chip("All", Gold, filled = filter == null) { onChange(null) }
-        categories.forEach { c -> Chip(c.code, categoryColor(c), filled = filter == c.id) { onChange(if (filter == c.id) null else c.id) } }
+        Chip("All" + (total?.let { "  $it" } ?: ""), Gold, filled = filter == null) { onChange(null) }
+        categories.forEach { c -> Chip(c.code + (counts[c.id]?.let { "  $it" } ?: ""), categoryColor(c), filled = filter == c.id) { onChange(if (filter == c.id) null else c.id) } }
     }
 }
 

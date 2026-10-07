@@ -7,12 +7,23 @@ import type { Weekend } from "@/lib/races";
 import type { Season } from "@/lib/seasons";
 import { EmptyState } from "./EmptyState";
 import { CategoriesEditor } from "./schedule/CategoriesEditor";
-import { CategoryChips } from "./schedule/CategoryTag";
+import { CategoryChips, type WeekendCounts } from "./schedule/CategoryTag";
 import { WeekendCard } from "./schedule/WeekendCard";
 import { WeekendForm } from "./schedule/WeekendForms";
 
 /** The admin's schedule: weekends and their sessions, edited in place. Every time change goes out to everyone. */
-export function ScheduleEditor({ weekends, seasons, categories }: { weekends: Weekend[]; seasons: Season[]; categories: Category[] }) {
+export function ScheduleEditor({
+  weekends,
+  seasons,
+  categories,
+  counts,
+}: {
+  weekends: Weekend[];
+  seasons: Season[];
+  categories: Category[];
+  /** How many weekends each category runs, for the chips. */
+  counts?: WeekendCounts;
+}) {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [editingCategories, setEditingCategories] = useState(false);
@@ -36,7 +47,7 @@ export function ScheduleEditor({ weekends, seasons, categories }: { weekends: We
         </div>
       </div>
       {editingCategories && <CategoriesEditor seasons={seasons} categories={categories} onClose={() => setEditingCategories(false)} />}
-      <CategoryChips categories={shownCategories} value={only} onChange={setOnly} />
+      <CategoryChips categories={shownCategories} value={only} onChange={setOnly} counts={counts} />
       {creating && (
         <WeekendForm
           seasons={seasons}

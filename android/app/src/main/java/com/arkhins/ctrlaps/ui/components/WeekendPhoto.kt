@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.components
 
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.core.graphics.drawable.toBitmap
 import coil.imageLoader
 import androidx.compose.runtime.LaunchedEffect
@@ -118,9 +120,10 @@ fun WeekendPhotoHeader(weekendId: String, photoUrl: String?, isAdmin: Boolean, p
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (photoUrl != null) {
+            var bounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
             BoxWithConstraints(
-                Modifier.clip(MaterialTheme.shapes.large).clickable(enabled = !busy) {
-                    openPhoto(context, app.api.absolute(photoUrl), "Track photo", onChange = if (isAdmin) choose else null, onRemove = if (isAdmin) remove else null, wide = true)
+                Modifier.clip(MaterialTheme.shapes.large).onGloballyPositioned { bounds = it.boundsInWindow() }.clickable(enabled = !busy) {
+                    openPhoto(context, app.api.absolute(photoUrl), "Track photo", onChange = if (isAdmin) choose else null, onRemove = if (isAdmin) remove else null, wide = true, from = bounds)
                 },
             ) {
                 // The header's shape is the crop frame's, 16:9, so it shows exactly what was framed.

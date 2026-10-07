@@ -1,5 +1,11 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.material.icons.outlined.Delete
+import kotlinx.serialization.json.put
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import com.arkhins.ctrlaps.ui.components.GroupTitle
+import com.arkhins.ctrlaps.ui.components.Snack
 import androidx.compose.runtime.collectAsState
 import kotlinx.serialization.Serializable
 import com.arkhins.ctrlaps.ui.theme.NightHigh
@@ -136,6 +142,9 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
             icon = rememberVectorPainter(Icons.Outlined.Info),
             arrow = false,
         ) { sheet = "license" }
+        // Debug builds against a local test server: fill it with demo people, chats, photos and results, or empty it
+        // (the server allows it only with ALLOW_DEMO_DATA=1, for developers; the release has no such rows).
+        if (BuildConfig.DEBUG) DemoDataRows()
         // A debug build says so, so it can't be mistaken for the release (same name, icon and version).
         Text(
             "CTR[L]APS v${BuildConfig.VERSION_NAME}${if (BuildConfig.DEBUG) " · Debug" else ""}",
@@ -160,13 +169,15 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
 /** A sheet from About: its title, what it holds, and Close. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AboutSheet(title: String, onClose: () -> Unit, tall: Boolean = false, expanded: Boolean = false, content: @Composable () -> Unit) {
+fun AboutSheet(title: String, onClose: () -> Unit, tall: Boolean = false, expanded: Boolean = false, footer: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) {
     // A long one opens halfway and, scrolled, rises all the way to the top before its text scrolls; [expanded] opens a short one fully.
     ModalBottomSheet(onDismissRequest = onClose, containerColor = Night, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = expanded)) {
         Column(Modifier.fillMaxWidth().then(if (tall) Modifier.fillMaxHeight() else Modifier).navigationBarsPadding().padding(bottom = 12.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Snow, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp))
             Box(Modifier.fillMaxWidth().weight(1f, fill = tall)) { content() }
-            OutlinedButton(
+            // Its own buttons (a question's Cancel and answer), or Close.
+            if (footer != null) footer()
+            else OutlinedButton(
                 onClick = onClose,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(52.dp),
                 border = BorderStroke(1.dp, Gold.copy(alpha = 0.6f)),
@@ -277,4 +288,28 @@ fun LicenseScreen() {
             )
         }
     }
+}
+
+/** Debug only: the mock-data script, from the phone. Each row runs one step and says what it did on the message bar. */
+@Composable
+private fun DemoDataRows() {
+    val app = LocalApp.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    fun run(action: String, doing: String) {
+        if (busy) return
+        busy = true
+        Snack.show(doing)
+        scope.launch {
+            runCatching { app.api.post("/api/dev/demo", com.arkhins.ctrlaps.data.DemoDataResponse.serializer()) { put("action", action) } }
+                .onSuccess { Snack.show(it.output.ifBlank { "Done." }, seconds = 8) }
+                .onFailure { Snack.error(it.message ?: "Couldn't run it.") }
+            busy = false
+        }
+    }
+    GroupTitle("Demo data", modifier = Modifier.padding(top = 12.dp))
+    MenuRow("Add demo people and chats", "Mock people of every role, weekends, chats and posts", icon = painterResource(R.drawable.ic_tab_people), arrow = false) { run("add", "Adding demo data…") }
+    MenuRow("Give them photos", "Portraits for the mock people", icon = painterResource(R.drawable.ic_gallery), arrow = false) { run("photos", "Adding photos…") }
+    MenuRow("Add more results", "A pre-season weekend and second races, for the standings", icon = painterResource(R.drawable.ic_trophy), arrow = false) { run("results", "Adding results…") }
+    MenuRow("Remove the demo data", "Everything the steps above added", icon = rememberVectorPainter(Icons.Outlined.Delete), danger = true, arrow = false) { run("remove", "Removing demo data…") }
 }

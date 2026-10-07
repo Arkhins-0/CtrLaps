@@ -1,9 +1,10 @@
 import { MenuLink, PageHeader } from "@/components/AppUI";
+import { AskAgainLine } from "@/components/account/AccountClient";
 import { requireProfile } from "@/lib/session";
 
 export const metadata = { title: "Settings" };
 
-/** Settings, as the app's: Theme, Notifications, Email, Delete account. */
+/** Settings, as the app's: Theme, Notifications, Email, Delete account; and a way back to questions turned off. */
 export default async function Settings() {
   await requireProfile();
   return (
@@ -13,6 +14,7 @@ export default async function Settings() {
       <MenuLink href="/account/settings/notifications" icon="bell" title="Notifications" hint="Which popups your phone gets" />
       <MenuLink href="/account/settings/email" icon="mail" title="Email" hint="Which emails you get" />
       <MenuLink href="/account/settings/delete" icon="trash" title="Delete account" hint="Erase your account and the details we hold" danger />
+      <AskAgainLine />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HeadingAction } from "@/components/AppUI";
 import { Avatar } from "@/components/Avatar";
 import { EmptyState } from "@/components/EmptyState";
 import { LocalTime } from "@/components/LocalTime";
@@ -89,9 +90,11 @@ export default async function Standings({ searchParams }: { searchParams: Promis
                 href={`/standings?${seasonQuery}category=${c.id}`}
                 className="chip"
                 style={on ? { backgroundColor: c.color, borderColor: c.color, color: "#0B0B0C" } : { borderColor: `${c.color}80`, color: c.color }}
-                title={c.name}
+                title={`${c.name} · ${page.counts[c.id] ?? 0} sessions with results`}
               >
                 {c.code}
+                {/* How many sessions have results in it, quieter than the code. */}
+                <span className="opacity-70">{page.counts[c.id] ?? 0}</span>
               </Link>
             );
           })}
@@ -210,7 +213,10 @@ export default async function Standings({ searchParams }: { searchParams: Promis
 
           {page.sessions.length > 0 && (
             <section className="card space-y-2">
-              <h2 className="font-semibold">Sessions</h2>
+              <div className="flex items-baseline justify-between gap-2">
+                <h2 className="font-semibold">Sessions</h2>
+                <HeadingAction label="Schedule" href="/schedule" />
+              </div>
               <ul className="divide-y divide-night-line">
                 {[...page.sessions].reverse().map((s) => (
                   <li key={s.id}>

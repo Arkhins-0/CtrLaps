@@ -13,6 +13,14 @@ export default async function People() {
   const [below, categories] = await Promise.all([descendants(user), categoryRoster()]);
   const people = below.map(toPublic);
   const canCreate = (CREATE_RULES[user.role] ?? []).length > 0;
+  // An "Email" link on the Volunteers and Security titles: an admin picks the groups on the email page, a coordinator
+  // writes to their own volunteers or security.
+  const emailLinks =
+    user.role === "admin"
+      ? { volunteer: "/people/email", security: "/people/email" }
+      : user.role === "coordinator"
+        ? { volunteer: "/people/email?group=volunteers", security: "/people/email?group=security" }
+        : undefined;
 
   return (
     <div className="space-y-5">
@@ -50,6 +58,7 @@ export default async function People() {
       <PeopleList
         people={people}
         categories={categories}
+        emailLinks={emailLinks}
         emptyText={canCreate ? "The people you add, and everyone who reports to you, show here." : "Nobody reports to you yet. Those who do will show here."}
         emptyAction={canCreate ? { label: "Add someone", href: "/people/new" } : undefined}
       />

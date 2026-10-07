@@ -1,5 +1,6 @@
 "use client";
 
+import { NewTeamNote } from "./NewTeamNote";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/client";
@@ -119,6 +120,7 @@ export function PromoteForm({
                 Team name
               </label>
               <input id="pr-team" list="team-names" autoComplete="off" className="input" required value={team} onChange={(e) => setTeam(e.target.value)} />
+              <NewTeamNote name={team} teams={teamNames} />
             </div>
           )}
           {(role === "racer" || role === "crew") &&
@@ -130,6 +132,7 @@ export function PromoteForm({
                   Team <span className="text-snow-faint">(optional)</span>
                 </label>
                 <input id="pr-team" list="team-names" autoComplete="off" className="input" value={team} onChange={(e) => setTeam(e.target.value)} />
+                <NewTeamNote name={team} teams={teamNames} />
               </div>
             ))}
           {role === "race_official" && (

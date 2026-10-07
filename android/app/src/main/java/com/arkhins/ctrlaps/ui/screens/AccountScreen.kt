@@ -1,5 +1,9 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.QuestionSheet
+import com.arkhins.ctrlaps.ui.components.DontAsk
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import com.arkhins.ctrlaps.ui.components.PhotoPreview
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.BorderStroke
@@ -217,7 +221,10 @@ fun AccountScreen(
                 highlight = update != null,
                 onClick = onAbout,
             )
-            MenuRow("Sign out", "Your messages and files stay on this phone", icon = rememberVectorPainter(Icons.AutoMirrored.Outlined.ExitToApp), danger = true, arrow = false) { confirmOut = true }
+            MenuRow("Sign out", "Your messages and files stay on this phone", icon = rememberVectorPainter(Icons.AutoMirrored.Outlined.ExitToApp), danger = true, arrow = false) {
+                // Asked first, unless they said not to be.
+                if (DontAsk.skipped(context, "sign-out")) scope.launch { vm.signOut() } else confirmOut = true
+            }
         }
 
         // The version, and the organisation's main domain (MAIN_DOMAIN at build time) when there is one.
@@ -255,15 +262,14 @@ fun AccountScreen(
     }
 
     if (confirmOut) {
-        AlertDialog(
-            onDismissRequest = { confirmOut = false },
-            containerColor = NightPanel,
-            title = { Text("Sign out?", style = MaterialTheme.typography.headlineSmall, color = Snow) },
-            text = { Text("Your messages and files stay on this phone. Sign in again any time with your email and password.", color = SnowSoft) },
-            confirmButton = {
-                TextButton(onClick = { confirmOut = false; scope.launch { vm.signOut() } }) { Text("Sign out", color = Danger) }
-            },
-            dismissButton = { TextButton(onClick = { confirmOut = false }) { Text("Cancel", color = Snow) } },
+        QuestionSheet(
+            "Sign out?",
+            "Your messages and files stay on this phone. Sign in again any time with your email and password.",
+            confirm = "Sign out",
+            danger = true,
+            dontAskKey = "sign-out",
+            onConfirm = { confirmOut = false; scope.launch { vm.signOut() } },
+            onDismiss = { confirmOut = false },
         )
     }
 }
@@ -436,6 +442,7 @@ private fun FollowCategoriesPanel(vm: AppViewModel) {
 @Composable
 fun ProfileBanner(photo: String?, name: String, role: String, onChange: (() -> Unit)? = null, onRemove: (() -> Unit)? = null, status: @Composable () -> Unit) {
     val context = LocalContext.current
+    var bounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     Box(
         Modifier
             .fillMaxWidth()
@@ -468,7 +475,8 @@ fun ProfileBanner(photo: String?, name: String, role: String, onChange: (() -> U
                     .size(80.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-                    .clickable { openPhoto(context, photo, name, onChange, onRemove) },
+                    .onGloballyPositioned { bounds = it.boundsInWindow() }
+                    .clickable { openPhoto(context, photo, name, onChange, onRemove, from = bounds) },
             ) {
                 if (photo != null) AsyncImage(model = photo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
                 else Box(Modifier.matchParentSize().background(NightHighest), contentAlignment = Alignment.Center) {

@@ -643,6 +643,8 @@ data class StandingsResponse(
     val seasons: List<StandingsSeason> = emptyList(),
     val seasonId: String? = null,
     val categories: List<Category> = emptyList(),
+    /** How many sessions have results in each category, by its id: the number on its chip. */
+    val counts: Map<String, Int> = emptyMap(),
     val categoryId: String? = null,
     val drivers: List<DriverStanding> = emptyList(),
     val teams: List<TeamStanding> = emptyList(),
@@ -891,6 +893,10 @@ data class TeamResult(
 
 @Serializable
 data class PhotoUrlResponse(val photoUrl: String? = null)
+
+/** What the demo-data script printed (debug builds, a local test server only). */
+@Serializable
+data class DemoDataResponse(val output: String = "")
 
 /** Which notifications you hear about (urgent ones always come). */
 @Serializable

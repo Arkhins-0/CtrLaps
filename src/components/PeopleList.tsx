@@ -31,11 +31,14 @@ export function PeopleList({
   emptyText,
   emptyAction,
   categories = [],
+  emailLinks = {},
 }: {
   people: PublicUser[];
   emptyText: string;
   emptyAction?: EmptyAction;
   categories?: RosterCategory[];
+  /** Where to email a whole group from its title (Volunteers, Security), for those who may. */
+  emailLinks?: Partial<Record<Group, string>>;
 }) {
   const [hidden, setHidden] = useState<Group[]>(DEFAULT_HIDDEN);
   const [category, setCategory] = useState("");
@@ -158,7 +161,11 @@ export function PeopleList({
 
       {shown.map((g) => (
         <section key={g.role}>
-          <GroupTitle title={GROUP_PLURAL(g.role)} count={g.people.length} />
+          <GroupTitle
+            title={GROUP_PLURAL(g.role)}
+            count={g.people.length}
+            action={emailLinks[g.role] ? { label: "Email", href: emailLinks[g.role] } : undefined}
+          />
           <div className="grid grid-cols-1 gap-x-4 lg:grid-cols-2">
             {g.people.map((p) => {
               const invited = !p.name;

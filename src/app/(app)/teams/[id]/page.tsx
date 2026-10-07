@@ -55,7 +55,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
         photoSlot={editable ? <TeamPhoto teamId={team.id} src={team.photoUrl} name={team.name} size={80} /> : <Avatar src={team.photoUrl} name={team.name} size={80} sayNone />}
       />
 
-      <GroupTitle title="Standings" count={standings.length > 0 ? standings.length : undefined} />
+      <GroupTitle title="Standings" count={standings.length > 0 ? standings.length : undefined} action={{ label: "See all", href: "/standings" }} />
       {standings.length === 0 ? (
         <EmptyState section icon="star" title="No standings yet" line="The team shows here once it has results this season." />
       ) : (
@@ -115,7 +115,11 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
         );
       })}
 
-      <GroupTitle title="Latest results" />
+      <GroupTitle
+        title="Latest results"
+        // The whole table for the team's first category: where these finishes leave everyone.
+        action={categories[0] ? { label: `${categories[0].code} standings`, href: `/standings?category=${categories[0].id}` } : undefined}
+      />
       {latest.length === 0 && <EmptyState section icon="star" title="No results yet" line="Its drivers' finishes this season show here." />}
       {latest.map((r, i) => {
         const category = categoryOf(r.categoryId);
