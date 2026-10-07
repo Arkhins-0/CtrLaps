@@ -1,15 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { api, shrinkImage } from "@/lib/client";
 import type { Category } from "@/lib/categories";
 import { usePendingEdits } from "@/lib/pendingEdits";
 import type { Team } from "@/lib/teams";
-import { GroupTitle, MenuButton, SQUARE_BUTTON, SearchPill } from "./AppUI";
+import { GroupTitle, SQUARE_BUTTON, SearchPill } from "./AppUI";
 import { Avatar } from "./Avatar";
 import { Icon } from "./Icon";
-import { PhotoCropDialog } from "./PhotoCropDialog";
 import { Sheet } from "./Sheet";
 import { SaveBar } from "./SaveBar";
 import { contrastText } from "@/lib/colors";
@@ -27,11 +26,6 @@ export function TeamsEditor({ initial, categories }: { initial: Team[]; categori
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const [adding, setAdding] = useState<{ name: string; categoryIds: string[] } | null>(null);
   const [search, setSearch] = useState("");
-  // The team whose photo sheet is open, and a picked photo being cropped for it.
-  const [photoFor, setPhotoFor] = useState<Team | null>(null);
-  const [cropping, setCropping] = useState<File | null>(null);
-  const [photoError, setPhotoError] = useState<string | null>(null);
-  const picker = useRef<HTMLInputElement>(null);
 
   const act = async (key: string, fn: () => Promise<{ teams: Team[] }>) => {
     setBusy(key);
@@ -47,26 +41,17 @@ export function TeamsEditor({ initial, categories }: { initial: Team[]; categori
     }
   };
 
-  /** Send the photo (or null to take it away); the row shows what the server kept. */
+  /** Send the photo (or null to take it away); the row shows what the server kept. A failure is the photo sheet's to show. */
   const setPhoto = async (team: Team, photo: File | null) => {
-    setBusy(`photo:${team.id}`);
-    setPhotoError(null);
-    try {
-      let r: { photoUrl: string | null };
-      if (photo) {
-        const form = new FormData();
-        form.set("photo", await shrinkImage(photo), "photo.jpg");
-        r = await api(`/api/teams/${team.id}/photo`, { method: "POST", body: form });
-      } else {
-        r = await api(`/api/teams/${team.id}/photo`, { method: "DELETE" });
-      }
-      setTeams((ts) => ts.map((x) => (x.id === team.id ? { ...x, photoUrl: r.photoUrl } : x)));
-      setPhotoFor(null);
-    } catch (e) {
-      setPhotoError(e instanceof Error ? e.message : "Could not change the photo.");
-    } finally {
-      setBusy(null);
+    let r: { photoUrl: string | null };
+    if (photo) {
+      const form = new FormData();
+      form.set("photo", await shrinkImage(photo), "photo.jpg");
+      r = await api(`/api/teams/${team.id}/photo`, { method: "POST", body: form });
+    } else {
+      r = await api(`/api/teams/${team.id}/photo`, { method: "DELETE" });
     }
+    setTeams((ts) => ts.map((x) => (x.id === team.id ? { ...x, photoUrl: r.photoUrl } : x)));
   };
 
   const toggle = (t: Team, id: string) => {
@@ -146,27 +131,6 @@ export function TeamsEditor({ initial, categories }: { initial: Team[]; categori
         </form>
         </Sheet>
       )}
-      {/* The sheet steps aside while the picked photo is cropped, and comes back saying "Saving…". */}
-      {photoFor && !cropping && (
-        <Sheet title={photoFor.name} onClose={() => setPhotoFor(null)}>
-          <div className="flex justify-center py-2">
-            <Avatar src={photoFor.photoUrl} name={photoFor.name} size={120} preview={false} />
-          </div>
-          {photoError && <p className="error">{photoError}</p>}
-          <input
-            ref={picker}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) setCropping(f); }}
-          />
-          <MenuButton icon="gallery" title={busy === `photo:${photoFor.id}` ? "Saving…" : "Choose a photo"} hint="Its logo or its car" onClick={() => picker.current?.click()} disabled={busy !== null} />
-          {photoFor.photoUrl && <MenuButton icon="trash" title="Remove photo" danger onClick={() => setPhoto(photoFor, null)} disabled={busy !== null} />}
-        </Sheet>
-      )}
-      {cropping && photoFor && (
-        <PhotoCropDialog file={cropping} onCancel={() => setCropping(null)} onDone={(f) => { setCropping(null); setPhoto(photoFor, f); }} />
-      )}
       {teams.length === 0 && <p className="text-sm text-snow-faint">No teams yet. Tap + to add the first.</p>}
       {teams.length > 0 && <GroupTitle title="Teams" count={shown.length} />}
       <ul className="grid grid-cols-1 gap-x-4 lg:grid-cols-2">
@@ -175,17 +139,8 @@ export function TeamsEditor({ initial, categories }: { initial: Team[]; categori
           return (
           <li key={t.id} className="space-y-2 px-1 py-2.5">
             <div className="flex items-center gap-3.5">
-              <button
-                type="button"
-                className="shrink-0 rounded-full"
-                aria-label={`${t.name}'s photo`}
-                onClick={() => {
-                  setPhotoError(null);
-                  setPhotoFor(saved);
-                }}
-              >
-                <Avatar src={t.photoUrl} name={t.name} size={46} preview={false} />
-              </button>
+              {/* Its logo or its car: tapped, it pulls up with Change and Remove, or picks a first one. */}
+              <Avatar src={t.photoUrl} name={t.name} size={46} edit={{ upload: (f) => setPhoto(saved, f), remove: () => setPhoto(saved, null) }} />
               {renaming?.id === t.id ? (
                 <form
                   className="flex flex-1 gap-2"

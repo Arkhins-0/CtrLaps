@@ -63,7 +63,7 @@ export default async function Person({ params }: { params: Promise<{ id: string 
         name={name}
         role={`${p.roleLabel}${p.teamName ? ` · ${p.teamName}` : ""}`}
         status={<StatusBadge status={p.status} />}
-        photoSlot={editable ? <PersonPhoto personId={p.id} src={p.photoUrl} name={name} size={80} /> : <Avatar src={p.photoUrl} name={name} size={80} />}
+        photoSlot={editable ? <PersonPhoto personId={p.id} src={p.photoUrl} name={name} size={80} /> : <Avatar src={p.photoUrl} name={name} size={80} sayNone />}
       />
 
       <PersonActions

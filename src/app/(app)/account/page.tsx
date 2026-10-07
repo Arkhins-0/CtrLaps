@@ -2,12 +2,13 @@ import QRCode from "qrcode";
 import { MenuLink, ProfileBanner } from "@/components/AppUI";
 import { AccountTop, SignOutRow } from "@/components/account/AccountClient";
 import { Avatar } from "@/components/Avatar";
+import { MyPhoto } from "@/components/EditablePhoto";
 import { FollowCategories } from "@/components/FollowCategories";
 import { StatusBadge } from "@/components/StatusBadge";
 import { latestRelease } from "@/lib/appReleases";
 import { categoriesOf } from "@/lib/categories";
 import { env } from "@/lib/env";
-import { isDeveloper } from "@/lib/roles";
+import { editsOwnProfile, isDeveloper } from "@/lib/roles";
 import { currentSeason } from "@/lib/seasons";
 import { requireProfile } from "@/lib/session";
 import { followedCategories } from "@/lib/teams";
@@ -41,7 +42,14 @@ export default async function Account() {
             name={p.name ?? p.email}
             role={`${p.roleLabel}${p.teamName ? ` · ${p.teamName}` : ""}`}
             status={<StatusBadge status={p.status} />}
-            photoSlot={<Avatar src={p.photoUrl} name={p.name ?? p.email} size={80} />}
+            photoSlot={
+              // Those who edit their own profile change or remove their photo here too; for the rest it is locked.
+              editsOwnProfile(user.role) ? (
+                <MyPhoto src={p.photoUrl} name={p.name ?? p.email} size={80} />
+              ) : (
+                <Avatar src={p.photoUrl} name={p.name ?? p.email} size={80} sayNone />
+              )
+            }
           />
           {user.role === "user" && <FollowCategories categories={categories} initial={following} />}
           <nav>

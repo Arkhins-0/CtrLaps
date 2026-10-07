@@ -51,7 +51,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
         name={team.name}
         role={line}
         status={null}
-        photoSlot={editable ? <TeamPhoto teamId={team.id} src={team.photoUrl} name={team.name} size={80} /> : <Avatar src={team.photoUrl} name={team.name} size={80} />}
+        photoSlot={editable ? <TeamPhoto teamId={team.id} src={team.photoUrl} name={team.name} size={80} /> : <Avatar src={team.photoUrl} name={team.name} size={80} sayNone />}
       />
 
       <GroupTitle title="Standings" count={standings.length > 0 ? standings.length : undefined} />

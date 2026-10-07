@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { api, shrinkImage } from "@/lib/client";
 import type { GroupInfo, GroupMember } from "@/lib/groups";
-import { Avatar } from "../Avatar";
+import { Avatar, type PhotoEdit } from "../Avatar";
 import { Icon } from "../Icon";
 import { Dialog } from "./Dialog";
 import { PeoplePicker } from "./PeoplePicker";
@@ -35,7 +35,6 @@ export function GroupSettings({ initial, meId }: { initial: GroupInfo; meId: str
   const [menu, setMenu] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [leaving, setLeaving] = useState(false);
-  const file = useRef<HTMLInputElement>(null);
   const admin = g.myRole === "admin";
   // A volunteer group's chat: members follow the group; its coordinator or an admin limits volunteers instead.
   const vol = Boolean(g.volunteerGroupId);
@@ -74,13 +73,23 @@ export function GroupSettings({ initial, meId }: { initial: GroupInfo; meId: str
     );
   };
 
-  const upload = (f: File) =>
-    act(async () => {
-      const form = new FormData();
-      form.append("photo", await shrinkImage(f), "group.jpg");
-      const r = await api<{ photoUrl: string }>(`/api/groups/${g.id}/photo`, { method: "POST", body: form });
-      setPhoto(r.photoUrl);
-    });
+  // Its admins change or remove the picture from where it pulls up; the chat list (drawn by the layout) follows.
+  const photoEdit: PhotoEdit | null = admin
+    ? {
+        upload: async (f) => {
+          const form = new FormData();
+          form.append("photo", await shrinkImage(f), "group.jpg");
+          const r = await api<{ photoUrl: string }>(`/api/groups/${g.id}/photo`, { method: "POST", body: form });
+          setPhoto(r.photoUrl);
+          router.refresh();
+        },
+        remove: async () => {
+          await api(`/api/groups/${g.id}/photo`, { method: "DELETE" });
+          setPhoto(null);
+          router.refresh();
+        },
+      }
+    : null;
 
   const add = async (ids: string[]) => {
     setAdding(false);
@@ -119,27 +128,7 @@ export function GroupSettings({ initial, meId }: { initial: GroupInfo; meId: str
       </div>
 
       <section className="card flex items-center gap-4 p-4">
-        {admin ? (
-          <button className="group relative shrink-0 rounded-full" onClick={() => file.current?.click()} disabled={busy} title="Change the picture" aria-label="Change the picture">
-            <Avatar src={photo} name={g.name} size={72} preview={false} />
-            <span className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full border border-night-line bg-night-panel text-snow-soft group-hover:text-gold">
-              <Icon name="edit" className="h-3.5 w-3.5" />
-            </span>
-          </button>
-        ) : (
-          <Avatar src={photo} name={g.name} size={72} preview={false} />
-        )}
-        <input
-          ref={file}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            e.target.value = "";
-            if (f) upload(f);
-          }}
-        />
+        <Avatar src={photo} name={g.name} size={72} edit={photoEdit} sayNone />
         <div className="min-w-0 flex-1">
           {renaming !== null ? (
             <form
@@ -173,7 +162,6 @@ export function GroupSettings({ initial, meId }: { initial: GroupInfo; meId: str
             {n} member{n === 1 ? "" : "s"} · {g.closed ? "chat closed" : g.sendPolicy === "admins" ? "admins send" : "everyone sends"}
           </p>
           {vol && <p className="text-[11px] text-snow-faint">Volunteer group: its members follow the group.</p>}
-          {admin && <p className="text-[11px] text-snow-faint">Tap the picture to change it</p>}
         </div>
       </section>
 

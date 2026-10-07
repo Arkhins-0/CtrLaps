@@ -4,7 +4,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, shrinkImage } from "@/lib/client";
-import { Avatar } from "./Avatar";
+import { Avatar, type PhotoEdit } from "./Avatar";
 import { PhotoCropDialog } from "./PhotoCropDialog";
 
 /** A round photo; tapping it picks a new one, cropped square first. */
@@ -39,58 +39,39 @@ export function EditablePhoto({
   );
 }
 
-/** A person's photo at the top of their page: their manager or an admin taps it to change it, saved at once. */
-export function PersonPhoto({ personId, src, name, size }: { personId: string; src: string | null; name: string; size: number }) {
+/** A photo saved at once to `url` (POST to change it, DELETE to take it away), then the page is drawn again. */
+function useSavedPhoto(url: string): PhotoEdit {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const save = async (photo: File) => {
-    setBusy(true);
-    setError(null);
-    try {
+  return {
+    upload: async (photo) => {
       const form = new FormData();
       form.set("photo", await shrinkImage(photo), "photo.jpg");
-      await api(`/api/users/${personId}/photo`, { method: "POST", body: form });
+      await api(url, { method: "POST", body: form });
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not change the photo.");
-    } finally {
-      setBusy(false);
-    }
+    },
+    remove: async () => {
+      await api(url, { method: "DELETE" });
+      router.refresh();
+    },
   };
-  return (
-    <div className="shrink-0">
-      <EditablePhoto src={src} name={name} size={size} disabled={busy} onPicked={save} />
-      {error && <p className="error mt-2 max-w-[12rem] text-xs">{error}</p>}
-    </div>
-  );
 }
 
-/** A team's photo at the top of its page: an admin, a coordinator or the team's manager taps it to change it. */
+/** A person's photo at the top of their page: their manager or an admin taps it to see, change or remove it. */
+export function PersonPhoto({ personId, src, name, size }: { personId: string; src: string | null; name: string; size: number }) {
+  const edit = useSavedPhoto(`/api/users/${personId}/photo`);
+  return <Avatar src={src} name={name} size={size} edit={edit} />;
+}
+
+/** Your own photo on the Account page, for those who edit their own profile. */
+export function MyPhoto({ src, name, size }: { src: string | null; name: string; size: number }) {
+  const edit = useSavedPhoto("/api/me/photo");
+  return <Avatar src={src} name={name} size={size} edit={edit} />;
+}
+
+/** A team's photo at the top of its page: an admin, a coordinator or the team's manager taps it to see, change or remove it. */
 export function TeamPhoto({ teamId, src, name, size }: { teamId: string; src: string | null; name: string; size: number }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const save = async (photo: File) => {
-    setBusy(true);
-    setError(null);
-    try {
-      const form = new FormData();
-      form.set("photo", await shrinkImage(photo), "photo.jpg");
-      await api(`/api/teams/${teamId}/photo`, { method: "POST", body: form });
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not change the photo.");
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div className="shrink-0">
-      <EditablePhoto src={src} name={name} size={size} disabled={busy} onPicked={save} />
-      {error && <p className="error mt-2 max-w-[12rem] text-xs">{error}</p>}
-    </div>
-  );
+  const edit = useSavedPhoto(`/api/teams/${teamId}/photo`);
+  return <Avatar src={src} name={name} size={size} edit={edit} />;
 }
 
 /** A picked photo shown before it is saved. */

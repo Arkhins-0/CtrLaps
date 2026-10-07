@@ -1,86 +1,58 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
 import { api } from "@/lib/client";
+import { usePhotoPullUp, type PhotoEdit } from "../PhotoPullUp";
 
 /**
- * A weekend's photo (the track) across the top of its page, fading into the page below. Admins add, change or remove
- * it here; with no photo, everyone else sees nothing.
+ * A weekend's photo (the track) across the top of its page, fading into the page below. Tapped, it pulls up large;
+ * admins change or remove it there, and add the first one from "Add a track photo". With no photo, everyone else
+ * sees nothing.
  */
 export function WeekendPhoto({ weekendId, photoUrl, isAdmin }: { weekendId: string; photoUrl: string | null; isAdmin: boolean }) {
   const router = useRouter();
-  const input = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const url = `/api/weekends/${weekendId}/photo`;
+  const edit: PhotoEdit | null = isAdmin
+    ? {
+        // Sent as picked: a wide photo isn't cropped square, and the server takes it up to 5 MB.
+        upload: async (photo) => {
+          const form = new FormData();
+          form.append("photo", photo);
+          await api(url, { method: "POST", body: form });
+          router.refresh();
+        },
+        remove: async () => {
+          await api(url, { method: "DELETE" });
+          router.refresh();
+        },
+      }
+    : null;
+  const photo = usePhotoPullUp({ src: photoUrl, name: "Track photo", edit, wide: true });
   if (!photoUrl && !isAdmin) return null;
-
-  const upload = async (file: File) => {
-    setBusy(true);
-    setError(null);
-    try {
-      const form = new FormData();
-      form.append("photo", file);
-      await api(`/api/weekends/${weekendId}/photo`, { method: "POST", body: form });
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not upload the photo.");
-    } finally {
-      setBusy(false);
-    }
-  };
-  const remove = async () => {
-    if (!confirm("Remove this weekend's photo?")) return;
-    setBusy(true);
-    try {
-      await api(`/api/weekends/${weekendId}/photo`, { method: "DELETE" });
-      router.refresh();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const controls = isAdmin && (
-    <div className="flex gap-2">
-      <input
-        ref={input}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = "";
-          if (f) upload(f);
-        }}
-      />
-      <button type="button" className="btn-ghost bg-night/70 px-3 py-1 text-xs backdrop-blur" disabled={busy} onClick={() => input.current?.click()}>
-        {busy ? "Uploading…" : photoUrl ? "Change photo" : "Add a track photo"}
-      </button>
-      {photoUrl && (
-        <button type="button" className="btn-ghost bg-night/70 px-3 py-1 text-xs text-danger backdrop-blur" disabled={busy} onClick={remove}>
-          Remove
-        </button>
-      )}
-    </div>
-  );
 
   if (!photoUrl) {
     return (
-      <div className="space-y-2">
-        {controls}
-        {error && <p className="error">{error}</p>}
+      <div>
+        <button type="button" className="btn-ghost px-3 py-1 text-xs" disabled={photo.busy} onClick={photo.tap}>
+          {photo.busy ? "Uploading…" : "Add a track photo"}
+        </button>
+        {photo.ui}
       </div>
     );
   }
   return (
-    <div className="space-y-2">
-      <div className="relative h-40 overflow-hidden rounded-2xl sm:h-56">
+    <>
+      <button
+        type="button"
+        className={`relative block h-40 w-full cursor-zoom-in overflow-hidden rounded-2xl transition-opacity sm:h-56 ${photo.busy ? "opacity-60" : ""}`}
+        aria-label="Track photo"
+        onClick={photo.tap}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element -- a signed-in, versioned image from our own API */}
         <img src={photoUrl} alt="" className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-night via-night/30 to-transparent" />
-        {controls && <div className="absolute right-3 top-3">{controls}</div>}
-      </div>
-      {error && <p className="error">{error}</p>}
-    </div>
+        <span className="absolute inset-0 bg-gradient-to-t from-night via-night/30 to-transparent" />
+      </button>
+      {photo.ui}
+    </>
   );
 }
