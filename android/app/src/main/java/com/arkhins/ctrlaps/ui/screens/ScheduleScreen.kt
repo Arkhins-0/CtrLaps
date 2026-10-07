@@ -98,6 +98,11 @@ import com.arkhins.ctrlaps.ui.theme.SnowSoft
 import com.arkhins.ctrlaps.ui.trackDateTime
 import com.arkhins.ctrlaps.ui.trackTime
 import com.arkhins.ctrlaps.ui.zone
+import com.arkhins.ctrlaps.ui.components.GroupTitle
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.clip
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.put
@@ -134,11 +139,11 @@ fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive:
     }
 
     val w = weekends
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item { SeasonHeader(seasons, isAdmin, onArchive = onArchive, onStandings = onStandings, onChanged = { reload++ }) }
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                SectionTitle("RACE WEEKENDS", Modifier.weight(1f))
+                GroupTitle("Race weekends", w?.size, Modifier.weight(1f))
                 if (isAdmin) IconAction(Icons.Outlined.Add, "New race weekend", Gold) { creating = true }
             }
         }
@@ -155,8 +160,9 @@ fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive:
             else -> {
                 val groups = shown.groupBy { it.seasonName ?: "" }
                 groups.forEach { (seasonName, list) ->
-                    if (seasonName.isNotBlank() && groups.size > 1) item(key = "season-$seasonName") { SectionTitle(seasonName.uppercase()) }
-                    items(list, key = { it.id }) { weekend ->
+                    if (seasonName.isNotBlank() && groups.size > 1) item(key = "season-$seasonName") { GroupTitle(seasonName) }
+                    itemsIndexed(list, key = { _, it -> it.id }) { i, weekend ->
+                        if (i > 0) Divider()
                         WeekendCard(weekend, isAdmin, onOpen = { onOpenWeekend(weekend.id) }, onChanged = { reload++ }, categories = categories, only = only, editTimes = editTimes)
                     }
                 }
@@ -179,12 +185,12 @@ private fun SeasonHeader(seasons: List<Season>, isAdmin: Boolean, onArchive: () 
     var confirm by remember { mutableStateOf<Pair<Season, String>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val current = seasons.firstOrNull { it.current }
-    Panel {
+    Column {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("SEASON", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
-                    Text(current?.name ?: "No season yet", style = MaterialTheme.typography.titleMedium, color = Snow)
+                    Text(current?.name ?: "No season yet", style = MaterialTheme.typography.titleLarge.copy(fontSize = 24.sp, lineHeight = 30.sp), fontWeight = FontWeight.Bold, color = Snow)
+                    current?.let { Text(dateRange(it.startsOn, it.endsOn) + " · ${it.weekends} race weekend" + if (it.weekends == 1) "" else "s", style = MaterialTheme.typography.bodySmall, color = SnowSoft.copy(alpha = 0.8f)) }
                 }
                 IconAction(painterResource(R.drawable.ic_trophy), "Standings", SnowSoft, onClick = onStandings)
                 IconAction(painterResource(R.drawable.ic_archive), "Archive", SnowSoft, onClick = onArchive)
@@ -204,7 +210,7 @@ private fun SeasonHeader(seasons: List<Season>, isAdmin: Boolean, onArchive: () 
                                 Text(s.name, style = MaterialTheme.typography.titleSmall, color = Snow, modifier = Modifier.weight(1f))
                                 if (s.current) Chip("Current", Gold)
                             }
-                            Text(s.startsOn + (s.endsOn?.let { " → $it" } ?: "") + " · ${s.weekends} weekend" + if (s.weekends == 1) "" else "s", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                            Text(dateRange(s.startsOn, s.endsOn) + " · ${s.weekends} weekend" + if (s.weekends == 1) "" else "s", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
                             Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                                 if (!s.current) IconAction(Icons.Outlined.CheckCircle, "Make current", Gold) { confirm = s to "current" }
                                 IconAction(Icons.Outlined.Edit, "Edit season", SnowSoft) { editing = s }
@@ -354,12 +360,25 @@ fun WeekendCard(
     val byId = categories.associateBy { it.id }
     val running = w.categoryIds.mapNotNull { byId[it] }
     val sessions = if (only == null) w.sessions else w.sessions.filter { it.categoryId == null || it.categoryId in only }
-    Panel {
+    val past = runCatching { java.time.LocalDate.parse(w.endsOn).isBefore(java.time.LocalDate.now()) }.getOrDefault(false)
+    // The track's own clock is shown only when it isn't the phone's.
+    val otherZone = differsFromPhone(w.timezone, w.startsOn)
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Column {
             Row(verticalAlignment = Alignment.Top) {
+                DateBlock(w.startsOn, w.endsOn, past, Modifier.clickable(onClick = onOpen))
+                Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f).clickable(onClick = onOpen)) {
-                    Text(w.name, style = MaterialTheme.typography.titleLarge, color = Snow)
-                    if (w.place.isNotBlank()) Text(w.place, style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
+                    Text(w.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, lineHeight = 22.sp), fontWeight = FontWeight.Bold, color = if (past) SnowSoft else Snow)
+                    if (w.place.isNotBlank()) Text(w.place, style = MaterialTheme.typography.bodySmall, color = SnowSoft.copy(alpha = 0.8f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (otherZone) Text("Times in your time zone; the track is on ${w.timezone}", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                    if (running.isNotEmpty() || (isAdmin && !w.channelOpen)) {
+                        Spacer(Modifier.height(6.dp))
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (isAdmin && !w.channelOpen) Chip("Channel closed", SnowSoft)
+                            running.forEach { CategoryTag(it) }
+                        }
+                    }
                 }
                 if (sessions.isNotEmpty()) {
                     IconButton(onClick = { open = !open }) {
@@ -409,26 +428,14 @@ fun WeekendCard(
                     }
                 }
             }
-            Text(
-                "${w.startsOn} → ${w.endsOn} · track time ${w.timezone}" + if (isAdmin) " · channel ${if (w.channelOpen) "open" else "closed"}" else "",
-                style = MaterialTheme.typography.labelSmall,
-                color = SnowFaint,
-                modifier = Modifier.clickable(onClick = onOpen),
-            )
-            if (running.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    running.forEach { CategoryTag(it) }
-                }
-            }
             ErrorText(error)
             AnimatedVisibility(
                 visible = open && sessions.isNotEmpty(),
                 enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
                 exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
             ) {
-                Column {
-                    Spacer(Modifier.height(10.dp))
+                Column(Modifier.padding(start = 70.dp)) {
+                    Spacer(Modifier.height(6.dp))
                     sessions.forEachIndexed { i, s ->
                         if (i > 0) Divider()
                         val start = instant(s.startsAt).toEpochMilli()
@@ -441,14 +448,14 @@ fun WeekendCard(
                                         CategoryTag(it)
                                         Spacer(Modifier.width(6.dp))
                                     }
-                                    Text(s.name, style = MaterialTheme.typography.titleSmall, color = if (end <= now) SnowFaint else Snow)
+                                    Text(s.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = if (end <= now) SnowFaint else Snow)
                                     if (live) {
                                         Spacer(Modifier.width(6.dp))
                                         Chip("LIVE", Gold, filled = true)
                                     }
                                 }
                                 Text("${localDateTime(s.startsAt)} – ${localTime(s.endsAt)}", style = MaterialTheme.typography.bodySmall, color = SnowSoft)
-                                Text("${trackDateTime(s.startsAt, w.timezone)} – ${trackTime(s.endsAt, w.timezone)} track", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                                if (otherZone) Text("${trackDateTime(s.startsAt, w.timezone)} – ${trackTime(s.endsAt, w.timezone)} at the track", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
                             }
                             // A category's session has results once it has started.
                             if (s.categoryId != null && start <= now) {
@@ -670,7 +677,7 @@ fun CategoryTag(c: Category) {
             .background(color.copy(alpha = 0.14f), RoundedCornerShape(6.dp))
             .border(1.dp, color.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
             .padding(horizontal = 6.dp, vertical = 1.dp),
-    ) { Text(c.code, style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.SemiBold) }
+    ) { Text(c.code, style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.2.sp), color = color, fontWeight = FontWeight.SemiBold) }
 }
 
 /** "Mine" (when the person has categories), "All" and a chip per category. */
@@ -680,5 +687,61 @@ private fun CategoryChips(categories: List<Category>, filter: String?, hasMine: 
         if (hasMine) Chip("Mine", Gold, filled = filter == "mine") { onChange("mine") }
         Chip("All", Gold, filled = filter == null) { onChange(null) }
         categories.forEach { c -> Chip(c.code, categoryColor(c), filled = filter == c.id) { onChange(if (filter == c.id) null else c.id) } }
+    }
+}
+
+private val monthShort: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM", java.util.Locale.getDefault())
+private val dayMonth: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", java.util.Locale.getDefault())
+private val dayMonthYear: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.getDefault())
+
+/** "11 Dec 2026 – 13 Dec 2026" read as "11 – 13 Dec 2026"; the year only once, and only when needed. */
+private fun dateRange(startsOn: String, endsOn: String?): String {
+    val a = runCatching { java.time.LocalDate.parse(startsOn) }.getOrNull() ?: return listOfNotNull(startsOn, endsOn).joinToString(" – ")
+    val b = endsOn?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() } ?: return dayMonthYear.format(a)
+    return when {
+        a == b -> dayMonthYear.format(a)
+        a.year == b.year && a.month == b.month -> "${a.dayOfMonth} – ${dayMonthYear.format(b)}"
+        a.year == b.year -> "${dayMonth.format(a)} – ${dayMonthYear.format(b)}"
+        else -> "${dayMonthYear.format(a)} – ${dayMonthYear.format(b)}"
+    }
+}
+
+/** Whether the track's clock differs from the phone's on the weekend's first day. */
+private fun differsFromPhone(tz: String, startsOn: String): Boolean {
+    val at = runCatching { java.time.LocalDate.parse(startsOn).atStartOfDay(ZoneId.systemDefault()).toInstant() }.getOrDefault(Instant.now())
+    return zone(tz).rules.getOffset(at) != ZoneId.systemDefault().rules.getOffset(at)
+}
+
+/**
+ * A weekend's days at a glance, on the left of its row: "11–13" over "DEC" (and the year when it isn't this one), on
+ * the accent; faded once the weekend is over.
+ */
+@Composable
+private fun DateBlock(startsOn: String, endsOn: String, past: Boolean, modifier: Modifier = Modifier) {
+    val a = runCatching { java.time.LocalDate.parse(startsOn) }.getOrNull()
+    val b = runCatching { java.time.LocalDate.parse(endsOn) }.getOrNull() ?: a
+    val tone = if (past) SnowFaint else Gold
+    Column(
+        modifier.width(56.dp).clip(RoundedCornerShape(14.dp)).background(tone.copy(alpha = 0.14f)).padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (a == null || b == null) {
+            Text("TBA", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = tone)
+            return@Column
+        }
+        Text(
+            if (a == b) "${a.dayOfMonth}" else "${a.dayOfMonth}–${b.dayOfMonth}",
+            style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, lineHeight = 20.sp),
+            fontWeight = FontWeight.Bold,
+            color = tone,
+            maxLines = 1,
+        )
+        Text(
+            (if (a.month == b.month) monthShort.format(a) else "${monthShort.format(a)}–${monthShort.format(b)}").uppercase(),
+            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.5.sp),
+            color = if (past) SnowFaint else Snow,
+            maxLines = 1,
+        )
+        if (b.year != java.time.LocalDate.now().year) Text("${b.year}", style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.sp), color = SnowFaint)
     }
 }
