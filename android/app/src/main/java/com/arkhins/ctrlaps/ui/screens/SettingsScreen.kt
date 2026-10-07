@@ -60,6 +60,7 @@ import com.arkhins.ctrlaps.ui.components.Panel
 import com.arkhins.ctrlaps.ui.theme.Danger
 import com.arkhins.ctrlaps.ui.theme.Snow
 import com.arkhins.ctrlaps.ui.theme.SnowFaint
+import com.arkhins.ctrlaps.ui.theme.SnowSoft
 
 private val Allowed = Color(0xFF6EE7B7)
 
@@ -76,7 +77,8 @@ private data class Access(
     val title: String,
     val hint: String,
     val warning: String,
-    val allowed: Boolean,
+    /** Null when the phone can't say (a maker's own switch): the line just offers its page. */
+    val allowed: Boolean?,
     /** Runtime permissions asked for with the system dialog; empty for the ones only a settings page can change. */
     val permissions: List<String> = emptyList(),
     /** The phone's own page for this switch. */
@@ -96,7 +98,9 @@ fun SettingsScreen(onPermissions: () -> Unit, onTheme: () -> Unit, onEmail: () -
     val context = LocalContext.current
     var items by remember { mutableStateOf(lastSeen) }
     LaunchedEffect(Unit) { items = withContext(Dispatchers.Default) { accessList(context) }.also { lastSeen = it } }
-    val allowed = items.count { it.allowed }
+    // Lines the phone can't read (a maker's own switch) don't count either way.
+    val known = items.filter { it.allowed != null }
+    val allowed = known.count { it.allowed == true }
     Column(
         Modifier
             .fillMaxSize()
@@ -108,8 +112,8 @@ fun SettingsScreen(onPermissions: () -> Unit, onTheme: () -> Unit, onEmail: () -
             Column {
                 MenuRow(
                     "Permissions",
-                    if (items.isEmpty()) "Notifications, location, camera and more" else "Notifications, location, camera and more · $allowed of ${items.size} allowed",
-                    highlight = items.isNotEmpty() && allowed < items.size,
+                    if (items.isEmpty()) "Notifications, location, camera and more" else "Notifications, location, camera and more · $allowed of ${known.size} allowed",
+                    highlight = known.isNotEmpty() && allowed < known.size,
                     onClick = onPermissions,
                 )
                 HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
@@ -198,7 +202,7 @@ fun PermissionsScreen() {
                 items.forEachIndexed { i, item ->
                     if (i > 0) HorizontalDivider(color = SnowFaint.copy(alpha = 0.15f))
                     AccessRow(item) {
-                        if (!item.allowed && item.permissions.isNotEmpty()) ask.launch(item.permissions.toTypedArray())
+                        if (item.allowed == false && item.permissions.isNotEmpty()) ask.launch(item.permissions.toTypedArray())
                         else runCatching { openPage.launch(item.page) }.onFailure { runCatching { context.startActivity(appDetails(context)) } }
                     }
                 }
@@ -221,22 +225,30 @@ private fun AccessRow(item: Access, onClick: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(item.title, style = MaterialTheme.typography.titleMedium, color = Snow)
             Text(item.hint, style = MaterialTheme.typography.bodySmall, color = SnowFaint)
-            if (!item.allowed) Text(item.warning, style = MaterialTheme.typography.bodySmall, color = Danger)
+            if (item.allowed == false) Text(item.warning, style = MaterialTheme.typography.bodySmall, color = Danger)
+            if (item.allowed == null) Text(item.warning, style = MaterialTheme.typography.bodySmall, color = SnowSoft)
         }
         Spacer(Modifier.width(10.dp))
-        if (item.allowed) Chip("Allowed", Allowed) else Chip("Not allowed", Danger)
+        when (item.allowed) {
+            true -> Chip("Allowed", Allowed)
+            false -> Chip("Not allowed", Danger)
+            null -> Chip("Check", SnowSoft)
+        }
     }
 }
 
 private fun accessList(context: Context): List<Access> = buildList {
     val details = appDetails(context)
+    val channelsOff = Battery.channelsOff(context)
     add(
         Access(
             "Notifications",
             "Popups for messages, announcements and race updates",
-            "No popups arrive, and CTR[L]APS will ask for this again before it opens.",
-            NotificationManagerCompat.from(context).areNotificationsEnabled(),
-            permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) listOf(Manifest.permission.POST_NOTIFICATIONS) else emptyList(),
+            channelsOff.takeIf { it.isNotEmpty() }?.let { "Switched off: ${it.joinToString()}. Those popups don't arrive." }
+                ?: "No popups arrive, and CTR[L]APS will ask for this again before it opens.",
+            NotificationManagerCompat.from(context).areNotificationsEnabled() && channelsOff.isEmpty(),
+            // With notifications on but a channel off, only the settings page can help, not the permission dialog.
+            permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && channelsOff.isEmpty()) listOf(Manifest.permission.POST_NOTIFICATIONS) else emptyList(),
             page = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
         ),
     )
@@ -299,17 +311,27 @@ private fun accessList(context: Context): List<Access> = buildList {
             page = if (exempt) Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS) else Battery.requestExemption(context),
         ),
     )
-    // Only phones with their own autostart switch (Xiaomi and the like) say whether it is on.
-    val autostartPage = Battery.autostartIntent(context)
-    val autostart = Battery.autostartAllowed(context)
-    if (autostartPage != null && autostart != null) {
+    // Xiaomi's own battery saver holds an app back even with Android's optimisation off; it can't be read, only opened.
+    Battery.xiaomiBatteryIntent(context)?.let { page ->
+        add(
+            Access(
+                "Battery saver",
+                "Xiaomi's battery saver: choose No restrictions",
+                "Set to No restrictions, or the phone may hold back popups while it sleeps.",
+                null,
+                page = page,
+            ),
+        )
+    }
+    // Phones with their own autostart switch: Xiaomi says whether it is on; the others can only be opened.
+    Battery.autostartIntent(context)?.let { page ->
         add(
             Access(
                 "Autostart",
                 "Start again after recent apps are cleared",
                 "Popups stop once recent apps are cleared, until CTR[L]APS is opened again.",
-                autostart,
-                page = autostartPage,
+                Battery.autostartAllowed(context),
+                page = page,
             ),
         )
     }
