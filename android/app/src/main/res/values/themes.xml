@@ -5,7 +5,11 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
+        <!-- Every dialog's window (Compose dialogs take it from here): blurs what is behind on Android 12+ (values-v31). -->
+        <item name="android:dialogTheme">@style/Theme.Ctrlaps.Dialog</item>
     </style>
+
+    <style name="Theme.Ctrlaps.Dialog" parent="android:ThemeOverlay.Material.Dialog" />
 
     <!-- The championship badge on night while the app starts. -->
     <style name="Theme.Ctrlaps.Starting" parent="Theme.SplashScreen">

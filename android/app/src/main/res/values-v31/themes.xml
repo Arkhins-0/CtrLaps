@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+: what is behind a dialog is blurred, not only dimmed (on phones that allow window blur). -->
+    <style name="Theme.Ctrlaps.Dialog" parent="android:ThemeOverlay.Material.Dialog">
+        <item name="android:windowBlurBehindEnabled">true</item>
+        <item name="android:windowBlurBehindRadius">20dp</item>
+    </style>
+</resources>
