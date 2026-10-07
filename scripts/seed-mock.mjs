@@ -3,10 +3,13 @@
 // category channel posts, private chats and a group with the admin arkhins@arkhins.com.
 // Everything it adds is recorded in audit_log ("mock.seed"), so it can all be taken out again.
 // Usage: node scripts/seed-mock.mjs          (add; refuses if mock data is already there)
-//        node scripts/seed-mock.mjs --remove (take it all out)
+//        node scripts/seed-mock.mjs --photos (give the mock people profile photos: stock portraits from
+//                                             randomuser.me, made for test data, stored as the app stores photos)
+//        node scripts/seed-mock.mjs --remove (take it all out, photos included)
 import path from "node:path";
 import { randomBytes, randomInt } from "node:crypto";
 import pg from "pg";
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 for (const file of [".env.local", ".env"]) {
   try {
@@ -32,12 +35,49 @@ const code = () => {
 };
 const ago = (hours) => new Date(Date.now() - hours * 3600_000);
 
+const s3 = process.env.S3_BUCKET
+  ? new S3Client({
+      region: process.env.AWS_REGION || "us-east-2",
+      ...(process.env.AWS_ENDPOINT_URL_S3 ? { endpoint: process.env.AWS_ENDPOINT_URL_S3, forcePathStyle: true } : {}),
+      credentials: { accessKeyId: process.env.AWS_ACCESS_KEY_ID, secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY },
+    })
+  : null;
+const prefix = (process.env.S3_PREFIX || "arkhins").replace(/^\/+|\/+$/g, "");
+const fullKey = (k) => (prefix ? `${prefix}/${k}` : k);
+
 const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
 await client.connect();
 const q = async (sql, args = []) => (await client.query(sql, args)).rows;
 const one = async (sql, args = []) => (await q(sql, args))[0];
 
+// Women's first names among the mock people; everyone else gets a man's portrait.
+const WOMEN = new Set(["Divya", "Meera", "Neha", "Priya"]);
+
+async function photos() {
+  if (!s3) throw new Error("S3_BUCKET is not set: photos can't be stored.");
+  const mock = await q("SELECT id, name, photo_key FROM users WHERE email LIKE $1 ORDER BY name", [`%${DOMAIN}`]);
+  if (mock.length === 0) throw new Error("No mock people: run without flags first.");
+  let n = 0;
+  for (const [i, u] of mock.entries()) {
+    const kind = WOMEN.has(u.name.split(" ")[0]) ? "women" : "men";
+    const res = await fetch(`https://randomuser.me/api/portraits/${kind}/${20 + i * 3}.jpg`);
+    if (!res.ok) continue;
+    const body = Buffer.from(await res.arrayBuffer());
+    const key = `photos/${u.id}-${Date.now().toString(36)}.jpg`;
+    await s3.send(new PutObjectCommand({ Bucket: process.env.S3_BUCKET, Key: fullKey(key), Body: body, ContentType: "image/jpeg" }));
+    await q("UPDATE users SET photo_key = $2 WHERE id = $1", [u.id, key]);
+    if (u.photo_key) await s3.send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET, Key: fullKey(u.photo_key) })).catch(() => {});
+    n++;
+  }
+  console.log(`photos: ${n} of ${mock.length} mock people`);
+}
+
 async function remove() {
+  // Their photos go from storage too.
+  if (s3) {
+    const keys = (await q("SELECT photo_key FROM users WHERE email LIKE $1 AND photo_key IS NOT NULL", [`%${DOMAIN}`])).map((u) => u.photo_key);
+    for (const k of keys) await s3.send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET, Key: fullKey(k) })).catch(() => {});
+  }
   const runs = await q("SELECT id, detail FROM audit_log WHERE action = 'mock.seed'");
   await client.query("BEGIN");
   for (const r of runs) {
@@ -297,6 +337,7 @@ async function seed() {
 
 try {
   if (process.argv.includes("--remove")) await remove();
+  else if (process.argv.includes("--photos")) await photos();
   else await seed();
 } catch (error) {
   await client.query("ROLLBACK").catch(() => {});
