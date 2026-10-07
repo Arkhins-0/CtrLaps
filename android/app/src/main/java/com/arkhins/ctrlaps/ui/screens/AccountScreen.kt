@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.runtime.collectAsState
 import com.arkhins.ctrlaps.ui.theme.NightHighest
 import com.arkhins.ctrlaps.ui.theme.NightHigh
@@ -140,7 +142,20 @@ fun AccountScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SettingsSearchBar(query) { query = it }
+        // Search, and beside it the QR: your code for the gate, and Verify someone, in one sheet.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SettingsSearchBar(query, Modifier.weight(1f)) { query = it }
+            Spacer(Modifier.width(10.dp))
+            Box(
+                Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(NightPanel)
+                    .border(1.dp, NightLine, RoundedCornerShape(18.dp))
+                    .clickable { showQr = true },
+                contentAlignment = Alignment.Center,
+            ) { Icon(painterResource(R.drawable.ic_scan), contentDescription = "My QR code", tint = Gold, modifier = Modifier.size(28.dp)) }
+        }
         if (query.isNotBlank()) {
             val found = searchSettings(query, dev = me.isDev)
             if (found.isEmpty()) {
@@ -161,7 +176,6 @@ fun AccountScreen(
         // Arkhime-style settings list: flat rows with an accent icon, a bold title, a quieter line and an arrow.
         Column {
             // The QR in a sheet, a tap away at the gate; the list stays on the first screen.
-            MenuRow("My QR code", "Show it to be checked · ${u.verifyCode}", icon = painterResource(R.drawable.ic_scan), arrow = false) { showQr = true }
             MenuRow("Verify someone", "Scan a QR code or type an account code", icon = rememberVectorPainter(Icons.Outlined.Search), onClick = onScan)
             MenuRow("Account", "Email, date of birth and password", icon = rememberVectorPainter(Icons.Outlined.Person), onClick = onDetails)
             MenuRow("Notifications", "Everything this phone has shown you", icon = painterResource(R.drawable.ic_bell)) { open("notifications") }
@@ -208,7 +222,17 @@ fun AccountScreen(
                 }
                 Spacer(Modifier.height(14.dp))
                 KeyValue("Account code", u.verifyCode, mono = true, copyable = true)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(16.dp))
+                // Checking someone else starts from the same place.
+                OutlinedButton(
+                    onClick = { showQr = false; onScan() },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    border = BorderStroke(1.dp, NightLine),
+                ) {
+                    Icon(rememberVectorPainter(Icons.Outlined.Search), contentDescription = null, tint = Gold, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Verify someone", color = Snow, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
@@ -260,11 +284,11 @@ fun MenuRow(
 
 /** The pill search box at the top of the Account tab. */
 @Composable
-private fun SettingsSearchBar(query: String, onChange: (String) -> Unit) {
+private fun SettingsSearchBar(query: String, modifier: Modifier = Modifier, onChange: (String) -> Unit) {
     OutlinedTextField(
         value = query,
         onValueChange = onChange,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         placeholder = { Text("Search settings", color = SnowFaint) },
         leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, tint = SnowFaint) },
         trailingIcon = if (query.isNotEmpty()) ({ IconButton(onClick = { onChange("") }) { Icon(Icons.Outlined.Close, contentDescription = "Clear", tint = SnowFaint) } }) else null,
