@@ -330,7 +330,7 @@ fun VolunteerGroupScreen(groupId: String, onGone: () -> Unit, onTitle: (String) 
             Panel {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.clickable(enabled = !busy) { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
-                        Avatar(info?.photoUrl?.let { app.api.absolute("$it?v=$photoVersion") }, d.name, 56)
+                        Avatar(info?.photoUrl?.let { app.api.absolute("$it?v=$photoVersion") }, d.name, 56, preview = false)
                     }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {

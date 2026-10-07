@@ -294,7 +294,7 @@ fun BottomNav(current: String, unreadHome: Int, unreadChats: Int, photoUrl: Stri
                     .size(36.dp)
                     .border(2.dp, if (active) Gold else NightLine, CircleShape),
                 contentAlignment = Alignment.Center,
-            ) { Avatar(photoUrl, name, 32) }
+            ) { Avatar(photoUrl, name, 32, preview = false) }
         }
     }
 }

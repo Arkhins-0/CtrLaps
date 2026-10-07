@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui
 
+import com.arkhins.ctrlaps.ui.components.PhotoPreviewHost
 import androidx.compose.ui.unit.dp
 import com.arkhins.ctrlaps.ui.theme.Snow
 import androidx.compose.material3.MaterialTheme
@@ -199,6 +200,8 @@ fun CtrlapsApp() {
             }
         }
 
+        // A profile photo tapped anywhere, pulled up large.
+        PhotoPreviewHost()
         // The first open after an update shows what changed; a newer release, if any, waits until that is closed.
         val whatsNew = vm.whatsNew
         if (whatsNew != null) {

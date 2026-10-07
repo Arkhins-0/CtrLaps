@@ -80,7 +80,7 @@ fun ForwardSheet(count: Int, onDismiss: () -> Unit, what: String? = null, onSend
                                 .padding(vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Avatar(app.api.absolute(c.other.photoUrl), c.other.name, 40)
+                            Avatar(app.api.absolute(c.other.photoUrl), c.other.name, 40, preview = false)
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(c.other.name, style = MaterialTheme.typography.titleSmall, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)

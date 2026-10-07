@@ -246,7 +246,7 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun Avatar(url: String?, name: String, size: Int = 40) {
+fun Avatar(url: String?, name: String, size: Int = 40, preview: Boolean = true) {
     val initials = name.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }
     if (url != null) {
         AsyncImage(
@@ -256,7 +256,9 @@ fun Avatar(url: String?, name: String, size: Int = 40) {
             modifier = Modifier
                 .size(size.dp)
                 .clip(CircleShape)
-                .border(1.dp, NightLine, CircleShape),
+                .border(1.dp, NightLine, CircleShape)
+                // A tap pulls the photo up large (PhotoPreview); off where a tap picks or changes something.
+                .then(if (preview) Modifier.clickable { PhotoPreview.show(url, name) } else Modifier),
         )
     } else {
         Box(
@@ -389,4 +391,10 @@ fun PreviewLine(text: String, color: Color, style: TextStyle, modifier: Modifier
             },
         ),
     )
+}
+
+/** A profile photo pulled up large: set by a tap on an [Avatar], shown by [PhotoPreviewHost]. */
+object PhotoPreview {
+    val shown = androidx.compose.runtime.mutableStateOf<Pair<String, String>?>(null)
+    fun show(url: String, name: String) { shown.value = url to name }
 }

@@ -167,7 +167,7 @@ fun ComposeScreen(onSent: () -> Unit) {
                                                 .padding(10.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
-                                            Avatar(app.api.absolute(u.photoUrl), u.displayName, 40)
+                                            Avatar(app.api.absolute(u.photoUrl), u.displayName, 40, preview = false)
                                             Spacer(Modifier.width(12.dp))
                                             Column(Modifier.weight(1f)) {
                                                 Text(u.displayName, style = MaterialTheme.typography.titleSmall, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)

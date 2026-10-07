@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.PhotoPreview
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.runtime.collectAsState
@@ -121,7 +122,14 @@ fun AccountScreen(
     // Debug builds: `--es sheet qr` opens the QR sheet over adb (see DebugHooks).
     if (BuildConfig.DEBUG) {
         val asked by com.arkhins.ctrlaps.ui.DebugHooks.sheet.collectAsState()
-        androidx.compose.runtime.LaunchedEffect(asked) { if (asked == "qr") { showQr = true; com.arkhins.ctrlaps.ui.DebugHooks.sheet.value = null } }
+        androidx.compose.runtime.LaunchedEffect(asked) {
+            when (asked) {
+                "qr" -> showQr = true
+                "photo" -> app.api.absolute(u.photoUrl)?.let { PhotoPreview.show(it, u.displayName) }
+                else -> return@LaunchedEffect
+            }
+            com.arkhins.ctrlaps.ui.DebugHooks.sheet.value = null
+        }
     }
     // Settings and Storage look things up on the phone; done now, in the background, they open already filled.
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -164,7 +172,13 @@ fun AccountScreen(
                     Text("Try another word, like theme, password or storage.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
                 }
             } else {
-                Column { found.forEach { e -> MenuRow(e.title, e.path, icon = rememberVectorPainter(Icons.Outlined.Search)) { query = ""; open(e.route) } } }
+                Column { found.forEach { e ->
+                    MenuRow(e.title, e.path, icon = rememberVectorPainter(Icons.Outlined.Search)) {
+                        query = ""
+                        // The QR is a sheet on this page, not a screen of its own.
+                        if (e.route == "#qr") showQr = true else open(e.route)
+                    }
+                }  }
             }
             return@Column
         }
@@ -176,7 +190,6 @@ fun AccountScreen(
         // Arkhime-style settings list: flat rows with an accent icon, a bold title, a quieter line and an arrow.
         Column {
             // The QR in a sheet, a tap away at the gate; the list stays on the first screen.
-            MenuRow("Verify someone", "Scan a QR code or type an account code", icon = rememberVectorPainter(Icons.Outlined.Search), onClick = onScan)
             MenuRow("Account", "Email, date of birth and password", icon = rememberVectorPainter(Icons.Outlined.Person), onClick = onDetails)
             MenuRow("Notifications", "Everything this phone has shown you", icon = painterResource(R.drawable.ic_bell)) { open("notifications") }
             MenuRow("Archive", "Past seasons: their weekends, channels and messages", icon = painterResource(R.drawable.ic_archive), onClick = onArchive)
@@ -214,7 +227,7 @@ fun AccountScreen(
     }
 
     if (showQr) {
-        AboutSheet("My QR code", onClose = { showQr = false }) {
+        AboutSheet("My QR code", onClose = { showQr = false }, expanded = true) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 // The white square is there from the first frame; the code fills it a moment later if it wasn't ready.
                 Box(Modifier.background(Color.White, RoundedCornerShape(16.dp)).padding(12.dp).size(240.dp)) {
@@ -337,7 +350,8 @@ private val FINDABLE = listOf(
     Findable("Terms and conditions", "About", "legal/terms", "rules legal"),
     Findable("Privacy Policy", "About", "legal/privacy", "data privacy legal"),
     Findable("License", "About › License", "license", "apache open source"),
-    Findable("Verify someone", "Account › Scan", "scanner", "qr scan code check gate id"),
+    Findable("My QR code", "Account › QR", "#qr", "qr code id card gate show my account code"),
+    Findable("Verify someone", "Account › QR › Verify someone", "scanner", "qr scan scanner code check gate id verify"),
     Findable("Activity log", "Account › Activity log", "activity", "audit who did what", devOnly = true),
 )
 
@@ -466,7 +480,7 @@ private fun ProfileBanner(photo: String?, name: String, role: String, status: @C
             }
             Spacer(Modifier.width(12.dp))
             Box(Modifier.size(80.dp).clip(RoundedCornerShape(16.dp)).border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp))) {
-                if (photo != null) AsyncImage(model = photo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+                if (photo != null) AsyncImage(model = photo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().clickable { PhotoPreview.show(photo, name) })
                 else Box(Modifier.matchParentSize().background(NightHighest), contentAlignment = Alignment.Center) {
                     Text(name.take(1).uppercase(), style = MaterialTheme.typography.headlineMedium, color = Snow)
                 }

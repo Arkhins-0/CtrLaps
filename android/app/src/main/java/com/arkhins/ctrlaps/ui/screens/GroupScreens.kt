@@ -256,7 +256,7 @@ fun GroupScreen(vm: AppViewModel, groupId: String, onOpenChat: (String) -> Unit,
             Panel {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.clickable(enabled = admin && !busy) { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
-                        Avatar(g.photoUrl?.let { app.api.absolute("$it?v=$photoVersion") }, g.name, 72)
+                        Avatar(g.photoUrl?.let { app.api.absolute("$it?v=$photoVersion") }, g.name, 72, preview = false)
                     }
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {

@@ -245,7 +245,7 @@ private fun EditProfilePanel(vm: AppViewModel, onDone: () -> Unit) {
                 Box(Modifier.size(72.dp).clip(CircleShape).clickable(enabled = !busy) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
                     val bmp = photo
                     if (bmp != null) Image(bmp.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(72.dp))
-                    else Avatar(app.api.absolute(u.photoUrl), u.displayName, 72)
+                    else Avatar(app.api.absolute(u.photoUrl), u.displayName, 72, preview = false)
                 }
                 Spacer(Modifier.width(14.dp))
                 GhostButton("Change photo", enabled = !busy) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }

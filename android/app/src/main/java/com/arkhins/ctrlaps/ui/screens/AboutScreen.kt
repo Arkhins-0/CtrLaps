@@ -160,9 +160,9 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
 /** A sheet from About: its title, what it holds, and Close. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AboutSheet(title: String, onClose: () -> Unit, tall: Boolean = false, content: @Composable () -> Unit) {
-    // A long one opens halfway and, scrolled, rises all the way to the top before its text scrolls.
-    ModalBottomSheet(onDismissRequest = onClose, containerColor = Night, sheetState = rememberModalBottomSheetState()) {
+fun AboutSheet(title: String, onClose: () -> Unit, tall: Boolean = false, expanded: Boolean = false, content: @Composable () -> Unit) {
+    // A long one opens halfway and, scrolled, rises all the way to the top before its text scrolls; [expanded] opens a short one fully.
+    ModalBottomSheet(onDismissRequest = onClose, containerColor = Night, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = expanded)) {
         Column(Modifier.fillMaxWidth().then(if (tall) Modifier.fillMaxHeight() else Modifier).navigationBarsPadding().padding(bottom = 12.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Snow, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp))
             Box(Modifier.fillMaxWidth().weight(1f, fill = tall)) { content() }
@@ -204,7 +204,7 @@ private fun PeopleList() {
                         .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Avatar(c.photoUrl, c.name, 56)
+                    Avatar(c.photoUrl, c.name, 56, preview = false)
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
                         Text(c.name, style = MaterialTheme.typography.titleSmall.copy(fontSize = 17.sp), fontWeight = FontWeight.Bold, color = Gold)
