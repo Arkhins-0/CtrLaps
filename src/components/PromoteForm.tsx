@@ -11,7 +11,8 @@ import type { PublicUser } from "@/lib/users";
 /**
  * Promote someone who registered, or change the role of someone this person manages: the roles they may give,
  * then only what the chosen role needs — a team for a team manager; for racers and crew, the giver's team when
- * they are a team manager, else a team to type if wanted. The server checks the same rules.
+ * they are a team manager, else a team to type if wanted; for a delegate, a delegation if wanted. The server checks
+ * the same rules.
  */
 export function PromoteForm({
   person,
@@ -19,6 +20,7 @@ export function PromoteForm({
   myRole,
   myTeam,
   teamNames = [],
+  delegations = [],
 }: {
   person: PublicUser;
   roles: Role[];
@@ -26,12 +28,15 @@ export function PromoteForm({
   myTeam: string | null;
   /** Existing teams, suggested while typing so a team is not made twice by a typo. */
   teamNames?: string[];
+  /** The delegations a new delegate can be put in. */
+  delegations?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const choices = roles.filter((r) => r !== person.role);
   const [open, setOpen] = useState(false);
   const [role, setRole] = useState<Role>(choices[0]);
   const [team, setTeam] = useState(person.teamName ?? "");
+  const [delegation, setDelegation] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -46,7 +51,15 @@ export function PromoteForm({
     setBusy(true);
     setError(null);
     try {
-      await api("/api/users", { method: "POST", json: { email: person.email, role, teamName: asksTeam ? team.trim() : "" } });
+      await api("/api/users", {
+        method: "POST",
+        json: {
+          email: person.email,
+          role,
+          teamName: asksTeam ? team.trim() : "",
+          delegationId: role === "race_official" && delegation ? delegation : undefined,
+        },
+      });
       setOpen(false);
       setNote(`Now a ${ROLE_LABEL[role]}.`);
       router.refresh();
@@ -119,6 +132,21 @@ export function PromoteForm({
                 <input id="pr-team" list="team-names" autoComplete="off" className="input" value={team} onChange={(e) => setTeam(e.target.value)} />
               </div>
             ))}
+          {role === "race_official" && (
+            <div>
+              <label className="label" htmlFor="pr-delegation">
+                Delegation
+              </label>
+              <select id="pr-delegation" className="input" value={delegation} onChange={(e) => setDelegation(e.target.value)} disabled={busy}>
+                <option value="">None for now</option>
+                {delegations.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <p className="text-xs text-snow-faint">{name} is told by email. Their chats and pages change to the new role at once.</p>
           <button className="btn-gold w-full py-3" disabled={busy || (role === "team_manager" && !team.trim())}>
             {busy ? "Saving…" : `Make ${ROLE_LABEL[role]}`}

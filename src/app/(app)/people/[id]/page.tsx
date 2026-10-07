@@ -21,6 +21,7 @@ import { RaceCategories } from "@/components/RaceCategories";
 import { categoriesOf } from "@/lib/categories";
 import { currentSeason } from "@/lib/seasons";
 import { assignedCategories, teamCategories } from "@/lib/teams";
+import { listVolunteerGroups } from "@/lib/volunteers";
 
 export const metadata = { title: "Person" };
 
@@ -45,6 +46,10 @@ export default async function Person({ params }: { params: Promise<{ id: string 
     me.role === "admin" && user.role === "volunteer"
       ? await q<{ id: string; name: string | null; email: string }>("SELECT id, name, email FROM users WHERE role = 'coordinator' AND status = 'active' ORDER BY name")
       : [];
+
+  const promoteRoles = canPromote(me, user) ? (CREATE_RULES[me.role] ?? []) : [];
+  // A new delegate can be put in a delegation as they are made one.
+  const delegations = promoteRoles.includes("race_official") ? (await listVolunteerGroups(me, "delegation")).map((g) => ({ id: g.id, name: g.name })) : [];
 
   const name = p.name ?? p.email;
 
@@ -74,7 +79,21 @@ export default async function Person({ params }: { params: Promise<{ id: string 
       <DetailRow icon="mail" label="Email" value={p.email} end={<CopyButton value={p.email} label="Copy email" />} />
       <DetailRow icon="call" label="Contact" value={p.phone ?? "—"} end={p.phone ? <CopyButton value={p.phone} label="Copy contact" /> : undefined} />
       <DetailRow icon="calendar" label="Date of birth" value={p.dob ?? "—"} />
-      {p.teamName && <DetailRow icon="people" label="Team" value={p.teamName} />}
+      {p.teamName && (
+        <DetailRow
+          icon="people"
+          label="Team"
+          value={
+            teamRow?.team_id ? (
+              <Link href={`/teams/${teamRow.team_id}`} className="hover:text-gold">
+                {p.teamName}
+              </Link>
+            ) : (
+              p.teamName
+            )
+          }
+        />
+      )}
       <DetailRow icon="badge" label="Account code" value={<span className="font-mono tracking-wider">{p.verifyCode}</span>} end={<CopyButton value={p.verifyCode} label="Copy account code" />} />
 
       {editable && <PersonStatus person={p} />}
@@ -82,7 +101,7 @@ export default async function Person({ params }: { params: Promise<{ id: string 
       {canPromote(me, user) && (
         <>
           <SectionHeading>Role</SectionHeading>
-          <PromoteForm person={p} roles={CREATE_RULES[me.role] ?? []} myRole={me.role} myTeam={me.team_name} teamNames={teamNames} />
+          <PromoteForm person={p} roles={promoteRoles} myRole={me.role} myTeam={me.team_name} teamNames={teamNames} delegations={delegations} />
         </>
       )}
 

@@ -8,12 +8,28 @@ import { api, shrinkImage } from "@/lib/client";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { PhotoCropDialog } from "./PhotoCropDialog";
 
-/** An email, a role and optionally a photo. A new email gets an invite; one that already has an account is promoted. */
-export function NewPersonForm({ roles, teamName, creatorRole, teamNames = [] }: { roles: Role[]; teamName: string | null; creatorRole: Role; teamNames?: string[] }) {
+/**
+ * An email, a role and optionally a photo. A new email gets an invite; one that already has an account is promoted.
+ * A delegate can be put straight into a delegation.
+ */
+export function NewPersonForm({
+  roles,
+  teamName,
+  creatorRole,
+  teamNames = [],
+  delegations = [],
+}: {
+  roles: Role[];
+  teamName: string | null;
+  creatorRole: Role;
+  teamNames?: string[];
+  delegations?: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>(roles[0]);
   const [team, setTeam] = useState("");
+  const [delegation, setDelegation] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [cropping, setCropping] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -34,7 +50,10 @@ export function NewPersonForm({ roles, teamName, creatorRole, teamNames = [] }: 
     setError(null);
     let id: string;
     try {
-      const r = await api<{ user: { id: string }; promoted: boolean }>("/api/users", { method: "POST", json: { email, role, teamName: team } });
+      const r = await api<{ user: { id: string }; promoted: boolean }>("/api/users", {
+        method: "POST",
+        json: { email, role, teamName: team, delegationId: role === "race_official" && delegation ? delegation : undefined },
+      });
       id = r.user.id;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create.");
@@ -132,6 +151,21 @@ export function NewPersonForm({ roles, teamName, creatorRole, teamNames = [] }: 
             <input id="team" list="team-names" autoComplete="off" className="input" value={team} onChange={(e) => setTeam(e.target.value)} />
           </div>
         ))}
+      {role === "race_official" && (
+        <div>
+          <label className="label" htmlFor="delegation">
+            Delegation
+          </label>
+          <select id="delegation" className="input" value={delegation} onChange={(e) => setDelegation(e.target.value)}>
+            <option value="">None for now</option>
+            {delegations.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <p className="text-xs text-snow-faint">
         A new email gets a link to choose a password and fill in their profile. If the email already has an account, they are given this role and told by email.
       </p>

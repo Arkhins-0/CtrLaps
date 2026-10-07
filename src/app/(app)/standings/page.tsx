@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Avatar } from "@/components/Avatar";
 import { LocalTime } from "@/components/LocalTime";
 import type { DriverRound, StandingSession } from "@/lib/results";
 import { standingsPage } from "@/lib/results";
@@ -118,14 +119,25 @@ export default async function Standings({ searchParams }: { searchParams: Promis
                         <td className="sticky left-0 bg-night-panel px-2 py-2">
                           <Place n={i + 1} />
                         </td>
-                        <td className="sticky left-11 min-w-44 bg-night-panel px-2 py-2">
-                          <span className="block font-medium">
-                            {d.carNumber && <span className="mr-1.5 font-mono text-xs text-snow-faint">#{d.carNumber}</span>}
-                            {d.name}
-                          </span>
-                          <span className="block text-xs text-snow-faint">
-                            {d.teamName ?? "No team"}
-                            {i > 0 && leader > d.points ? ` · −${Math.round((leader - d.points) * 100) / 100}` : ""}
+                        <td className="sticky left-11 min-w-52 bg-night-panel px-2 py-2">
+                          <span className="flex items-center gap-2.5">
+                            <Avatar src={d.photoUrl} name={d.name} size={32} />
+                            <span className="min-w-0">
+                              <span className="block font-medium">
+                                {d.carNumber && <span className="mr-1.5 font-mono text-xs text-snow-faint">#{d.carNumber}</span>}
+                                {d.name}
+                              </span>
+                              <span className="block text-xs text-snow-faint">
+                                {d.teamId && d.teamName ? (
+                                  <Link href={`/teams/${d.teamId}`} className="hover:text-gold">
+                                    {d.teamName}
+                                  </Link>
+                                ) : (
+                                  (d.teamName ?? "No team")
+                                )}
+                                {i > 0 && leader > d.points ? ` · −${Math.round((leader - d.points) * 100) / 100}` : ""}
+                              </span>
+                            </span>
                           </span>
                         </td>
                         {page.sessions.map((s) => (
@@ -165,7 +177,12 @@ export default async function Standings({ searchParams }: { searchParams: Promis
                         <td className="sticky left-0 bg-night-panel px-2 py-2">
                           <Place n={i + 1} />
                         </td>
-                        <td className="sticky left-11 min-w-44 bg-night-panel px-2 py-2 font-medium">{t.name}</td>
+                        <td className="sticky left-11 min-w-52 bg-night-panel px-2 py-2 font-medium">
+                          <Link href={`/teams/${t.id}`} className="flex items-center gap-2.5 hover:text-gold">
+                            <Avatar src={t.photoUrl} name={t.name} size={32} />
+                            <span className="min-w-0">{t.name}</span>
+                          </Link>
+                        </td>
                         {page.sessions.map((s) => (
                           <td key={s.id} className="px-2 py-2 text-center">
                             {t.rounds[s.id] ?? <span className="text-snow-faint">·</span>}

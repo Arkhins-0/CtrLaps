@@ -66,6 +66,33 @@ export function PersonPhoto({ personId, src, name, size }: { personId: string; s
   );
 }
 
+/** A team's photo at the top of its page: an admin, a coordinator or the team's manager taps it to change it. */
+export function TeamPhoto({ teamId, src, name, size }: { teamId: string; src: string | null; name: string; size: number }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = async (photo: File) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.set("photo", await shrinkImage(photo), "photo.jpg");
+      await api(`/api/teams/${teamId}/photo`, { method: "POST", body: form });
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not change the photo.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="shrink-0">
+      <EditablePhoto src={src} name={name} size={size} disabled={busy} onPicked={save} />
+      {error && <p className="error mt-2 max-w-[12rem] text-xs">{error}</p>}
+    </div>
+  );
+}
+
 /** A picked photo shown before it is saved. */
 export function usePreview(file: File | null): string | null {
   const [url, setUrl] = useState<string | null>(null);
