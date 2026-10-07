@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -42,7 +41,8 @@ fun SaveBar(count: Int, progress: SaveProgress?, onSave: () -> Unit, onDiscard: 
         enter = slideInVertically { it },
         exit = slideOutVertically { it },
     ) {
-        Column(Modifier.fillMaxWidth().background(NightPanel).navigationBarsPadding()) {
+        // Sits above a tab's bottom bar, which already keeps clear of the phone's navigation bar.
+        Column(Modifier.fillMaxWidth().background(NightPanel)) {
             if (progress != null && progress.total > 0) {
                 LinearProgressIndicator(
                     progress = { progress.done.toFloat() / progress.total },
