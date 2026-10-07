@@ -452,7 +452,7 @@ private fun FollowCategoriesPanel(vm: AppViewModel) {
  * accent, the role and status, and the photo itself on the right.
  */
 @Composable
-private fun ProfileBanner(photo: String?, name: String, role: String, status: @Composable () -> Unit) {
+fun ProfileBanner(photo: String?, name: String, role: String, status: @Composable () -> Unit) {
     Box(
         Modifier
             .fillMaxWidth()

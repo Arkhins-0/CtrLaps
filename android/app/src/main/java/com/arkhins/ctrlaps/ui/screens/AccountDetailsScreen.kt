@@ -128,14 +128,15 @@ private fun SheetBody(content: @Composable () -> Unit) {
 
 /** One detail: an accent icon, the value, and what it is in small letters above it. */
 @Composable
-private fun DetailRow(icon: ImageVector, label: String, value: String) {
+fun DetailRow(icon: ImageVector, label: String, value: String, trailing: (@Composable () -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, contentDescription = null, tint = Gold, modifier = Modifier.size(24.dp))
         Spacer(Modifier.width(20.dp))
-        Column {
+        Column(Modifier.weight(1f)) {
             Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = SnowFaint)
             Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = Snow)
         }
+        trailing?.invoke()
     }
 }
 

@@ -1,5 +1,14 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.theme.NightHigh
+import com.arkhins.ctrlaps.ui.components.CopyButton
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.AccountBox
 import com.arkhins.ctrlaps.data.RosterCategory
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
@@ -361,6 +370,7 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
     var busy by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var promoting by remember { mutableStateOf(false) }
+    var showQr by remember { mutableStateOf(false) }
     var reload by remember { mutableStateOf(0) }
     val context = LocalContext.current
     var cropping by remember { mutableStateOf<Bitmap?>(null) }
@@ -399,6 +409,19 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
     }
 
     val d = data
+    if (showQr && d != null) {
+        val qr = rememberQr(d.qrUrl)
+        AboutSheet("${d.user.displayName}'s QR", onClose = { showQr = false }, expanded = true) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.background(Color.White, RoundedCornerShape(16.dp)).padding(12.dp).size(240.dp)) {
+                    if (qr != null) Image(qr.asImageBitmap(), contentDescription = "QR code", modifier = Modifier.size(240.dp))
+                }
+                Spacer(Modifier.height(14.dp))
+                KeyValue("Account code", d.user.verifyCode, mono = true, copyable = true)
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+    }
     cropping?.let { src ->
         SquareCropDialog(src, onCancel = { cropping = null }) { square ->
             cropping = null
@@ -424,71 +447,38 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
             return@LazyColumn
         }
         val u = d.user
+        // The banner, as on the Account tab: photo blurred behind, name in the accent; a tap on the photo pulls it up.
+        item { ProfileBanner(app.api.absolute(u.photoUrl), u.displayName, u.roleLabel + (u.teamName?.let { " · $it" } ?: "")) { StatusChip(u.status, u.statusLabel) } }
         item {
-            Panel {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    EditablePhoto(app.api.absolute(u.photoUrl), null, u.displayName, 64, editable = d.canEdit && !busy) {
-                        pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(u.displayName, style = MaterialTheme.typography.titleLarge, color = Snow)
-                        Text(u.roleLabel + (u.teamName?.let { " · $it" } ?: ""), style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
-                        Spacer(Modifier.height(4.dp))
-                        StatusChip(u.status, u.statusLabel)
-                    }
-                    // The same star as Verify's list: starred people are pinned there.
-                    val starred by app.verifyHistory.starred.collectAsState()
-                    val on = u.id in starred
-                    IconButton(
-                        onClick = {
-                            app.verifyHistory.toggleStar(
-                                Verified(u.id, u.name, u.role, u.roleLabel, u.teamName, u.status, u.statusLabel, u.verifyCode, u.photoUrl, u.profileComplete),
-                            )
-                        },
-                        modifier = Modifier.align(Alignment.Top),
-                    ) {
-                        Icon(
-                            painterResource(if (on) R.drawable.ic_star else R.drawable.ic_star_border),
-                            contentDescription = if (on) "Unstar" else "Star",
-                            tint = if (on) Gold else SnowFaint,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                }
-            }
-        }
-        item {
-            Panel {
-                Row(verticalAlignment = Alignment.Top) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        KeyValue("Email", u.email)
-                        KeyValue("Contact", u.phone ?: "—")
-                        KeyValue("Date of birth", u.dob ?: "—")
-                        KeyValue("Account code", u.verifyCode, mono = true, copyable = true)
-                    }
-                    // The person's own QR, the same one on their account page, so it can be scanned from here.
-                    val qr = rememberQr(d.qrUrl)
-                    if (qr != null) {
-                        Spacer(Modifier.width(12.dp))
-                        Box(Modifier.background(Color.White, RoundedCornerShape(12.dp)).padding(6.dp)) {
-                            Image(qr.asImageBitmap(), contentDescription = "QR code", modifier = Modifier.size(140.dp))
-                        }
-                    }
-                }
-            }
-        }
-        item { ErrorText(error) }
-        if (note != null) item { Text(note!!, style = MaterialTheme.typography.bodySmall, color = SnowSoft) }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val starred by app.verifyHistory.starred.collectAsState()
+            val on = u.id in starred
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (u.id != me?.user?.id && u.status == "active" && u.role != "user" && me?.user?.role != "user") {
-                    GoldButton("Open private chat", enabled = !busy) {
+                    QuickAction(painterResource(R.drawable.ic_tab_chat), "Message", Modifier.weight(1f), enabled = !busy) {
                         run(null) { onOpenChat(app.api.post("/api/conversations", IdResponse.serializer()) { put("memberId", u.id) }.id) }
                     }
                 }
-                if (u.status == "pending") GhostButton("Resend invite", enabled = !busy) { run("Invite sent again.") { app.api.post("/api/users/${u.id}/invite", Ok.serializer()) } }
-                if (d.canEdit && u.profileComplete && !editing) GhostButton("Edit profile", enabled = !busy) { editing = true }
+                // The same star as Verify's list: starred people are pinned there.
+                QuickAction(painterResource(if (on) R.drawable.ic_star else R.drawable.ic_star_border), if (on) "Starred" else "Star", Modifier.weight(1f), highlight = on) {
+                    app.verifyHistory.toggleStar(Verified(u.id, u.name, u.role, u.roleLabel, u.teamName, u.status, u.statusLabel, u.verifyCode, u.photoUrl, u.profileComplete))
+                }
+                QuickAction(painterResource(R.drawable.ic_scan), "QR code", Modifier.weight(1f)) { showQr = true }
+                if (d.canEdit && u.profileComplete && !editing) QuickAction(rememberVectorPainter(Icons.Outlined.Edit), "Edit", Modifier.weight(1f), enabled = !busy) { editing = true }
+            }
+        }
+        item {
+            Column(Modifier.padding(top = 8.dp)) {
+                DetailRow(Icons.Outlined.Email, "Email", u.email)
+                DetailRow(Icons.Outlined.Phone, "Contact", u.phone ?: "—")
+                DetailRow(Icons.Outlined.DateRange, "Date of birth", u.dob ?: "—")
+                DetailRow(Icons.Outlined.Lock, "Account code", u.verifyCode) { CopyButton(u.verifyCode) }
+            }
+        }
+        item { ErrorText(error) }
+        if (note != null) item { Text(note!!, style = MaterialTheme.typography.bodyMedium, color = Gold) }
+        if (u.status == "pending") item {
+            MenuRow("Resend invite", "The link to join, emailed again", icon = rememberVectorPainter(Icons.Outlined.Email), arrow = false) {
+                if (!busy) run("Invite sent again.") { app.api.post("/api/users/${u.id}/invite", Ok.serializer()) }
             }
         }
         // Promote someone who registered (or change the role of someone this person manages): the roles they may
@@ -496,11 +486,20 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
         val canPromote = u.id != me?.user?.id && me?.canCreate?.isNotEmpty() == true &&
             u.status != "banned" && u.status != "dismissed" && (u.role == "user" || d.canEdit)
         item { RaceCategoriesPanel(d) }
-        if (canPromote && !promoting) {
-            item { GoldButton(if (u.role == "user") "Promote" else "Change role", Modifier.fillMaxWidth(), enabled = !busy) { promoting = true } }
+        if (canPromote) {
+            item {
+                MenuRow(
+                    if (u.role == "user") "Promote" else "Change role",
+                    if (u.role == "user") "Give ${u.displayName} a role" else "Now ${u.roleLabel}",
+                    icon = rememberVectorPainter(Icons.Outlined.AccountBox),
+                    arrow = false,
+                ) { if (!busy) promoting = true }
+            }
         }
         if (canPromote && promoting) {
             item {
+                AboutSheet(if (u.role == "user") "Promote" else "Change role", onClose = { promoting = false }, expanded = true) {
+                Column(Modifier.padding(horizontal = 16.dp)) {
                 PromotePanel(me!!, u, busy = busy, onCancel = { promoting = false }) { role, team ->
                     run("Now a ${ROLE_LABELS[role] ?: role}.") {
                         app.api.post("/api/users", UserResponse.serializer()) {
@@ -510,6 +509,8 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
                         }
                         promoting = false
                     }
+                }
+                }
                 }
             }
         }
@@ -923,21 +924,14 @@ private fun RaceCategoriesPanel(d: UserResponse) {
 @Composable
 private fun DeletePanel(name: String, dueAt: String?, busy: Boolean, onDelete: () -> Unit, onCancel: () -> Unit) {
     var asking by remember { mutableStateOf(false) }
-    Panel {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SectionTitle("DELETE ACCOUNT")
-            if (dueAt != null) {
-                val day = runCatching {
-                    java.time.Instant.parse(dueAt).atZone(java.time.ZoneId.systemDefault())
-                        .format(java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy"))
-                }.getOrDefault(dueAt.take(10))
-                Text("Will be deleted on $day, unless they sign in before then.", style = MaterialTheme.typography.bodySmall, color = SnowSoft)
-                GhostButton("Cancel deletion", enabled = !busy) { onCancel() }
-            } else {
-                Text("Only when they ask for it. They get an email and 7 days to change their mind.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
-                GhostButton("Delete account", enabled = !busy, danger = true) { asking = true }
-            }
-        }
+    if (dueAt != null) {
+        val day = runCatching {
+            java.time.Instant.parse(dueAt).atZone(java.time.ZoneId.systemDefault())
+                .format(java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy"))
+        }.getOrDefault(dueAt.take(10))
+        MenuRow("Cancel deletion", "Will be deleted on $day, unless they sign in before then", icon = rememberVectorPainter(Icons.Outlined.Delete), danger = true, arrow = false) { if (!busy) onCancel() }
+    } else {
+        MenuRow("Delete account", "Only when they ask for it: an email and 7 days to change their mind", icon = rememberVectorPainter(Icons.Outlined.Delete), danger = true, arrow = false) { if (!busy) asking = true }
     }
     if (asking) {
         androidx.compose.material3.AlertDialog(
@@ -980,5 +974,22 @@ private fun DeveloperPanel(isDev: Boolean, busy: Boolean, onChange: (Boolean) ->
             confirmButton = { androidx.compose.material3.TextButton(onClick = { asking = false; onChange(false) }) { Text("Remove", color = Gold) } },
             dismissButton = { androidx.compose.material3.TextButton(onClick = { asking = false }) { Text("Cancel", color = SnowSoft) } },
         )
+    }
+}
+
+/** A quick action under a person's banner: an icon over a word, on a soft tile. */
+@Composable
+private fun QuickAction(icon: Painter, label: String, modifier: Modifier = Modifier, enabled: Boolean = true, highlight: Boolean = false, onClick: () -> Unit) {
+    Column(
+        modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(NightHigh)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = Gold, modifier = Modifier.size(24.dp))
+        Text(label, style = MaterialTheme.typography.labelLarge, color = if (highlight) Gold else Snow)
     }
 }
