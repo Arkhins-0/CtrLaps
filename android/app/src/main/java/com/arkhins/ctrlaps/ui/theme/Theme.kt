@@ -23,7 +23,9 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import com.arkhins.ctrlaps.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
@@ -116,8 +118,14 @@ val NightHighest: Color get() = palette.highest
 /** Words and icons on gold (and dark shades over photos): near-black in either theme, so they always read. */
 val OnGold = Color(0xFF0B0B0C)
 
-val Display: FontFamily = FontFamily.SansSerif
-val Body: FontFamily = FontFamily.SansSerif
+/** Plus Jakarta Sans (SIL Open Font License, licenses/PlusJakartaSans-OFL.txt), the website's font too. */
+private val Jakarta = FontFamily(
+    Font(R.font.jakarta, FontWeight.Normal),
+    Font(R.font.jakarta_semi_bold, FontWeight.SemiBold),
+    Font(R.font.jakarta_bold, FontWeight.Bold),
+)
+val Display: FontFamily = Jakarta
+val Body: FontFamily = Jakarta
 
 private fun scheme(p: Palette) = if (p.dark) darkColorScheme(
     primary = p.gold, onPrimary = OnGold, primaryContainer = p.goldDeep, onPrimaryContainer = OnGold,

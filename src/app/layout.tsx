@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { AppChooser } from "@/components/AppChooser";
 import { APP_NAME, SITE_URL } from "@/lib/config";
 import "./globals.css";
 
-const body = Inter({ subsets: ["latin"], display: "swap", variable: "--font-body" });
+// The same face as the app (Plus Jakarta Sans, SIL Open Font License).
+const body = Plus_Jakarta_Sans({ subsets: ["latin"], display: "swap", variable: "--font-body" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

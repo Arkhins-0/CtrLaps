@@ -151,7 +151,7 @@ ${extras.files.map((f, i) => `<tr><td style="padding:10px 14px;font-size:13px;co
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>${escapeHtml(title)}</title></head>
-<body style="margin:0;padding:0;background:#EFEFF1;font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif;color:${INK}">
+<body style="margin:0;padding:0;background:#EFEFF1;font-family:'Plus Jakarta Sans','Segoe UI',Helvetica,Arial,sans-serif;color:${INK}">
 ${extras.preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${escapeHtml(extras.preheader)}</div>` : ""}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EFEFF1;padding:28px 12px">
 <tr><td align="center">
