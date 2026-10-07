@@ -1,5 +1,21 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.theme.palette
+import com.arkhins.ctrlaps.ui.theme.OnGold
+import com.arkhins.ctrlaps.ui.theme.Accent
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
@@ -161,6 +177,45 @@ fun ThemeScreen() {
                         RadioButton(selected = mode == m, onClick = { ThemeSetting.set(m) }, colors = RadioButtonDefaults.colors(selectedColor = Gold, unselectedColor = SnowFaint))
                     }
                 }
+            }
+        }
+        val black by ThemeSetting.black.collectAsState()
+        Panel(padding = PaddingValues(vertical = 4.dp)) {
+            Row(
+                Modifier.fillMaxWidth().clickable { ThemeSetting.setBlack(!black) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Pure black", style = MaterialTheme.typography.bodyLarge, color = Snow)
+                    Text("A black page in the dark theme, kinder to OLED screens and the battery", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                }
+                Switch(
+                    checked = black,
+                    onCheckedChange = { ThemeSetting.setBlack(it) },
+                    colors = SwitchDefaults.colors(checkedThumbColor = OnGold, checkedTrackColor = Gold),
+                )
+            }
+        }
+        val accent by ThemeSetting.accent.collectAsState()
+        Panel {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Accent", style = MaterialTheme.typography.bodyLarge, color = Snow)
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Accent.entries.forEach { a ->
+                        val shade = if (palette.dark) a.dark else a.light
+                        Box(
+                            Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(shade)
+                                .border(if (a == accent) 3.dp else 0.dp, if (a == accent) Snow else Color.Transparent, CircleShape)
+                                .clickable { ThemeSetting.setAccent(a) }
+                                .semantics { contentDescription = a.label + if (a == accent) ", chosen" else "" },
+                            contentAlignment = Alignment.Center,
+                        ) { if (a == accent) Icon(Icons.Filled.Check, contentDescription = null, tint = OnGold, modifier = Modifier.size(20.dp)) }
+                    }
+                }
+                Text("${accent.label}: buttons, chips and highlights. Gold is CTR's own.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
             }
         }
     }

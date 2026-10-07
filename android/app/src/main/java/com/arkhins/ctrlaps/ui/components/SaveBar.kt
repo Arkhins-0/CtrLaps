@@ -23,7 +23,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.arkhins.ctrlaps.ui.theme.Gold
 import com.arkhins.ctrlaps.ui.theme.NightLine
-import com.arkhins.ctrlaps.ui.theme.NightPanel
+import com.arkhins.ctrlaps.ui.theme.NightHigh
 import com.arkhins.ctrlaps.ui.theme.SnowSoft
 
 /** How far a save of several changes has got: [done] of [total]. */
@@ -42,7 +42,7 @@ fun SaveBar(count: Int, progress: SaveProgress?, onSave: () -> Unit, onDiscard: 
         exit = slideOutVertically { it },
     ) {
         // Sits above a tab's bottom bar, which already keeps clear of the phone's navigation bar.
-        Column(Modifier.fillMaxWidth().background(NightPanel)) {
+        Column(Modifier.fillMaxWidth().background(NightHigh)) {
             if (progress != null && progress.total > 0) {
                 LinearProgressIndicator(
                     progress = { progress.done.toFloat() / progress.total },

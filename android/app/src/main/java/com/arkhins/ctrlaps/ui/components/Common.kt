@@ -84,8 +84,8 @@ fun Panel(modifier: Modifier = Modifier, padding: PaddingValues = PaddingValues(
     Box(
         modifier
             .fillMaxWidth()
-            .background(NightPanel, RoundedCornerShape(16.dp))
-            .border(1.dp, NightLine, RoundedCornerShape(16.dp))
+            .background(NightPanel, MaterialTheme.shapes.medium)
+            .border(1.dp, NightLine, MaterialTheme.shapes.medium)
             .padding(padding),
     ) { content() }
 }
