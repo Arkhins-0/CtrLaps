@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.Snack
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -78,7 +79,7 @@ fun DeleteAccountScreen(onDeleted: () -> Unit) {
                         put("password", password)
                         put("confirm", confirm)
                     }
-                    Toast.makeText(context, "Your account will be deleted in 7 days. Sign in before then to keep it.", Toast.LENGTH_LONG).show()
+                    Snack.show("Your account will be deleted in 7 days. Sign in before then to keep it.")
                     onDeleted()
                 } catch (e: Exception) {
                     error = e.message ?: "Could not delete."

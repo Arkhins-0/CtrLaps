@@ -69,13 +69,13 @@ fun toggleMute(
 ) {
     val next = !muted
     show(next)
-    android.widget.Toast.makeText(context, if (next) "Notifications muted" else "Notifications on", android.widget.Toast.LENGTH_SHORT).show()
+    Snack.show(if (next) "Notifications muted" else "Notifications on")
     scope.launch {
         runCatching { api.put(path, com.arkhins.ctrlaps.data.MuteResponse.serializer()) { put("muted", next) } }
             .onSuccess { r -> show(r.muted) }
             .onFailure {
                 show(muted)
-                android.widget.Toast.makeText(context, "Couldn't change notifications. Try again.", android.widget.Toast.LENGTH_SHORT).show()
+                Snack.error("Couldn't change notifications. Try again.")
             }
     }
 }

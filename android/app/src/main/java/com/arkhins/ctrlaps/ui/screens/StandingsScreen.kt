@@ -1,5 +1,8 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.widgets.Widgets
+import com.arkhins.ctrlaps.ui.components.PullRefresh
+import com.arkhins.ctrlaps.R
 import androidx.compose.animation.animateContentSize
 import com.arkhins.ctrlaps.data.Category
 import kotlinx.coroutines.launch
@@ -136,7 +139,7 @@ fun StandingsScreen(vm: AppViewModel, onOpenResults: (String) -> Unit, startSeas
                 }
             }
             if (h.categories.isEmpty()) {
-                Box(Modifier.padding(16.dp)) { Empty("This season has no race categories yet.") }
+                Box(Modifier.padding(16.dp)) { Empty("Standings start once the season has race categories and results.", title = "No categories yet", icon = R.drawable.ic_trophy) }
                 return@Column
             }
             // A pager per season: a new season starts again on its own first category.
@@ -183,6 +186,7 @@ private fun CategoryStandings(vm: AppViewModel, pastSeason: String?, category: C
             val path = "/api/standings?" + listOfNotNull(pastSeason?.let { "season=$it" }, "category=${category.id}").joinToString("&")
             data = app.store.get(path, StandingsResponse.serializer()) { if (data == null) data = it }
             error = null
+            Widgets.refresh(app)
         } catch (e: Exception) {
             if (data == null) error = e.message
         }
@@ -191,65 +195,67 @@ private fun CategoryStandings(vm: AppViewModel, pastSeason: String?, category: C
     val d = data
     val tone = categoryColor(category)
     val openRoute = LocalOpen.current
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp)) {
-        when {
-            error != null && d == null -> item { ErrorText(error) }
-            d == null -> item { Loading() }
-            else -> {
-                // Sessions oldest first, as R1, R2…
-                val rounds = d.sessions
-                item {
-                    Column(Modifier.padding(bottom = 4.dp)) {
-                        Text(category.name, style = MaterialTheme.typography.titleLarge.copy(fontSize = 24.sp, lineHeight = 30.sp), fontWeight = FontWeight.Bold, color = Snow)
-                        Text(
-                            if (rounds.isEmpty()) "No results yet" else "After ${rounds.size} ${if (rounds.size == 1) "session" else "sessions"} · ${d.drivers.size} drivers",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SnowSoft.copy(alpha = 0.8f),
-                        )
-                    }
-                }
-                if (d.drivers.size >= 2) item { Podium(d.drivers.take(3), tone) }
-                if (d.drivers.isNotEmpty()) {
+    PullRefresh(onRefresh = { vm.refreshAll() }, modifier = Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp)) {
+            when {
+                error != null && d == null -> item { ErrorText(error) }
+                d == null -> item { Loading() }
+                else -> {
+                    // Sessions oldest first, as R1, R2…
+                    val rounds = d.sessions
                     item {
-                        Row(verticalAlignment = Alignment.Bottom) {
-                            GroupTitle("Drivers", d.drivers.size, Modifier.weight(1f).padding(top = 8.dp))
-                            Text("Wins · Podiums", style = MaterialTheme.typography.bodySmall, color = SnowFaint, modifier = Modifier.padding(bottom = 4.dp))
+                        Column(Modifier.padding(bottom = 4.dp)) {
+                            Text(category.name, style = MaterialTheme.typography.titleLarge.copy(fontSize = 24.sp, lineHeight = 30.sp), fontWeight = FontWeight.Bold, color = Snow)
+                            Text(
+                                if (rounds.isEmpty()) "No results yet" else "After ${rounds.size} ${if (rounds.size == 1) "session" else "sessions"} · ${d.drivers.size} drivers",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SnowSoft.copy(alpha = 0.8f),
+                            )
                         }
                     }
-                    val leader = d.drivers.first().points
-                    itemsIndexed(d.drivers, key = { _, s -> "d-" + s.key }) { i, s ->
-                        DriverRow(i + 1, s, leader, rounds, tone, open == s.key, onTeam = { id -> openRoute("team/$id") }) { open = if (open == s.key) null else s.key }
-                    }
-                } else {
-                    item { Text("No results yet. They appear here once a session's results are in.", style = MaterialTheme.typography.bodyMedium, color = SnowFaint, modifier = Modifier.padding(vertical = 12.dp)) }
-                }
-                if (d.teams.isNotEmpty()) {
-                    item { GroupTitle("Teams", d.teams.size, Modifier.padding(top = 12.dp)) }
-                    val top = d.teams.first().points
-                    itemsIndexed(d.teams, key = { _, t -> "t-" + t.id }) { i, t ->
-                        StandingRow(
-                            i + 1, t.name, "${t.wins} ${if (t.wins == 1) "win" else "wins"} · ${t.podiums} ${if (t.podiums == 1) "podium" else "podiums"}",
-                            t.points, top, tone, photo = app.api.absolute(t.photoUrl), onClick = { openRoute("team/${t.id}") },
-                        )
-                    }
-                }
-                if (rounds.isNotEmpty()) {
-                    item { GroupTitle("Sessions", rounds.size, Modifier.padding(top = 12.dp)) }
-                    val list = rounds.withIndex().reversed()
-                    items(list.toList(), key = { "s-" + it.value.id }) { (i, s) ->
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { onOpenResults(s.id) }.padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(tone.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-                                Text("R${i + 1}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = tone)
+                    if (d.drivers.size >= 2) item { Podium(d.drivers.take(3), tone) }
+                    if (d.drivers.isNotEmpty()) {
+                        item {
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                GroupTitle("Drivers", d.drivers.size, Modifier.weight(1f).padding(top = 8.dp))
+                                Text("Wins · Podiums", style = MaterialTheme.typography.bodySmall, color = SnowFaint, modifier = Modifier.padding(bottom = 4.dp))
                             }
-                            Spacer(Modifier.width(14.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(s.name, style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp, lineHeight = 20.sp), fontWeight = FontWeight.Bold, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("${s.weekendName} · ${whenLabel(s.startsAt)} · ${s.rows} drivers", style = MaterialTheme.typography.bodySmall, color = SnowSoft.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        val leader = d.drivers.first().points
+                        itemsIndexed(d.drivers, key = { _, s -> "d-" + s.key }) { i, s ->
+                            DriverRow(i + 1, s, leader, rounds, tone, open == s.key, onTeam = { id -> openRoute("team/$id") }) { open = if (open == s.key) null else s.key }
+                        }
+                    } else {
+                        item { Text("No results yet. They appear here once a session's results are in.", style = MaterialTheme.typography.bodyMedium, color = SnowFaint, modifier = Modifier.padding(vertical = 12.dp)) }
+                    }
+                    if (d.teams.isNotEmpty()) {
+                        item { GroupTitle("Teams", d.teams.size, Modifier.padding(top = 12.dp)) }
+                        val top = d.teams.first().points
+                        itemsIndexed(d.teams, key = { _, t -> "t-" + t.id }) { i, t ->
+                            StandingRow(
+                                i + 1, t.name, "${t.wins} ${if (t.wins == 1) "win" else "wins"} · ${t.podiums} ${if (t.podiums == 1) "podium" else "podiums"}",
+                                t.points, top, tone, photo = app.api.absolute(t.photoUrl), onClick = { openRoute("team/${t.id}") },
+                            )
+                        }
+                    }
+                    if (rounds.isNotEmpty()) {
+                        item { GroupTitle("Sessions", rounds.size, Modifier.padding(top = 12.dp)) }
+                        val list = rounds.withIndex().reversed()
+                        items(list.toList(), key = { "s-" + it.value.id }) { (i, s) ->
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { onOpenResults(s.id) }.padding(vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(tone.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                                    Text("R${i + 1}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = tone)
+                                }
+                                Spacer(Modifier.width(14.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(s.name, style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp, lineHeight = 20.sp), fontWeight = FontWeight.Bold, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text("${s.weekendName} · ${whenLabel(s.startsAt)} · ${s.rows} drivers", style = MaterialTheme.typography.bodySmall, color = SnowSoft.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = Gold)
                             }
-                            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = Gold)
                         }
                     }
                 }

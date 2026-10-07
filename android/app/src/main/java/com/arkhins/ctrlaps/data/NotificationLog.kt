@@ -68,6 +68,10 @@ class NotificationLog(context: Context) {
     @Synchronized
     fun clear() = save(emptyList())
 
+    /** Undo of a clear: the list as it was. */
+    @Synchronized
+    fun restore(list: List<LoggedNotification>) = save(list)
+
     private fun save(list: List<LoggedNotification>) {
         _items.value = list
         _unread.value = countUnread(list)

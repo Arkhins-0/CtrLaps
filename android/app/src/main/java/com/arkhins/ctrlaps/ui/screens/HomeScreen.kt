@@ -1,5 +1,8 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.SessionCountdown
+import com.arkhins.ctrlaps.ui.components.PullRefresh
+import com.arkhins.ctrlaps.R
 import com.arkhins.ctrlaps.ui.theme.NightPanel
 import com.arkhins.ctrlaps.ui.components.FadingPhoto
 import androidx.compose.ui.draw.clip
@@ -220,75 +223,79 @@ fun HomeScreen(
     // Admins and coordinators send announcements, to anyone.
     val canSend = vm.me?.canAnnounce == true
 
-    LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item {
-            // The admin's or coordinator's card rides in this first row, so the rows counted below stay where they are.
-            board?.let { b ->
-                Column {
-                    DashboardCard(b, onWeekend = onOpenWeekend, onPerson = { openRoute("person/$it") })
-                    Spacer(Modifier.height(10.dp))
-                }
-            }
-            val n = next
-            if (n != null && n.state != "none" && n.weekend != null && n.session != null) {
-                // With a track photo, it heads the card and fades into it.
-                val photo = n.weekend.photoUrl
-                Panel(Modifier.clickable { onOpenWeekend(n.weekend.id) }, padding = if (photo != null) PaddingValues(0.dp) else PaddingValues(16.dp)) {
+    PullRefresh(onRefresh = { vm.refreshAll() }, modifier = Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                // The admin's or coordinator's card rides in this first row, so the rows counted below stay where they are.
+                board?.let { b ->
                     Column {
-                        if (photo != null) FadingPhoto(photo, NightPanel, 110.dp, Modifier.clip(MaterialTheme.shapes.medium))
-                        Column(if (photo != null) Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp) else Modifier) {
-                        Text(if (n.state == "live") "LIVE NOW" else "NEXT UP", style = MaterialTheme.typography.labelMedium, color = Gold)
-                        Spacer(Modifier.height(4.dp))
-                        Text(n.weekend.name, style = MaterialTheme.typography.titleLarge, color = Snow)
-                        Text("${n.session.name} · ${localDateTime(n.session.startsAt)}", style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
-                        Text("${trackDateTime(n.session.startsAt, n.weekend.timezone)} track time", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
-                        if (n.weekend.place.isNotBlank()) Text(n.weekend.place, style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                        DashboardCard(b, onWeekend = onOpenWeekend, onPerson = { openRoute("person/$it") })
+                        Spacer(Modifier.height(10.dp))
+                    }
+                }
+                val n = next
+                if (n != null && n.state != "none" && n.weekend != null && n.session != null) {
+                    // With a track photo, it heads the card and fades into it.
+                    val photo = n.weekend.photoUrl
+                    Panel(Modifier.clickable { onOpenWeekend(n.weekend.id) }, padding = if (photo != null) PaddingValues(0.dp) else PaddingValues(16.dp)) {
+                        Column {
+                            if (photo != null) FadingPhoto(photo, NightPanel, 110.dp, Modifier.clip(MaterialTheme.shapes.medium))
+                            Column(if (photo != null) Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp) else Modifier) {
+                            Text(if (n.state == "live") "On now" else "Next up", style = MaterialTheme.typography.labelLarge, color = Gold)
+                            Spacer(Modifier.height(4.dp))
+                            Text(n.weekend.name, style = MaterialTheme.typography.titleLarge, color = Snow)
+                            Text("${n.session.name} · ${localDateTime(n.session.startsAt)}", style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
+                            Spacer(Modifier.height(6.dp))
+                            // Ticking down to it; the header chip says the same in short.
+                            SessionCountdown(listOf(n.session) + n.later, label = { it.name })
+                            if (n.weekend.place.isNotBlank()) Text(n.weekend.place, style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                            }
                         }
                     }
                 }
             }
-        }
 
-        if (events.isNotEmpty()) {
-            item { SectionHeader("Upcoming events") }
-            item {
-                UpcomingEventsCard(events) { e ->
-                    if (e.conversationId != null) onOpenChat(e.conversationId)
-                    else scope.launch {
-                        // An announcement: down to its card below.
-                        val idx = messages?.let { ms -> feedRows(photoRuns(ms.asReversed()).asReversed(), newIds).indexOfFirst { r -> r is FeedRow.Run && r.run.any { it.id == e.messageId } } } ?: -1
-                        if (idx >= 0) list.animateScrollToItem(idx + 5 + (if (chats.isNotEmpty()) 2 else 0) + (if (channels.isNotEmpty()) 1 + channels.size else 0))
+            if (events.isNotEmpty()) {
+                item { SectionHeader("Upcoming events") }
+                item {
+                    UpcomingEventsCard(events) { e ->
+                        if (e.conversationId != null) onOpenChat(e.conversationId)
+                        else scope.launch {
+                            // An announcement: down to its card below.
+                            val idx = messages?.let { ms -> feedRows(photoRuns(ms.asReversed()).asReversed(), newIds).indexOfFirst { r -> r is FeedRow.Run && r.run.any { it.id == e.messageId } } } ?: -1
+                            if (idx >= 0) list.animateScrollToItem(idx + 5 + (if (chats.isNotEmpty()) 2 else 0) + (if (channels.isNotEmpty()) 1 + channels.size else 0))
+                        }
                     }
                 }
             }
-        }
 
-        if (chats.isNotEmpty()) {
-            item { SectionHeader("Chats", "All chats", onAllChats) }
-            item {
-                Panel(padding = PaddingValues(6.dp)) {
-                    Column {
-                        shownChats.forEachIndexed { i, chat ->
-                            if (i > 0) Divider()
-                            Row(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onOpenChat(chat.id) }
-                                    .padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Avatar(app.api.absolute(chat.other.photoUrl), chat.other.name, 44)
-                                Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(chat.other.name, style = MaterialTheme.typography.titleSmall, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    PreviewLine(chat.lastMessage ?: chat.other.roleLabel, color = if (chat.unread > 0) Snow else SnowFaint, style = MaterialTheme.typography.bodySmall)
-                                }
-                                Column(horizontalAlignment = Alignment.End) {
-                                    chat.lastMessageAt?.let { Text(whenLabel(it), style = MaterialTheme.typography.labelSmall, color = if (chat.unread > 0) Gold else SnowFaint) }
-                                    if (chat.unread > 0) {
-                                        Spacer(Modifier.height(4.dp))
-                                        Box(Modifier.background(Gold, RoundedCornerShape(999.dp)).padding(horizontal = 7.dp, vertical = 2.dp)) {
-                                            Text("${chat.unread}", style = MaterialTheme.typography.labelSmall, color = OnGold)
+            if (chats.isNotEmpty()) {
+                item { SectionHeader("Chats", "All chats", onAllChats) }
+                item {
+                    Panel(padding = PaddingValues(6.dp)) {
+                        Column {
+                            shownChats.forEachIndexed { i, chat ->
+                                if (i > 0) Divider()
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onOpenChat(chat.id) }
+                                        .padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Avatar(app.api.absolute(chat.other.photoUrl), chat.other.name, 44)
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(chat.other.name, style = MaterialTheme.typography.titleSmall, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        PreviewLine(chat.lastMessage ?: chat.other.roleLabel, color = if (chat.unread > 0) Snow else SnowFaint, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        chat.lastMessageAt?.let { Text(whenLabel(it), style = MaterialTheme.typography.labelSmall, color = if (chat.unread > 0) Gold else SnowFaint) }
+                                        if (chat.unread > 0) {
+                                            Spacer(Modifier.height(4.dp))
+                                            Box(Modifier.background(Gold, RoundedCornerShape(999.dp)).padding(horizontal = 7.dp, vertical = 2.dp)) {
+                                                Text("${chat.unread}", style = MaterialTheme.typography.labelSmall, color = OnGold)
+                                            }
                                         }
                                     }
                                 }
@@ -297,64 +304,64 @@ fun HomeScreen(
                     }
                 }
             }
-        }
 
-        if (channels.isNotEmpty()) {
-            item { SectionHeader("Weekend channels") }
-            items(channels, key = { it.weekend.id }) { c ->
-                Panel(Modifier.clickable { onOpenWeekend(c.weekend.id) }) {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(c.weekend.name, style = MaterialTheme.typography.titleSmall, color = Snow, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            c.latest?.let { Text(whenLabel(it.createdAt), style = MaterialTheme.typography.labelSmall, color = SnowFaint) }
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        val m = c.latest
-                        if (m == null) {
-                            Text("No posts yet.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
-                        } else {
-                            Text(
-                                buildString {
-                                    append(if (m.mine) "You" else m.sender?.name ?: "CTR[L]APS")
-                                    append(": ")
-                                    // Several files are counted ("📷 3 photos"); one keeps its old wording.
-                                    val files = m.attachments
-                                    append(m.body.ifBlank { if (files.size > 1) filesLabel(files) else files.firstOrNull()?.let { "Document: ${it.name}" } ?: "" })
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (m.readAt == null && !m.mine) Snow else SnowSoft,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+            if (channels.isNotEmpty()) {
+                item { SectionHeader("Weekend channels") }
+                items(channels, key = { it.weekend.id }) { c ->
+                    Panel(Modifier.clickable { onOpenWeekend(c.weekend.id) }) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(c.weekend.name, style = MaterialTheme.typography.titleSmall, color = Snow, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                c.latest?.let { Text(whenLabel(it.createdAt), style = MaterialTheme.typography.labelSmall, color = SnowFaint) }
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            val m = c.latest
+                            if (m == null) {
+                                Text("No posts yet.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+                            } else {
+                                Text(
+                                    buildString {
+                                        append(if (m.mine) "You" else m.sender?.name ?: "CTR[L]APS")
+                                        append(": ")
+                                        // Several files are counted ("📷 3 photos"); one keeps its old wording.
+                                        val files = m.attachments
+                                        append(m.body.ifBlank { if (files.size > 1) filesLabel(files) else files.firstOrNull()?.let { "Document: ${it.name}" } ?: "" })
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (m.readAt == null && !m.mine) Snow else SnowSoft,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
 
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                Text("Announcements", style = MaterialTheme.typography.titleMedium, color = Snow, modifier = Modifier.weight(1f))
-                if (canSend) GoldButton("New message", onClick = onCompose)
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                    Text("Announcements", style = MaterialTheme.typography.titleMedium, color = Snow, modifier = Modifier.weight(1f))
+                    if (canSend) GoldButton("New message", onClick = onCompose)
+                }
             }
-        }
-        val m = messages
-        when {
-            error != null && m == null -> item { ErrorText(error) }
-            m == null -> item { Loading() }
-            m.isEmpty() -> item { Empty("Nothing yet. Messages sent to you appear here.") }
-            // Newest first: photos sent one after another are gathered in the order sent, then turned back round; a NEW line under the last unread.
-            else -> {
-                feedRows(photoRuns(m.asReversed()).asReversed(), newIds).forEach { row ->
-                    when (row) {
-                        is FeedRow.Day -> stickyHeader(key = row.key) { DayHeader(row.label) }
-                        is FeedRow.Run -> item(key = row.key) { MessageCard(row.run, onView, highlight = row.run.any { it.id == highlight }) }
-                        FeedRow.New -> item(key = row.key) { NewLine() }
+            val m = messages
+            when {
+                error != null && m == null -> item { ErrorText(error) }
+                m == null -> item { Loading() }
+                m.isEmpty() -> item { Empty("Announcements and messages for you show here.", title = "Nothing yet", icon = R.drawable.ic_campaign) }
+                // Newest first: photos sent one after another are gathered in the order sent, then turned back round; a NEW line under the last unread.
+                else -> {
+                    feedRows(photoRuns(m.asReversed()).asReversed(), newIds).forEach { row ->
+                        when (row) {
+                            is FeedRow.Day -> stickyHeader(key = row.key) { DayHeader(row.label) }
+                            is FeedRow.Run -> item(key = row.key) { MessageCard(row.run, onView, highlight = row.run.any { it.id == highlight }) }
+                            FeedRow.New -> item(key = row.key) { NewLine() }
+                        }
                     }
                 }
             }
+            item { Spacer(Modifier.fillMaxWidth().height(8.dp)) }
         }
-        item { Spacer(Modifier.fillMaxWidth().height(8.dp)) }
     }
 }
 

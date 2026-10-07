@@ -86,7 +86,7 @@ fun PhotoViewerActions(
                 }
                 withContext(Dispatchers.Main) { context.startActivity(Intent.createChooser(send, "Share photo").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             }
-            if (shared.isFailure) withContext(Dispatchers.Main) { Toast.makeText(context, "Could not share the photo.", Toast.LENGTH_SHORT).show() }
+            if (shared.isFailure) withContext(Dispatchers.Main) { Snack.error("Could not share the photo.") }
         }
     }
 
@@ -144,7 +144,7 @@ fun PhotoViewerActions(
                         }.isSuccess
                         message.conversationId?.let { c -> runCatching { app.chatCache.sync(c, markRead = false) } }
                         withContext(Dispatchers.Main) {
-                            if (ok) onDeleted() else Toast.makeText(context, "Could not delete the photo.", Toast.LENGTH_SHORT).show()
+                            if (ok) onDeleted() else Snack.error("Could not delete the photo.")
                         }
                     }
                 }) { Text("Delete", color = Danger) }
@@ -156,11 +156,11 @@ fun PhotoViewerActions(
     if (forwarding && message != null) {
         ForwardSheet(1, onDismiss = { forwarding = false }, what = "photo") { targets ->
             forwarding = false
-            Toast.makeText(context, if (targets.size == 1) "Forwarding to ${targets[0].other.name}" else "Forwarding to ${targets.size} chats", Toast.LENGTH_SHORT).show()
+            Snack.show(if (targets.size == 1) "Forwarding to ${targets[0].other.name}" else "Forwarding to ${targets.size} chats")
             app.appScope.launch {
                 val failed = forwardMessages(app.chatCache, app.api, listOf(message), targets.map { it.id }, onlyFiles = if (onlyFile) listOf(file) else null)
                 withContext(Dispatchers.Main) {
-                    targets.filter { it.id in failed }.forEach { c -> Toast.makeText(context, "Could not forward to ${c.other.name}", Toast.LENGTH_SHORT).show() }
+                    targets.filter { it.id in failed }.forEach { c -> Snack.error("Could not forward to ${c.other.name}") }
                 }
             }
         }

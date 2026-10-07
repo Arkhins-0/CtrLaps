@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.LoadingShape
+import com.arkhins.ctrlaps.ui.components.Snack
 import com.arkhins.ctrlaps.ui.theme.OnGold
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -133,7 +135,7 @@ fun NewGroupScreen(onCreated: (String) -> Unit) {
                         put("name", name.trim())
                         putJsonArray("memberIds") { picked.forEach { add(it) } }
                     }
-                    if (r.skipped.isNotEmpty()) Toast.makeText(context, "Not added: ${r.skipped.joinToString()}", Toast.LENGTH_LONG).show()
+                    if (r.skipped.isNotEmpty()) Snack.error("Not added: ${r.skipped.joinToString()}")
                     onCreated(checkNotNull(r.id) { "Could not create the group." })
                 } catch (e: Exception) {
                     error = e.message ?: "Could not create the group."
@@ -248,7 +250,7 @@ fun GroupScreen(vm: AppViewModel, groupId: String, onOpenChat: (String) -> Unit,
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (g == null) {
-            item { if (error != null) ErrorText(error) else Loading() }
+            item { if (error != null) ErrorText(error) else Loading(shape = LoadingShape.Banner) }
             return@LazyColumn
         }
         val admin = g.myRole == "admin"

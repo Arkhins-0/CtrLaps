@@ -1,5 +1,8 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.PullRefresh
+import com.arkhins.ctrlaps.ui.components.LoadingShape
+import com.arkhins.ctrlaps.ui.components.Snack
 import com.arkhins.ctrlaps.ui.theme.OnGold
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.TextLinkStyles
@@ -315,48 +318,54 @@ private fun ChatListPage(vm: AppViewModel, onOpen: (String) -> Unit, onNewChat: 
                 }
             }
         }
-        LazyColumn(Modifier.weight(1f).nestedScroll(pull), contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)) {
-            // A volunteer's group or a delegate's delegation, pinned above their chats.
-            item(key = "pinned-group") { PinnedGroup(vm, onOpen) }
-            when {
-                error != null && c == null -> item { Box(Modifier.padding(16.dp)) { ErrorText(error) } }
-                c == null || shown == null -> item { Loading() }
-                shown.isEmpty() -> item {
-                    Box(Modifier.padding(16.dp)) {
-                        Empty(
-                            when {
-                                filter == "unread" -> "Nothing unread."
-                                filter == "groups" -> "No groups yet."
-                                canOpen -> "No chats yet. Tap the pencil to start one."
-                                else -> "No chats yet."
-                            },
-                        )
-                    }
-                }
-                else -> itemsIndexed(shown, key = { _, chat -> chat.id }) { i, chat ->
-                    if (i > 0) Box(Modifier.padding(start = 76.dp)) { Divider() }
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { onOpen(chat.id) }
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Avatar(app.api.absolute(chat.other.photoUrl), chat.other.name, 48)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(chat.other.name, style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                chat.lastStatus?.let { Ticks(it, tint = SnowFaint, modifier = Modifier.padding(end = 4.dp)) }
-                                PreviewLine(chat.lastMessage ?: chat.other.roleLabel, color = if (chat.unread > 0) Snow else SnowFaint, style = MaterialTheme.typography.bodySmall)
-                            }
+        PullRefresh(onRefresh = { vm.refreshAll() }, modifier = Modifier.weight(1f)) {
+            LazyColumn(Modifier.fillMaxSize().nestedScroll(pull), contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)) {
+                // A volunteer's group or a delegate's delegation, pinned above their chats.
+                item(key = "pinned-group") { PinnedGroup(vm, onOpen) }
+                when {
+                    error != null && c == null -> item { Box(Modifier.padding(16.dp)) { ErrorText(error) } }
+                    c == null || shown == null -> item { Loading() }
+                    shown.isEmpty() -> item {
+                        Box(Modifier.padding(16.dp)) {
+                            Empty(
+                                title = when (filter) { "unread" -> "All read"; "groups" -> "No groups yet"; else -> "No chats yet" },
+                                text = when {
+                                    filter == "unread" -> "Nothing waiting for you."
+                                    filter == "groups" -> "Groups you are in show here."
+                                    canOpen -> "Private chats and groups show here."
+                                    else -> "Chats show here once someone messages you."
+                                },
+                                icon = R.drawable.ic_tab_chat,
+                                action = if (canOpen && filter != "unread") "Start a chat" else null,
+                                onAction = onNewChat,
+                            )
                         }
-                        Column(horizontalAlignment = Alignment.End) {
-                            chat.lastMessageAt?.let { Text(whenLabel(it), style = MaterialTheme.typography.labelSmall, color = if (chat.unread > 0) Gold else SnowFaint) }
-                            if (chat.unread > 0) {
-                                Spacer(Modifier.height(4.dp))
-                                Box(Modifier.background(Gold, RoundedCornerShape(999.dp)).padding(horizontal = 7.dp, vertical = 2.dp)) {
-                                    Text("${chat.unread}", style = MaterialTheme.typography.labelSmall, color = OnGold)
+                    }
+                    else -> itemsIndexed(shown, key = { _, chat -> chat.id }) { i, chat ->
+                        if (i > 0) Box(Modifier.padding(start = 76.dp)) { Divider() }
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { onOpen(chat.id) }
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Avatar(app.api.absolute(chat.other.photoUrl), chat.other.name, 48)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(chat.other.name, style = MaterialTheme.typography.titleMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    chat.lastStatus?.let { Ticks(it, tint = SnowFaint, modifier = Modifier.padding(end = 4.dp)) }
+                                    PreviewLine(chat.lastMessage ?: chat.other.roleLabel, color = if (chat.unread > 0) Snow else SnowFaint, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                chat.lastMessageAt?.let { Text(whenLabel(it), style = MaterialTheme.typography.labelSmall, color = if (chat.unread > 0) Gold else SnowFaint) }
+                                if (chat.unread > 0) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Box(Modifier.background(Gold, RoundedCornerShape(999.dp)).padding(horizontal = 7.dp, vertical = 2.dp)) {
+                                        Text("${chat.unread}", style = MaterialTheme.typography.labelSmall, color = OnGold)
+                                    }
                                 }
                             }
                         }
@@ -696,7 +705,7 @@ fun ChatScreen(
                 app.api.post("/api/groups/invites/${inv.id}", InviteAnswer.serializer()) { put("accept", accept) }
                 reload++
                 if (accept) {
-                    Toast.makeText(context, "You joined ${inv.groupName}", Toast.LENGTH_SHORT).show()
+                    Snack.show("You joined ${inv.groupName}")
                     onOpenChat(inv.groupId)
                 }
             } catch (e: Exception) {
@@ -735,7 +744,7 @@ fun ChatScreen(
             val text = if (one != null) copyText(one)
             else chosen.sortedBy { it.createdAt }.joinToString("\n") { "[${logStamp(it.createdAt)}] ${if (it.mine) myName else it.sender?.name ?: "Unknown"}: ${copyText(it)}" }
             clipboard.setText(AnnotatedString(text))
-            Toast.makeText(context, if (one != null) "Copied" else "${chosen.size} messages copied", Toast.LENGTH_SHORT).show()
+            Snack.show(if (one != null) "Copied" else "${chosen.size} messages copied")
             selected = emptySet()
         }
         SelectionBar(
@@ -833,7 +842,7 @@ fun ChatScreen(
         LazyColumn(Modifier.weight(1f), state = list, reverseLayout = true, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             when {
                 error != null && d == null -> item { ErrorText(error) }
-                d == null -> item { Loading() }
+                d == null -> item { Loading(shape = LoadingShape.Bubbles) }
                 d.messages.isEmpty() && pending.isEmpty() -> item { Empty("No messages yet. Say hello.") }
                 else -> items(shown, key = { r -> if (r is ChatRow.Msg) r.run.first().id else "day-${(r as ChatRow.Day).label}" }) { r ->
                     when (r) {
@@ -991,37 +1000,35 @@ fun ChatScreen(
         }
     }
 
+    // Deleting: gone from the chat at once, with Undo on the message bar; the server hears when the bar goes.
     deleting?.let { chosen ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            containerColor = NightPanel,
-            title = { Text(if (chosen.size == 1) "Delete message?" else "Delete ${chosen.size} messages?", color = Snow) },
-            text = { Text(if (chosen.size == 1) "It will be deleted for both of you." else "They will be deleted for both of you.", color = SnowSoft) },
-            confirmButton = {
-                TextButton(onClick = {
-                    deleting = null
-                    selected = emptySet()
-                    val ids = chosen.map { it.id }.toSet()
-                    if (editing?.id in ids) editing = null
-                    if (replyTo?.id in ids) replyTo = null
-                    detail = detail?.let { it.copy(messages = it.messages.map { m -> if (m.id in ids) m.copy(body = "", file = null, files = emptyList(), deleted = true) else m }) }
-                    app.appScope.launch {
-                        // On the phone first (the chats list and Home follow at once), then the server.
-                        app.chatCache.deleteLocally(conversationId, ids)
-                        // All at once; each is its own request, so the order doesn't matter.
-                        val failed = chosen.map { m -> async { runCatching { app.api.delete("/api/messages/${m.id}") }.isFailure } }.awaitAll().count { it }
-                        // The server's copy says deleted now (or, for one that failed, not: it comes back, as it should).
-                        app.chatCache.deleteDone(ids)
-                        runCatching { app.chatCache.sync(conversationId, markRead = true) }.getOrNull()?.let { fresh -> withContext(Dispatchers.Main) { detail = fresh } }
-                        withContext(Dispatchers.Main) {
-                            if (failed > 0) actionError = if (failed == 1) "One message could not be deleted." else "$failed messages could not be deleted."
-                            reload++
-                        }
+        LaunchedEffect(chosen) {
+            deleting = null
+            selected = emptySet()
+            val ids = chosen.map { it.id }.toSet()
+            if (editing?.id in ids) editing = null
+            if (replyTo?.id in ids) replyTo = null
+            val before = chosen.associateBy { it.id }
+            detail = detail?.let { it.copy(messages = it.messages.map { m -> if (m.id in ids) m.copy(body = "", file = null, files = emptyList(), deleted = true) else m }) }
+            Snack.undo(
+                if (chosen.size == 1) "Message deleted" else "${chosen.size} messages deleted",
+                onUndo = { detail = detail?.let { it.copy(messages = it.messages.map { m -> before[m.id] ?: m }) } },
+            ) {
+                app.appScope.launch {
+                    // On the phone first (the chats list and Home follow at once), then the server.
+                    app.chatCache.deleteLocally(conversationId, ids)
+                    // All at once; each is its own request, so the order doesn't matter.
+                    val failed = chosen.map { m -> async { runCatching { app.api.delete("/api/messages/${m.id}") }.isFailure } }.awaitAll().count { it }
+                    // The server's copy says deleted now (or, for one that failed, not: it comes back, as it should).
+                    app.chatCache.deleteDone(ids)
+                    runCatching { app.chatCache.sync(conversationId, markRead = true) }.getOrNull()?.let { fresh -> withContext(Dispatchers.Main) { detail = fresh } }
+                    withContext(Dispatchers.Main) {
+                        if (failed > 0) Snack.error(if (failed == 1) "One message could not be deleted." else "$failed messages could not be deleted.")
+                        reload++
                     }
-                }) { Text("Delete", color = Danger) }
-            },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel", color = SnowFaint) } },
-        )
+                }
+            }
+        }
     }
     exporting?.let { status ->
         AlertDialog(
@@ -1058,12 +1065,12 @@ fun ChatScreen(
         ForwardSheet(chosen.size, onDismiss = { forwarding = false }) { targets ->
             forwarding = false
             selected = emptySet()
-            Toast.makeText(context, if (targets.size == 1) "Forwarding to ${targets[0].other.name}" else "Forwarding to ${targets.size} chats", Toast.LENGTH_SHORT).show()
+            Snack.show(if (targets.size == 1) "Forwarding to ${targets[0].other.name}" else "Forwarding to ${targets.size} chats")
             // Each target chat gets a clock copy at once, swapped in place for the server's (see forwardMessages).
             app.appScope.launch {
                 val failed = forwardMessages(app.chatCache, app.api, chosen, targets.map { it.id })
                 withContext(Dispatchers.Main) {
-                    targets.filter { it.id in failed }.forEach { c -> Toast.makeText(context, "Could not forward to ${c.other.name}", Toast.LENGTH_SHORT).show() }
+                    targets.filter { it.id in failed }.forEach { c -> Snack.error("Could not forward to ${c.other.name}") }
                     if (targets.any { it.id == conversationId }) app.chatCache.peek(conversationId)?.let { detail = it }
                     reload++
                 }

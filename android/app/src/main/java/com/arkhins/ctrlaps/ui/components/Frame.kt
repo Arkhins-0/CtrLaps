@@ -167,7 +167,7 @@ private fun OfflineIcon() {
             .padding(end = 8.dp)
             .size(22.dp)
             .clickable {
-                Toast.makeText(context, "No connection. Showing what is saved on this phone.", Toast.LENGTH_SHORT).show()
+                Snack.error("No connection. Showing what is saved on this phone.")
                 app.appScope.launch { runCatching { app.api.getText("/api/health") } }
             },
     )
@@ -236,6 +236,11 @@ fun CountdownChip(onOpenWeekend: (String) -> Unit) {
  */
 @Composable
 fun BottomNav(current: String, unreadHome: Int, unreadChats: Int, photoUrl: String?, name: String, showChats: Boolean, onSelect: (String) -> Unit) {
+    // The message bar sits just above this bar while it shows.
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        Snack.overTabBar.value = true
+        onDispose { Snack.overTabBar.value = false }
+    }
     // No Chats tab for someone without chats: their channels are on Schedule and Home.
     val tabs = listOfNotNull(
         Triple("home", R.drawable.ic_tab_home, "Home"),

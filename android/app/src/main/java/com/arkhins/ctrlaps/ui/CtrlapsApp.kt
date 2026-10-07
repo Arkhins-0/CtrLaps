@@ -205,6 +205,8 @@ fun CtrlapsApp() {
 
         // A profile photo tapped anywhere, pulled up large.
         PhotoPreviewHost()
+        // The message bar (in place of toasts), over everything.
+        com.arkhins.ctrlaps.ui.components.SnackHost()
         // The first open after an update shows what changed; a newer release, if any, waits until that is closed.
         val whatsNew = vm.whatsNew
         if (whatsNew != null) {

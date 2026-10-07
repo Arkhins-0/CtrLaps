@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.Snack
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -73,7 +74,6 @@ fun NotificationsScreen() {
     val all by app.notificationLog.items.collectAsState()
     var kind by rememberSaveable { mutableStateOf<String?>(null) }
     var shown by rememberSaveable { mutableIntStateOf(FIRST) }
-    var clearing by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { app.notificationLog.markSeen() }
     LaunchedEffect(all.size) { if (all.isNotEmpty()) app.notificationLog.markSeen() }
 
@@ -97,7 +97,7 @@ fun NotificationsScreen() {
         }
         if (list.isEmpty()) {
             Box(Modifier.padding(16.dp)) {
-                Empty("Nothing yet. Messages, announcements, results and reminders the phone shows as notifications are kept here, so you can find one after swiping it away.")
+                Empty(title = "No notifications yet", icon = R.drawable.ic_bell, text = "Messages, announcements, results and reminders the phone shows as notifications are kept here, so you can find one after swiping it away.")
             }
             return@Column
         }
@@ -114,14 +114,12 @@ fun NotificationsScreen() {
                 }
             }
             item(key = "clear") {
-                if (clearing) {
-                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Clear all ${all.size}?", style = MaterialTheme.typography.bodyMedium, color = SnowSoft, modifier = Modifier.weight(1f))
-                        GhostButton("Cancel") { clearing = false }
-                        GhostButton("Clear", danger = true) { app.notificationLog.clear(); clearing = false; kind = null }
-                    }
-                } else {
-                    GhostButton("Clear all", Modifier.fillMaxWidth().padding(top = 8.dp)) { clearing = true }
+                // Cleared at once; Undo on the message bar puts them all back.
+                GhostButton("Clear all", Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    val kept = all
+                    app.notificationLog.clear()
+                    kind = null
+                    Snack.undo("${kept.size} notifications cleared", onUndo = { app.notificationLog.restore(kept) }) {}
                 }
             }
         }

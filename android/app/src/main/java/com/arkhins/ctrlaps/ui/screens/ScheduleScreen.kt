@@ -1,5 +1,9 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.widgets.Widgets
+import com.arkhins.ctrlaps.reminders.SessionReminders
+import com.arkhins.ctrlaps.ui.components.PullRefresh
+import com.arkhins.ctrlaps.ui.components.Snack
 import com.arkhins.ctrlaps.data.Category
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
@@ -134,37 +138,50 @@ fun ScheduleScreen(isAdmin: Boolean, onOpenWeekend: (String) -> Unit, onArchive:
             weekends = r.weekends
             categories = r.categories
             error = null
+            // Sessions moved or added: the reminders and the Next session widget follow.
+            SessionReminders.resync(app)
+            Widgets.refresh(app)
         } catch (e: Exception) {
             if (weekends == null) error = e.message
         }
     }
 
     val w = weekends
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item { SeasonHeader(seasons, isAdmin, onArchive = onArchive, onStandings = onStandings, onChanged = { reload++ }) }
-        item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                GroupTitle("Race weekends", w?.size, Modifier.weight(1f))
-                if (isAdmin) IconAction(Icons.Outlined.Add, "New race weekend", Gold) { creating = true }
+    PullRefresh(onRefresh = { reload++ }, modifier = Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { SeasonHeader(seasons, isAdmin, onArchive = onArchive, onStandings = onStandings, onChanged = { reload++ }) }
+            item {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    GroupTitle("Race weekends", w?.size, Modifier.weight(1f))
+                    if (isAdmin) IconAction(Icons.Outlined.Add, "New race weekend", Gold) { creating = true }
+                }
             }
-        }
-        val currentSeason = seasons.firstOrNull { it.current }?.id ?: w?.firstOrNull()?.seasonId
-        val chips = categories.filter { it.seasonId == currentSeason }
-        if (chips.isNotEmpty()) item { CategoryChips(chips, filter, hasMine = !mine.isNullOrEmpty()) { filter = it } }
-        // A weekend that lists no categories is for everyone.
-        val shown = w?.filter { wk -> only == null || wk.categoryIds.isEmpty() || wk.categoryIds.any { it in only } || wk.sessions.any { it.categoryId in only } }
-        when {
-            error != null && w == null -> item { ErrorText(error) }
-            w == null || shown == null -> item { Loading() }
-            w.isEmpty() -> item { Empty(if (isAdmin) "No race weekend yet. Create the first one." else "No race weekend has been scheduled yet.") }
-            shown.isEmpty() -> item { Empty("No weekend has this category yet.") }
-            else -> {
-                val groups = shown.groupBy { it.seasonName ?: "" }
-                groups.forEach { (seasonName, list) ->
-                    if (seasonName.isNotBlank() && groups.size > 1) item(key = "season-$seasonName") { GroupTitle(seasonName) }
-                    itemsIndexed(list, key = { _, it -> it.id }) { i, weekend ->
-                        if (i > 0) Divider()
-                        WeekendCard(weekend, isAdmin, onOpen = { onOpenWeekend(weekend.id) }, onChanged = { reload++ }, categories = categories, only = only, editTimes = editTimes)
+            val currentSeason = seasons.firstOrNull { it.current }?.id ?: w?.firstOrNull()?.seasonId
+            val chips = categories.filter { it.seasonId == currentSeason }
+            if (chips.isNotEmpty()) item { CategoryChips(chips, filter, hasMine = !mine.isNullOrEmpty()) { filter = it } }
+            // A weekend that lists no categories is for everyone.
+            val shown = w?.filter { wk -> only == null || wk.categoryIds.isEmpty() || wk.categoryIds.any { it in only } || wk.sessions.any { it.categoryId in only } }
+            when {
+                error != null && w == null -> item { ErrorText(error) }
+                w == null || shown == null -> item { Loading() }
+                w.isEmpty() -> item {
+                    Empty(
+                        if (isAdmin) "Add the season's first round: its venue, dates and categories." else "Race weekends show here once they are scheduled.",
+                        title = "No race weekends yet",
+                        icon = R.drawable.ic_tab_calendar,
+                        action = if (isAdmin) "Add a race weekend" else null,
+                        onAction = { creating = true },
+                    )
+                }
+                shown.isEmpty() -> item { Empty("Pick another category, or All.", title = "No weekend runs this category yet", icon = R.drawable.ic_tab_calendar) }
+                else -> {
+                    val groups = shown.groupBy { it.seasonName ?: "" }
+                    groups.forEach { (seasonName, list) ->
+                        if (seasonName.isNotBlank() && groups.size > 1) item(key = "season-$seasonName") { GroupTitle(seasonName) }
+                        itemsIndexed(list, key = { _, it -> it.id }) { i, weekend ->
+                            if (i > 0) Divider()
+                            WeekendCard(weekend, isAdmin, onOpen = { onOpenWeekend(weekend.id) }, onChanged = { reload++ }, categories = categories, only = only, editTimes = editTimes)
+                        }
                     }
                 }
             }
@@ -360,7 +377,9 @@ fun WeekendCard(
     val now = System.currentTimeMillis()
     val byId = categories.associateBy { it.id }
     val running = w.categoryIds.mapNotNull { byId[it] }
-    val sessions = if (only == null) w.sessions else w.sessions.filter { it.categoryId == null || it.categoryId in only }
+    // A session being removed is hidden at once; Undo brings it back, otherwise it goes (and everyone is told) when the bar does.
+    var removing by remember { mutableStateOf(setOf<String>()) }
+    val sessions = (if (only == null) w.sessions else w.sessions.filter { it.categoryId == null || it.categoryId in only }).filter { it.id !in removing }
     val past = runCatching { java.time.LocalDate.parse(w.endsOn).isBefore(java.time.LocalDate.now()) }.getOrDefault(false)
     // The track's own clock is shown only when it isn't the phone's.
     val otherZone = differsFromPhone(w.timezone, w.startsOn)
@@ -475,7 +494,19 @@ fun WeekendCard(
         }
     }
     if (editing != null || adding) {
-        SessionDialog(w, editing, categories, timesOnly = !isAdmin, onDismiss = { editing = null; adding = false }, onSaved = { editing = null; adding = false; onChanged() })
+        SessionDialog(
+            w, editing, categories, timesOnly = !isAdmin,
+            onDismiss = { editing = null; adding = false },
+            onSaved = { editing = null; adding = false; onChanged() },
+            onDelete = { gone ->
+                editing = null
+                removing = removing + gone.id
+                Snack.undo("${gone.name} removed", onUndo = { removing = removing - gone.id }, onFailed = { removing = removing - gone.id; Snack.error(it.message ?: "Could not remove it.") }) {
+                    app.api.delete("/api/weekends/${w.id}/sessions?session=${gone.id}")
+                    onChanged()
+                }
+            },
+        )
     }
     if (editingWeekend) {
         WeekendDialog(w, emptyList(), categories, onDismiss = { editingWeekend = false }, onSaved = { editingWeekend = false; onChanged() })
@@ -629,11 +660,11 @@ private fun parseSessionName(name: String, codes: List<String>, exact: Boolean):
  * Add or change a session: its name on two wheels (the kind — Briefing, Practice, Qualifying, Race… — and a number, or
  * none), start and end as the track's wall clock, and its category. Picking Practice, Qualifying or Race takes the
  * next number not used in the weekend for that category; other kinds start with none. Saving a name the weekend
- * already has asks first. An admin can delete the session from here. Saving tells everyone.
+ * already has asks first. An admin can delete the session from here (with Undo on the message bar). Saving tells everyone.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SessionDialog(w: Weekend, session: RaceSession?, categories: List<Category>, timesOnly: Boolean = false, onDismiss: () -> Unit, onSaved: () -> Unit) {
+private fun SessionDialog(w: Weekend, session: RaceSession?, categories: List<Category>, timesOnly: Boolean = false, onDismiss: () -> Unit, onSaved: () -> Unit, onDelete: (RaceSession) -> Unit = {}) {
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     val codes = remember(categories) { categories.map { it.code } }
@@ -646,7 +677,6 @@ private fun SessionDialog(w: Weekend, session: RaceSession?, categories: List<Ca
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var askDuplicate by remember { mutableStateOf(false) }
-    var askDelete by remember { mutableStateOf(false) }
 
     // The other sessions of the weekend in the same category.
     fun others(cat: String?) = w.sessions.filter { it.id != session?.id && it.categoryId == cat }
@@ -745,7 +775,7 @@ private fun SessionDialog(w: Weekend, session: RaceSession?, categories: List<Ca
         },
         dismissButton = {
             Row {
-                if (session != null && !timesOnly) TextButton(onClick = { askDelete = true }, enabled = !busy) { Text("Delete", color = Danger) }
+                if (session != null && !timesOnly) TextButton(onClick = { onDelete(session) }, enabled = !busy) { Text("Delete", color = Danger) }
                 TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") }
             }
         },
@@ -761,30 +791,6 @@ private fun SessionDialog(w: Weekend, session: RaceSession?, categories: List<Ca
             },
             confirmButton = { TextButton(onClick = { askDuplicate = false; save() }) { Text("Save anyway", color = Gold) } },
             dismissButton = { TextButton(onClick = { askDuplicate = false }) { Text("Change it") } },
-        )
-    }
-    if (askDelete && session != null) {
-        AlertDialog(
-            onDismissRequest = { askDelete = false },
-            containerColor = NightPanel,
-            title = { Text("Delete ${session.name}?", style = MaterialTheme.typography.headlineSmall) },
-            text = { Text("Its results go with it, and everyone gets a notice that it was removed.", color = SnowSoft) },
-            confirmButton = {
-                TextButton(onClick = {
-                    askDelete = false
-                    busy = true
-                    scope.launch {
-                        try {
-                            app.api.delete("/api/weekends/${w.id}/sessions?session=${session.id}")
-                            onSaved()
-                        } catch (e: Exception) {
-                            error = e.message ?: "Could not delete."
-                            busy = false
-                        }
-                    }
-                }) { Text("Delete", color = Danger) }
-            },
-            dismissButton = { TextButton(onClick = { askDelete = false }) { Text("Cancel") } },
         )
     }
 }

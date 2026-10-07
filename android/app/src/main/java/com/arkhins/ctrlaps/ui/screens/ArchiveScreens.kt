@@ -104,7 +104,7 @@ fun ArchiveScreen(onOpen: (String) -> Unit) {
             else -> {
                 val archived = s.filter { it.status == "archived" }
                 val active = s.filter { it.status == "active" }
-                if (archived.isEmpty()) item { Empty("No season has been archived yet.") }
+                if (archived.isEmpty()) item { Empty("A season moves here, read-only, when a new one becomes current.", title = "No archived seasons", icon = R.drawable.ic_archive) }
                 else item { SeasonList("ARCHIVED", archived, onOpen) }
                 if (active.isNotEmpty()) item { SeasonList("CURRENT", active, onOpen) }
             }
@@ -212,8 +212,8 @@ fun SeasonArchiveScreen(vm: AppViewModel, seasonId: String, onView: (FileView) -
             onDelete = { confirmDelete = true },
         )
         Part.Announcements -> MessageList(a.announcements, onView)
-        is Part.Weekend -> a.weekends.firstOrNull { it.id == p.id }?.let { WeekendPart(it, onView) } ?: Empty("Gone.")
-        is Part.Chat -> a.chats.firstOrNull { it.other.id == p.otherId }?.let { ChatPart(it, onView) } ?: Empty("Gone.")
+        is Part.Weekend -> a.weekends.firstOrNull { it.id == p.id }?.let { WeekendPart(it, onView) } ?: Empty("This race weekend is no longer in the archive.")
+        is Part.Chat -> a.chats.firstOrNull { it.other.id == p.otherId }?.let { ChatPart(it, onView) } ?: Empty("This chat is no longer in the archive.")
     }
 
     if (confirmDelete) {
@@ -287,7 +287,7 @@ private fun Overview(
         }
 
         item { SectionTitle("RACE WEEKENDS") }
-        if (a.weekends.isEmpty()) item { Empty("None.") }
+        if (a.weekends.isEmpty()) item { Empty("This season had no race weekends.") }
         else item {
             Panel(padding = PaddingValues(6.dp)) {
                 Column {
@@ -331,7 +331,7 @@ private fun Overview(
         }
 
         item { SectionTitle("PRIVATE CHATS") }
-        if (a.chats.isEmpty()) item { Empty("None.") }
+        if (a.chats.isEmpty()) item { Empty("No chats were kept from this season.") }
         else item {
             Panel(padding = PaddingValues(6.dp)) {
                 Column {
@@ -390,7 +390,7 @@ private fun WeekendPart(w: ArchivedWeekend, onView: (FileView) -> Unit) {
 @Composable
 private fun MessageList(list: List<ArchivedMessage>, onView: (FileView) -> Unit) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (list.isEmpty()) item { Empty("None.") }
+        if (list.isEmpty()) item { Empty("Nothing was kept here.") }
         items(list.reversed(), key = { it.id }) { m -> ArchivedLine(m, onView) }
     }
 }

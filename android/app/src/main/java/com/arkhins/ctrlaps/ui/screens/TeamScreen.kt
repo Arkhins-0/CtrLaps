@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.LoadingShape
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -145,7 +146,7 @@ fun TeamScreen(teamId: String, onTitle: (String) -> Unit) {
     val d = data
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
         if (d == null) {
-            item { if (error != null) ErrorText(error) else Loading() }
+            item { if (error != null) ErrorText(error) else Loading(shape = LoadingShape.Banner) }
             return@LazyColumn
         }
         val codes = d.categories.joinToString(", ") { it.code }

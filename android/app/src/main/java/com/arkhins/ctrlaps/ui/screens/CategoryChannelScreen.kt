@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.Snack
 import com.arkhins.ctrlaps.data.MuteResponse
 import com.arkhins.ctrlaps.ui.components.MuteChip
 import com.arkhins.ctrlaps.ui.components.toggleMute
@@ -111,7 +112,7 @@ fun CategoryChannelScreen(vm: AppViewModel, categoryId: String, onView: (FileVie
                                     } catch (e: Exception) {
                                         e.message ?: "Could not change the channel."
                                     }
-                                    android.widget.Toast.makeText(context, toast, android.widget.Toast.LENGTH_SHORT).show()
+                                    Snack.show(toast)
                                 }
                             }
                         }

@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.Snack
 import com.arkhins.ctrlaps.ui.bytes
 import com.arkhins.ctrlaps.ui.components.BlurredPhoto
 import com.arkhins.ctrlaps.ui.components.DownloadPill
@@ -235,7 +236,7 @@ fun GalleryScreen(
                             if (failed == 0) {
                                 onDone()
                             } else {
-                                Toast.makeText(context, "Could not delete ${if (failed == 1) "a photo" else "$failed photos"}.", Toast.LENGTH_SHORT).show()
+                                Snack.error("Could not delete ${if (failed == 1) "a photo" else "$failed photos"}.")
                             }
                         }
                     }
@@ -250,7 +251,7 @@ fun GalleryScreen(
         ForwardSheet(chosen.size, onDismiss = { forwarding = false }, what = if (chosen.size == 1) "photo" else "${chosen.size} photos") { targets ->
             forwarding = false
             selected = emptySet()
-            Toast.makeText(context, if (targets.size == 1) "Forwarding to ${targets[0].other.name}" else "Forwarding to ${targets.size} chats", Toast.LENGTH_SHORT).show()
+            Snack.show(if (targets.size == 1) "Forwarding to ${targets[0].other.name}" else "Forwarding to ${targets.size} chats")
             // As in a chat: each target gets a clock copy at once, swapped in place for the server's (see forwardMessages).
             app.appScope.launch {
                 val ids = targets.map { it.id }
@@ -262,7 +263,7 @@ fun GalleryScreen(
                     forwardMessages(app.chatCache, app.api, chosen.map { it.message }.distinctBy { it.id }, ids)
                 }
                 withContext(Dispatchers.Main) {
-                    targets.filter { it.id in failed }.forEach { c -> Toast.makeText(context, "Could not forward to ${c.other.name}", Toast.LENGTH_SHORT).show() }
+                    targets.filter { it.id in failed }.forEach { c -> Snack.error("Could not forward to ${c.other.name}") }
                 }
             }
         }

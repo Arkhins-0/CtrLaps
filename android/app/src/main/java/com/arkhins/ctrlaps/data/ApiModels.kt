@@ -891,3 +891,10 @@ data class TeamResult(
 
 @Serializable
 data class PhotoUrlResponse(val photoUrl: String? = null)
+
+/** Which notifications you hear about (urgent ones always come). */
+@Serializable
+data class PushPreferencesResponse(val kinds: List<PushKindSetting> = emptyList())
+
+@Serializable
+data class PushKindSetting(val key: String, val label: String, val hint: String = "", val on: Boolean = true)

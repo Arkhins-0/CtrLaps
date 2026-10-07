@@ -44,5 +44,5 @@ suspend fun report(context: Context, results: List<Result<Saver.Saved>>) {
         failed > 0 -> "Saved to $folders · $failed could not be saved"
         else -> "Saved to $folders"
     }
-    withContext(Dispatchers.Main) { Toast.makeText(context, text, Toast.LENGTH_SHORT).show() }
+    withContext(Dispatchers.Main) { Snack.show(text) }
 }

@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.PullRefresh
+import com.arkhins.ctrlaps.ui.components.LoadingShape
 import com.arkhins.ctrlaps.ui.theme.NightHigh
 import com.arkhins.ctrlaps.ui.components.CopyButton
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -193,7 +195,9 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
     var category by rememberSaveable { mutableStateOf("") }
     var team by rememberSaveable { mutableStateOf("") }
 
-    LaunchedEffect(Unit) {
+    // Pulling the list down asks for it again.
+    var reload by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    LaunchedEffect(reload) {
         try {
             val r = app.store.get("/api/users", UsersResponse.serializer()) { people = it.users; roster = it.categories }
             people = r.users
@@ -215,136 +219,141 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
     val presentRoles = PEOPLE_GROUPS.filter { r -> people?.any { it.group == r } == true }
     // Each person's race category codes, for the line under their name.
     val codes = remember(roster) { roster.flatMap { c -> c.memberIds.map { it to c.code } }.groupBy({ it.first }, { it.second }) }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
-        item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                SearchPill(query, "Name, designation or team", Modifier.weight(1f)) { query = it }
-                if (presentRoles.isNotEmpty()) {
-                    Box {
-                        IconAction(painterResource(R.drawable.ic_filter), "Filter by role", Gold) { filterMenu = true }
-                        DropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }, containerColor = NightPanel) {
-                            DropdownMenuItem(
-                                text = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Checkbox(
-                                            checked = starredOnly,
-                                            onCheckedChange = null,
-                                            colors = CheckboxDefaults.colors(checkedColor = Gold, checkmarkColor = OnGold, uncheckedColor = SnowFaint),
-                                        )
-                                        Spacer(Modifier.width(10.dp))
-                                        Icon(painterResource(R.drawable.ic_star), contentDescription = null, tint = Gold, modifier = Modifier.size(16.dp))
-                                        Spacer(Modifier.width(6.dp))
-                                        Text("Starred only", color = Snow)
-                                    }
-                                },
-                                onClick = { starredOnly = !starredOnly },
-                            )
-                            HorizontalDivider(color = NightLine, modifier = Modifier.padding(vertical = 4.dp))
-                            Text("SHOW", style = MaterialTheme.typography.labelSmall, color = SnowFaint, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
-                            presentRoles.forEach { r ->
-                                val shown = r !in hiddenRoles
+    PullRefresh(onRefresh = { reload++ }, modifier = Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
+            item {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    SearchPill(query, "Name, designation or team", Modifier.weight(1f)) { query = it }
+                    if (presentRoles.isNotEmpty()) {
+                        Box {
+                            IconAction(painterResource(R.drawable.ic_filter), "Filter by role", Gold) { filterMenu = true }
+                            DropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }, containerColor = NightPanel) {
                                 DropdownMenuItem(
                                     text = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Checkbox(
-                                                checked = shown,
+                                                checked = starredOnly,
                                                 onCheckedChange = null,
                                                 colors = CheckboxDefaults.colors(checkedColor = Gold, checkmarkColor = OnGold, uncheckedColor = SnowFaint),
                                             )
                                             Spacer(Modifier.width(10.dp))
-                                            Text(ROLE_LABELS[r] ?: r, color = Snow)
+                                            Icon(painterResource(R.drawable.ic_star), contentDescription = null, tint = Gold, modifier = Modifier.size(16.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text("Starred only", color = Snow)
                                         }
                                     },
-                                    onClick = { hiddenRoles = if (shown) hiddenRoles + r else hiddenRoles - r },
+                                    onClick = { starredOnly = !starredOnly },
                                 )
-                            }
-                            // One category or one team at a time; tapping the chosen one again clears it.
-                            if (roster.isNotEmpty()) {
                                 HorizontalDivider(color = NightLine, modifier = Modifier.padding(vertical = 4.dp))
-                                Text("CATEGORY", style = MaterialTheme.typography.labelSmall, color = SnowFaint, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
-                                roster.forEach { c ->
-                                    val on = category == c.id
-                                    val color = runCatching { androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(c.color)) }.getOrDefault(Gold)
+                                Text("SHOW", style = MaterialTheme.typography.labelSmall, color = SnowFaint, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                                presentRoles.forEach { r ->
+                                    val shown = r !in hiddenRoles
                                     DropdownMenuItem(
                                         text = {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                                RadioButton(selected = on, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = Gold, unselectedColor = SnowFaint))
+                                                Checkbox(
+                                                    checked = shown,
+                                                    onCheckedChange = null,
+                                                    colors = CheckboxDefaults.colors(checkedColor = Gold, checkmarkColor = OnGold, uncheckedColor = SnowFaint),
+                                                )
                                                 Spacer(Modifier.width(10.dp))
-                                                Text(c.code, color = color, fontWeight = FontWeight.SemiBold)
-                                                Spacer(Modifier.width(6.dp))
-                                                Text(c.name, color = SnowSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                Text(ROLE_LABELS[r] ?: r, color = Snow)
                                             }
                                         },
-                                        onClick = { category = if (on) "" else c.id },
+                                        onClick = { hiddenRoles = if (shown) hiddenRoles + r else hiddenRoles - r },
                                     )
                                 }
-                            }
-                            if (teams.isNotEmpty()) {
-                                HorizontalDivider(color = NightLine, modifier = Modifier.padding(vertical = 4.dp))
-                                Text("TEAM", style = MaterialTheme.typography.labelSmall, color = SnowFaint, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
-                                teams.forEach { t ->
-                                    val on = team.equals(t, ignoreCase = true)
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                RadioButton(selected = on, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = Gold, unselectedColor = SnowFaint))
-                                                Spacer(Modifier.width(10.dp))
-                                                Text(t, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            }
-                                        },
-                                        onClick = { team = if (on) "" else t },
-                                    )
+                                // One category or one team at a time; tapping the chosen one again clears it.
+                                if (roster.isNotEmpty()) {
+                                    HorizontalDivider(color = NightLine, modifier = Modifier.padding(vertical = 4.dp))
+                                    Text("CATEGORY", style = MaterialTheme.typography.labelSmall, color = SnowFaint, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                                    roster.forEach { c ->
+                                        val on = category == c.id
+                                        val color = runCatching { androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(c.color)) }.getOrDefault(Gold)
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    RadioButton(selected = on, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = Gold, unselectedColor = SnowFaint))
+                                                    Spacer(Modifier.width(10.dp))
+                                                    Text(c.code, color = color, fontWeight = FontWeight.SemiBold)
+                                                    Spacer(Modifier.width(6.dp))
+                                                    Text(c.name, color = SnowSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                }
+                                            },
+                                            onClick = { category = if (on) "" else c.id },
+                                        )
+                                    }
+                                }
+                                if (teams.isNotEmpty()) {
+                                    HorizontalDivider(color = NightLine, modifier = Modifier.padding(vertical = 4.dp))
+                                    Text("TEAM", style = MaterialTheme.typography.labelSmall, color = SnowFaint, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                                    teams.forEach { t ->
+                                        val on = team.equals(t, ignoreCase = true)
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    RadioButton(selected = on, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = Gold, unselectedColor = SnowFaint))
+                                                    Spacer(Modifier.width(10.dp))
+                                                    Text(t, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                }
+                                            },
+                                            onClick = { team = if (on) "" else t },
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                if (canCreate) IconAction(Icons.Outlined.Add, "Add person", Gold, onClick = onAdd)
-                if (canEmail) {
-                    Box {
-                        IconAction(Icons.Outlined.Email, "Email", Danger) {
-                            if (me?.canBulkEmail == true) onEmail(null) else mailMenu = true
-                        }
-                        DropdownMenu(expanded = mailMenu, onDismissRequest = { mailMenu = false }, containerColor = NightPanel) {
-                            DropdownMenuItem(text = { Text("Email volunteers", color = Snow) }, onClick = { mailMenu = false; onEmail("volunteers") })
-                            DropdownMenuItem(text = { Text("Email security", color = Snow) }, onClick = { mailMenu = false; onEmail("security") })
+                    if (canCreate) IconAction(Icons.Outlined.Add, "Add person", Gold, onClick = onAdd)
+                    if (canEmail) {
+                        Box {
+                            IconAction(Icons.Outlined.Email, "Email", Danger) {
+                                if (me?.canBulkEmail == true) onEmail(null) else mailMenu = true
+                            }
+                            DropdownMenu(expanded = mailMenu, onDismissRequest = { mailMenu = false }, containerColor = NightPanel) {
+                                DropdownMenuItem(text = { Text("Email volunteers", color = Snow) }, onClick = { mailMenu = false; onEmail("volunteers") })
+                                DropdownMenuItem(text = { Text("Email security", color = Snow) }, onClick = { mailMenu = false; onEmail("security") })
+                            }
                         }
                     }
                 }
             }
-        }
-        // What the filter narrows to, each with a tap to take it off.
-        val cat = roster.firstOrNull { it.id == category }
-        if (starredOnly || cat != null || team.isNotBlank()) {
-            item {
-                @OptIn(ExperimentalLayoutApi::class)
-                FlowRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (starredOnly) Chip("Starred  ✕", Gold, filled = true) { starredOnly = false }
-                    if (cat != null) Chip("${cat.code}  ✕", Gold, filled = true) { category = "" }
-                    if (team.isNotBlank()) Chip("$team  ✕", Gold, filled = true) { team = "" }
+            // What the filter narrows to, each with a tap to take it off.
+            val cat = roster.firstOrNull { it.id == category }
+            if (starredOnly || cat != null || team.isNotBlank()) {
+                item {
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (starredOnly) Chip("Starred  ✕", Gold, filled = true) { starredOnly = false }
+                        if (cat != null) Chip("${cat.code}  ✕", Gold, filled = true) { category = "" }
+                        if (team.isNotBlank()) Chip("$team  ✕", Gold, filled = true) { team = "" }
+                    }
                 }
             }
-        }
-        item { Spacer(Modifier.height(8.dp)) }
-        when {
-            error != null && p == null -> item { ErrorText(error) }
-            p == null -> item { Loading() }
-            p.isEmpty() -> item {
-                Empty(
-                    when {
-                        people?.isEmpty() == true -> if (canCreate) "Nobody yet. Add the first person." else "Nobody reports to you."
-                        (category.isNotBlank() || team.isNotBlank()) && query.isBlank() -> "Nobody matches this category or team."
-                        starredOnly && query.isBlank() -> "No starred people here. Star someone from their page, or turn off Starred only."
-                        query.isBlank() -> "Everyone here is hidden by the filter. Tap the filter icon to show them."
-                        else -> "No one matches."
-                    },
-                )
-            }
-            else -> {
-                val groups = PEOPLE_GROUPS.mapNotNull { r -> p.filter { it.group == r }.takeIf { it.isNotEmpty() }?.let { r to it } }
-                groups.forEach { (role, list) ->
-                    item(key = "g-$role") { GroupTitle(rolePlural(role), list.size, Modifier.padding(top = 10.dp)) }
-                    items(list, key = { it.id }) { u -> PersonRow(app.api.absolute(u.photoUrl), u, u.id in starred, codes[u.id].orEmpty()) { onOpen(u.id) } }
+            item { Spacer(Modifier.height(8.dp)) }
+            when {
+                error != null && p == null -> item { ErrorText(error) }
+                p == null -> item { Loading() }
+                p.isEmpty() -> item {
+                    Empty(
+                        title = if (people?.isEmpty() == true) "Nobody here yet" else "No one to show",
+                        action = if (people?.isEmpty() == true && canCreate) "Add a person" else null,
+                        onAction = onAdd,
+                        text = when {
+                            people?.isEmpty() == true -> if (canCreate) "Invite people by email, or promote someone who registered." else "Nobody reports to you."
+                            (category.isNotBlank() || team.isNotBlank()) && query.isBlank() -> "Nobody matches this category or team."
+                            starredOnly && query.isBlank() -> "No starred people here. Star someone from their page, or turn off Starred only."
+                            query.isBlank() -> "Everyone here is hidden by the filter. Tap the filter icon to show them."
+                            else -> "No one matches."
+                        },
+                    )
+                }
+                else -> {
+                    val groups = PEOPLE_GROUPS.mapNotNull { r -> p.filter { it.group == r }.takeIf { it.isNotEmpty() }?.let { r to it } }
+                    groups.forEach { (role, list) ->
+                        item(key = "g-$role") { GroupTitle(rolePlural(role), list.size, Modifier.padding(top = 10.dp)) }
+                        items(list, key = { it.id }) { u -> PersonRow(app.api.absolute(u.photoUrl), u, u.id in starred, codes[u.id].orEmpty()) { onOpen(u.id) } }
+                    }
                 }
             }
         }
@@ -478,7 +487,7 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (d == null) {
-            item { if (error != null) ErrorText(error) else Loading() }
+            item { if (error != null) ErrorText(error) else Loading(shape = LoadingShape.Banner) }
             return@LazyColumn
         }
         val u = d.user

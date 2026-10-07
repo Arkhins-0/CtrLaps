@@ -1,5 +1,14 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.reminders.SessionReminderSettings
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.serialization.json.put
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
+import com.arkhins.ctrlaps.data.PushKindSetting
+import com.arkhins.ctrlaps.data.PushPreferencesResponse
+import com.arkhins.ctrlaps.ui.components.Snack
 import android.Manifest
 import android.app.NotificationManager
 import android.content.Context
@@ -82,6 +91,11 @@ fun NotificationSettingsScreen(onHistory: () -> Unit, onPermissions: () -> Unit)
         if (!granted) runCatching { context.startActivity(appNotificationPage(context)) }
     }
     val history by app.notificationLog.items.collectAsState()
+    val scope = rememberCoroutineScope()
+    var prefs by remember { mutableStateOf<List<PushKindSetting>?>(null) }
+    LaunchedEffect(Unit) {
+        prefs = runCatching { app.store.get("/api/me/push-preferences", PushPreferencesResponse.serializer()) { if (prefs == null) prefs = it.kinds }.kinds }.getOrNull() ?: prefs
+    }
 
     // Read fresh on every look (cheap: a few system calls).
     val state = remember(looked) { PopupState.of(context) }
@@ -122,6 +136,30 @@ fun NotificationSettingsScreen(onHistory: () -> Unit, onPermissions: () -> Unit)
             ) { runCatching { context.startActivity(channelPage(context, id)) }.onFailure { runCatching { context.startActivity(appNotificationPage(context)) } } }
         }
 
+        // Which kinds pop up at all: kept on the server, so every phone and the website follow it.
+        GroupTitle("What you hear about", modifier = Modifier.padding(top = 12.dp))
+        val kinds = prefs
+        if (kinds == null) Text("Loading…", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+        kinds?.forEach { k ->
+            StateRow(KIND_ICONS[k.key] ?: R.drawable.ic_bell, k.label, k.hint, on = k.on, dim = !state.enabled, onChange = true) {
+                val next = !k.on
+                prefs = kinds.map { if (it.key == k.key) it.copy(on = next) else it }
+                scope.launch {
+                    runCatching { app.api.put("/api/me/push-preferences", PushPreferencesResponse.serializer()) { put("kind", k.key); put("enabled", next) } }
+                        .onSuccess { prefs = it.kinds }
+                        .onFailure {
+                            prefs = kinds
+                            Snack.error(it.message ?: "Couldn't save that. Try again.")
+                        }
+                }
+            }
+        }
+        Text("Urgent messages always come. Messages still arrive in the app; this is only the popup.", style = MaterialTheme.typography.bodySmall, color = SnowFaint)
+
+        // Reminders before each session, set on the phone itself so they come offline too.
+        GroupTitle("Race reminders", modifier = Modifier.padding(top = 12.dp))
+        SessionReminderSettings()
+
         GroupTitle("Arriving on time", modifier = Modifier.padding(top = 12.dp))
         MenuRow(
             "Background access",
@@ -138,10 +176,10 @@ fun NotificationSettingsScreen(onHistory: () -> Unit, onPermissions: () -> Unit)
             arrow = false,
         ) {
             if (!state.enabled) {
-                Toast.makeText(context, "Notifications are off. Switch them on first.", Toast.LENGTH_SHORT).show()
+                Snack.show("Notifications are off. Switch them on first.")
             } else {
                 Notifications.sendTest(context)
-                Toast.makeText(context, "Sent 3 test notifications", Toast.LENGTH_SHORT).show()
+                Snack.show("Sent 3 test notifications")
             }
         }
 
@@ -175,6 +213,9 @@ private data class PopupState(val enabled: Boolean, val channelOn: Map<String, B
     }
 }
 
+/** Each kind's icon, as the phone's own channels have them. */
+private val KIND_ICONS = mapOf("chats" to R.drawable.ic_tab_chat, "announcements" to R.drawable.ic_campaign, "channels" to R.drawable.ic_tab_calendar, "results" to R.drawable.ic_trophy)
+
 private fun appNotificationPage(context: Context) =
     Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
 
@@ -189,7 +230,7 @@ private fun channelPage(context: Context, channel: String) =
  * whole app's notifications are off, so a kind can't be on.
  */
 @Composable
-private fun StateRow(icon: Int, title: String, hint: String, warning: String? = null, on: Boolean, dim: Boolean = false, onClick: () -> Unit) {
+private fun StateRow(icon: Int, title: String, hint: String, warning: String? = null, on: Boolean, dim: Boolean = false, onChange: Boolean = false, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -202,9 +243,10 @@ private fun StateRow(icon: Int, title: String, hint: String, warning: String? = 
             if (warning != null) Text(warning, style = MaterialTheme.typography.bodySmall, color = Danger, modifier = Modifier.padding(top = 2.dp))
         }
         Spacer(Modifier.width(12.dp))
+        // Shows the phone's state (the row opens its page), or for a choice of ours, switches it.
         Switch(
             checked = on,
-            onCheckedChange = null,
+            onCheckedChange = if (onChange) ({ onClick() }) else null,
             enabled = !dim,
             modifier = Modifier.semantics { contentDescription = if (on) "On" else "Off" },
             colors = SwitchDefaults.colors(

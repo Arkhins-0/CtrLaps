@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.Snack
 import com.arkhins.ctrlaps.data.CategoryChannel
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -196,7 +197,7 @@ internal fun ChannelMenu(name: String, open: Boolean, locked: Boolean, managersU
             app.appScope.launch {
                 val saved = runCatching { app.api.put(managersUrl, ManagersResponse.serializer()) { putJsonArray("userIds") { ids.forEach { add(it) } } } }
                 withContext(Dispatchers.Main) {
-                    android.widget.Toast.makeText(context, if (saved.isSuccess) "Managers saved" else "Couldn't save the managers. Try again.", android.widget.Toast.LENGTH_SHORT).show()
+                    Snack.show(if (saved.isSuccess) "Managers saved" else "Couldn't save the managers. Try again.")
                 }
             }
         }

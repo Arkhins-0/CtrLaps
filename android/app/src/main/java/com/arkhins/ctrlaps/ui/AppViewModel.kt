@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui
 
+import com.arkhins.ctrlaps.widgets.Widgets
+import com.arkhins.ctrlaps.reminders.SessionReminders
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,6 +78,11 @@ class AppViewModel(private val app: CtrlapsApplication) : ViewModel() {
     var refreshTick: Int by mutableStateOf(0)
         private set
 
+    /** A pull down on a list: every list on screen fetches again. */
+    fun refreshAll() {
+        refreshTick++
+    }
+
     /** Bumps when a private chat changed (a message, an edit, ticks): the chats list reloads. */
     var chatTick: Int by mutableStateOf(0)
         private set
@@ -119,6 +126,9 @@ class AppViewModel(private val app: CtrlapsApplication) : ViewModel() {
                 unreadChats = m.unreadChats
                 gate = if (m.user.profileComplete) Gate.Ready else Gate.Onboarding
                 registerPush()
+                // Signed in (or still): reminders for their sessions, and the widgets for them.
+                SessionReminders.resync(app)
+                Widgets.refresh(app)
             } catch (e: ApiException) {
                 if (e.code == 401 || e.code == 403) signOutLocally(wipe = e.reason == "banned")
                 else if (gate == Gate.Loading) gate = Gate.Ready
@@ -167,6 +177,9 @@ class AppViewModel(private val app: CtrlapsApplication) : ViewModel() {
         unreadHome = 0
         unreadChats = 0
         gate = Gate.SignedOut
+        // Signed out: no reminders, and the widgets ask to sign in.
+        SessionReminders.resync(app)
+        Widgets.refresh(app)
     }
 
     private fun registerPush() {
@@ -356,6 +369,8 @@ class AppViewModel(private val app: CtrlapsApplication) : ViewModel() {
     // Last, on purpose: an init block runs in declaration order, so it must
     // come after every property above has been initialised.
     init {
+        // The Unread chats widget follows the count wherever it changes.
+        viewModelScope.launch { androidx.compose.runtime.snapshotFlow { unreadChats }.collect { Widgets.unreadChats(app, it) } }
         refreshMe()
         checkForUpdate()
         viewModelScope.launch { whatsNew = app.whatsNew.afterUpdate(app.updates) }

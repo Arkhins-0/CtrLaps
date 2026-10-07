@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.SessionCountdown
+import com.arkhins.ctrlaps.ui.components.Snack
 import com.arkhins.ctrlaps.ui.theme.Night
 import com.arkhins.ctrlaps.ui.components.WeekendPhotoHeader
 import androidx.compose.foundation.layout.Arrangement
@@ -86,6 +88,11 @@ fun WeekendScreen(vm: AppViewModel, weekendId: String, onView: (FileView) -> Uni
             w == null -> item { Loading() }
             else -> {
                 item { WeekendPhotoHeader(weekendId, w.photoUrl, isAdmin = vm.me?.isAdmin == true, pageColor = Night) { reload++ } }
+                // The next session of the weekend, ticking down (or the one on now).
+                if (w.sessions.isNotEmpty()) item {
+                    val codes = (weekend?.categories ?: emptyList()).associate { it.id to it.code }
+                    SessionCountdown(w.sessions, label = { s -> listOfNotNull(s.categoryId?.let { codes[it] }, s.name).joinToString(" ") })
+                }
                 item { WeekendCard(w, isAdmin = vm.me?.isAdmin == true, editTimes = vm.me?.user?.role == "coordinator", onOpen = {}, onChanged = { reload++ }, startOpen = true, categories = weekend?.categories ?: emptyList()) }
                 val c = channel
                 item {
@@ -102,7 +109,7 @@ fun WeekendScreen(vm: AppViewModel, weekendId: String, onView: (FileView) -> Uni
                                     } catch (e: Exception) {
                                         e.message ?: "Could not change the channel."
                                     }
-                                    android.widget.Toast.makeText(context, toast, android.widget.Toast.LENGTH_SHORT).show()
+                                    Snack.show(toast)
                                 }
                             }
                         }

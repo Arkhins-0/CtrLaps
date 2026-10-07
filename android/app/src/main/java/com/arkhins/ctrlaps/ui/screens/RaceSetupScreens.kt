@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.Snack
 import com.arkhins.ctrlaps.ui.components.SaveProgress
 import com.arkhins.ctrlaps.ui.components.SaveBar
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
@@ -226,7 +227,7 @@ fun CategoriesEditorScreen(onSaved: () -> Unit) {
                                     }
                                 }
                                     .categories.let { saved -> rows = saved.map { CategoryDraft(it.id, it.name, it.code, it.color, it.scoring) }; original = rows.orEmpty() }
-                                android.widget.Toast.makeText(context, "Categories saved", android.widget.Toast.LENGTH_SHORT).show()
+                                Snack.show("Categories saved")
                                 onSaved()
                             } catch (e: Exception) {
                                 error = e.message ?: "Could not save."
@@ -428,7 +429,10 @@ fun TeamsScreen() {
         when {
             d == null && error == null -> item { Loading() }
             d != null -> {
-                if (shown.isNullOrEmpty()) item { Empty(if (d.teams.isEmpty()) "No teams yet. Tap + to add the first." else "No team matches.") }
+                if (shown.isNullOrEmpty()) item {
+                    if (d.teams.isEmpty()) Empty("Teams enter race categories, and their people carry the team.", title = "No teams yet", icon = R.drawable.ic_tab_people, action = "Add a team", onAction = { creating = true })
+                    else Empty("Try another name.", title = "No team matches")
+                }
                 shown?.let { list ->
                     item { GroupTitle("Teams", list.size) }
                     itemsIndexed(list, key = { _, t -> t.id }) { _, t ->

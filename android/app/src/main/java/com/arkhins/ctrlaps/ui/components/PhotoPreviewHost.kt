@@ -44,12 +44,11 @@ import com.arkhins.ctrlaps.ui.theme.SnowSoft
 
 /**
  * A photo pulled up: the name, the photo large (square, or 16:9 for a weekend), and Close. Those who may change it
- * also get Change (the gallery) and Remove (asks first) under it.
+ * also get Change (the gallery) and Remove (with Undo on the message bar) under it.
  */
 @Composable
 fun PhotoPreviewHost() {
     val view = PhotoPreview.shown.value ?: return
-    var askRemove by remember(view) { mutableStateOf(false) }
     val close = { PhotoPreview.shown.value = null }
     AboutSheet(view.name, onClose = close, expanded = true) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
@@ -68,26 +67,16 @@ fun PhotoPreviewHost() {
                             change()
                         }
                     }
-                    if (view.onRemove != null) PhotoAction(Icons.Outlined.Delete, "Remove", Danger, Modifier.weight(1f)) { askRemove = true }
+                    view.onRemove?.let { remove ->
+                        // Removed when the message bar goes, unless Undo is tapped.
+                        PhotoAction(Icons.Outlined.Delete, "Remove", Danger, Modifier.weight(1f)) {
+                            close()
+                            Snack.undo("Photo removed") { remove() }
+                        }
+                    }
                 }
             }
         }
-    }
-    if (askRemove) {
-        AlertDialog(
-            onDismissRequest = { askRemove = false },
-            containerColor = NightPanel,
-            title = { Text("Remove the photo?", color = Snow) },
-            text = { Text("${view.name} goes back to initials until a new photo is added.", color = SnowSoft) },
-            confirmButton = {
-                TextButton(onClick = {
-                    askRemove = false
-                    close()
-                    view.onRemove?.invoke()
-                }) { Text("Remove", color = Danger) }
-            },
-            dismissButton = { TextButton(onClick = { askRemove = false }) { Text("Cancel", color = SnowFaint) } },
-        )
     }
 }
 

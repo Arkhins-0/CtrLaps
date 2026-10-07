@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.LoadingShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -323,7 +324,7 @@ fun VolunteerGroupScreen(groupId: String, onGone: () -> Unit, onTitle: (String) 
     val d = g
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (d == null) {
-            item { if (error != null) ErrorText(error) else Loading() }
+            item { if (error != null) ErrorText(error) else Loading(shape = LoadingShape.Banner) }
             return@LazyColumn
         }
         item {
