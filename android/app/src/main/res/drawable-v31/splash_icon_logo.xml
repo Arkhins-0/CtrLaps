@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The badge placed in the splash icon's box (288dp, of which the device's icon mask shows the
+    centred 192dp). The system draws it at whatever size it likes, so the insets are fractions of
+    the box: the smallest circle around ctr_logo's visible pixels sits in the box's centre with a
+    94dp-equivalent radius, 2dp inside the mask, which makes the badge 164dp wide.
+-->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="21.56%"
+    android:insetTop="26.53%"
+    android:insetRight="21.46%"
+    android:insetBottom="17.26%">
+    <bitmap
+        android:antialias="true"
+        android:filter="true"
+        android:gravity="fill"
+        android:src="@drawable/ctr_logo" />
+</inset>
