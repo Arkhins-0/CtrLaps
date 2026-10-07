@@ -32,7 +32,7 @@ export function RegisterForm() {
           We sent a link to <span className="font-semibold text-snow">{email}</span>. Open it to confirm your email and create your account. It works for 24 hours.
         </p>
         <p className="text-xs text-snow-faint">Nothing arrived? Check your spam folder, or try again in a few minutes.</p>
-        <Link href="/" className="btn-ghost w-full">
+        <Link href="/login" className="btn-ghost w-full">
           Back to sign in
         </Link>
       </div>
@@ -52,7 +52,7 @@ export function RegisterForm() {
       <button className="btn-gold w-full" disabled={busy}>
         {busy ? "Sending…" : "Send the link"}
       </button>
-      <Link href="/" className="block text-center text-xs text-snow-faint hover:text-snow">
+      <Link href="/login" className="block text-center text-xs text-snow-faint hover:text-snow">
         Already have an account? Sign in
       </Link>
     </form>

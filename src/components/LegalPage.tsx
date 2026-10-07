@@ -78,7 +78,7 @@ export function LegalPage({ doc }: { doc: LegalDoc }) {
         <Link href="/terms" className="hover:text-snow">
           Terms and Conditions
         </Link>
-        <Link href="/" className="hover:text-snow">
+        <Link href="/login" className="hover:text-snow">
           Sign in
         </Link>
       </nav>

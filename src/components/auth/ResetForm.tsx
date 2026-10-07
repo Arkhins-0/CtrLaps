@@ -19,7 +19,7 @@ export function ResetForm({ token }: { token: string }) {
     return (
       <div className="space-y-4 text-sm text-snow-soft">
         <p>Your password is changed. Sign in with it on every device.</p>
-        <Link href="/" className="btn-gold w-full">
+        <Link href="/login" className="btn-gold w-full">
           Sign in
         </Link>
       </div>

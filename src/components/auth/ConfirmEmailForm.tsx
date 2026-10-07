@@ -44,7 +44,7 @@ export function ConfirmEmailForm({ token }: { token: string }) {
     return (
       <div className="space-y-4">
         <p className="error">{error}</p>
-        <Link href="/" className="btn-ghost w-full">
+        <Link href="/login" className="btn-ghost w-full">
           Back
         </Link>
       </div>

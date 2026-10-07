@@ -17,7 +17,7 @@ export default async function Help() {
       <div className="flex items-center gap-3">
         <Image src="/logo.png" alt="" width={40} height={39} priority />
         <span className="text-xl font-bold tracking-tight">{APP_NAME}</span>
-        <Link href="/" className="btn-ghost ml-auto px-4 py-1.5 text-xs">
+        <Link href="/login" className="btn-ghost ml-auto px-4 py-1.5 text-xs">
           Sign in
         </Link>
       </div>

@@ -21,7 +21,7 @@ export function ForgotForm() {
     return (
       <div className="space-y-4 text-sm text-snow-soft">
         <p>If that email has an account, a link to choose a new password is on its way. It works for 2 hours.</p>
-        <Link href="/" className="btn-ghost w-full">
+        <Link href="/login" className="btn-ghost w-full">
           Back to sign in
         </Link>
       </div>
@@ -39,7 +39,7 @@ export function ForgotForm() {
       <button className="btn-gold w-full" disabled={busy}>
         {busy ? "Sending…" : "Email me a link"}
       </button>
-      <Link href="/" className="block text-center text-xs text-snow-faint hover:text-snow">
+      <Link href="/login" className="block text-center text-xs text-snow-faint hover:text-snow">
         Back to sign in
       </Link>
     </form>

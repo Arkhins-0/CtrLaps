@@ -49,7 +49,7 @@ export async function requestDeletion(target: SessionUser, by: SessionUser): Pro
     "Your account will be deleted",
     "Your account will be deleted",
     `${by.id === target.id ? "You asked" : "We were asked"} to delete your CTR[L]APS account and the details we hold about you.\n\nIt will be deleted on ${when}. Until then you are signed out. If you change your mind, just sign in again before that date and the deletion is cancelled.`,
-    `${SITE_URL}/`,
+    `${SITE_URL}/login`,
     [],
     { eyebrow: "Account" },
   ).catch((error) => console.error("[deletion] request mail", error));
@@ -69,7 +69,7 @@ export async function cancelDeletion(userId: string, by: string | null): Promise
     "Your account won't be deleted",
     "Deletion cancelled",
     "Your CTR[L]APS account will not be deleted: you signed in again, or the request was withdrawn. Everything stays as it was.",
-    `${SITE_URL}/`,
+    `${SITE_URL}/login`,
     [],
     { eyebrow: "Account" },
   ).catch((error) => console.error("[deletion] cancel mail", error));

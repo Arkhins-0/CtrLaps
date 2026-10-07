@@ -34,7 +34,7 @@ export function DeleteMyAccount() {
     setError(null);
     try {
       await api("/api/me/delete", { method: "POST", json: { password, confirm } });
-      router.replace("/?deleted=1");
+      router.replace("/login?deleted=1");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not delete.");

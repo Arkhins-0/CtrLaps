@@ -6,7 +6,7 @@ import { currentUser, type SessionUser } from "./auth";
 /** Server components: the signed-in person, or off to the sign-in page. */
 export async function requireSession(): Promise<SessionUser> {
   const user = await currentUser();
-  if (!user) redirect("/");
+  if (!user) redirect("/login");
   return user;
 }
 

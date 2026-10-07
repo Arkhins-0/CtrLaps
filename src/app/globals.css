@@ -101,3 +101,34 @@
     @apply bubble rounded-bl-md border border-night-line bg-night-panel text-snow;
   }
 }
+
+/* The landing page: a soft gold glow, a faint grid that fades out, and the phone floating gently. */
+@layer utilities {
+  .hero-glow {
+    background:
+      radial-gradient(60% 50% at 75% 30%, rgb(255 209 0 / 0.16), transparent 70%),
+      radial-gradient(40% 35% at 15% 10%, rgb(224 168 0 / 0.1), transparent 70%);
+  }
+  .grid-fade {
+    background-image:
+      linear-gradient(to right, rgb(244 244 245 / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(244 244 245 / 0.05) 1px, transparent 1px);
+    background-size: 48px 48px;
+    -webkit-mask-image: radial-gradient(70% 60% at 50% 0%, black, transparent 75%);
+    mask-image: radial-gradient(70% 60% at 50% 0%, black, transparent 75%);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .float {
+      animation: float 7s ease-in-out infinite;
+    }
+  }
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+}

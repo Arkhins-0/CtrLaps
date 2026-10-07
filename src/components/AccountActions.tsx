@@ -14,7 +14,7 @@ export function AccountActions({ appVersion, isDev = false }: { appVersion: stri
 
   const signOut = async () => {
     await api("/api/auth/logout", { method: "POST", json: {} }).catch(() => null);
-    router.replace("/");
+    router.replace("/login");
     router.refresh();
   };
 

@@ -77,7 +77,7 @@ export const POST = handle(async (request) => {
       `You are now a ${ROLE_LABEL[role]} on ${APP_NAME}`,
       `You are now a ${ROLE_LABEL[role]}`,
       `${creator.name || creator.email} made you a ${ROLE_LABEL[role]} on ${APP_NAME}.`,
-      SITE_URL,
+      `${SITE_URL}/login`,
       [],
       { eyebrow: "Account" },
     ).catch((error) => console.error("[promote]", error));
