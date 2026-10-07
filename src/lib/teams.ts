@@ -4,25 +4,30 @@ import { one, q, run, tx } from "./db";
 import type { SessionUser } from "./auth";
 import { currentSeason } from "./seasons";
 import { categoriesOf, type Category } from "./categories";
+import { userPhotoUrl } from "./profile";
 
 /*
  * Teams as records, the race categories each is entered in (per season, through the categories), and the
  * categories a person races in or looks after. See wink-docs/13-race-categories-plan.md, step 2.
  */
 
-export type Team = { id: string; name: string; categoryIds: string[]; members: number };
+export type Team = { id: string; name: string; categoryIds: string[]; members: number; photoUrl: string | null };
+
+/** Where a team's photo is read from; the version changes whenever the photo does. */
+export const teamPhotoUrl = (id: string, key: string | null): string | null =>
+  key ? `/api/teams/${id}/photo?v=${encodeURIComponent(key.slice(key.lastIndexOf("/") + 1))}` : null;
 
 /** Every team, with its entries in this season and how many people carry it. */
 export async function listTeams(seasonId: string): Promise<Team[]> {
-  const rows = await q<{ id: string; name: string; category_ids: string[] | null; members: number }>(
-    `SELECT t.id, t.name,
+  const rows = await q<{ id: string; name: string; photo_key: string | null; category_ids: string[] | null; members: number }>(
+    `SELECT t.id, t.name, t.photo_key,
             (SELECT array_agg(te.category_id ORDER BY c.position) FROM team_entries te JOIN categories c ON c.id = te.category_id
               WHERE te.team_id = t.id AND c.season_id = $1) AS category_ids,
             (SELECT count(*)::int FROM users u WHERE u.team_id = t.id) AS members
      FROM teams t ORDER BY lower(t.name)`,
     [seasonId],
   );
-  return rows.map((r) => ({ id: r.id, name: r.name, categoryIds: r.category_ids ?? [], members: r.members }));
+  return rows.map((r) => ({ id: r.id, name: r.name, categoryIds: r.category_ids ?? [], members: r.members, photoUrl: teamPhotoUrl(r.id, r.photo_key) }));
 }
 
 /** Set a team's entries for a season: only that season's categories are touched. */
@@ -171,4 +176,102 @@ export async function categoryBadges(user: Pick<SessionUser, "id" | "role"> & { 
   if (!ids) return [];
   const all = await categoriesOf([(await currentSeason()).id]);
   return all.filter((c) => ids.includes(c.id));
+}
+
+/** Who may change a team's photo: admins, coordinators, and the team's own manager. */
+export async function canEditTeam(user: Pick<SessionUser, "id" | "role">, teamId: string): Promise<boolean> {
+  if (user.role === "admin" || user.role === "coordinator") return true;
+  if (user.role !== "team_manager") return false;
+  return Boolean(await one("SELECT 1 FROM users WHERE id = $1 AND team_id = $2", [user.id, teamId]));
+}
+
+export type TeamMember = { id: string; name: string; role: string; photoUrl: string | null; pending: boolean };
+export type TeamStandingLine = { category: Category; position: number; of: number; points: number; wins: number; podiums: number };
+export type TeamResult = {
+  sessionId: string;
+  sessionName: string;
+  weekendName: string;
+  categoryId: string | null;
+  startsAt: string;
+  driverName: string;
+  position: number | null;
+  status: string;
+  points: number;
+};
+export type TeamPage = {
+  team: { id: string; name: string; photoUrl: string | null };
+  categories: Category[];
+  people: TeamMember[];
+  standings: TeamStandingLine[];
+  results: TeamResult[];
+};
+
+/**
+ * A team's page, for anyone signed in: its photo, the categories it runs this season, its people (manager, racers,
+ * crew; active and invited), where it stands in each category, and its drivers' latest results.
+ */
+export async function teamPage(teamId: string): Promise<TeamPage | null> {
+  // Each step's queries go together: the database is far away, so waiting on one after another adds up.
+  const [team, season] = await Promise.all([
+    one<{ id: string; name: string; photo_key: string | null }>("SELECT id, name, photo_key FROM teams WHERE id = $1", [teamId]),
+    currentSeason(),
+  ]);
+  if (!team) return null;
+  const [seasonCats, enteredIds, people, results] = await Promise.all([
+    categoriesOf([season.id]),
+    teamCategories(teamId, season.id),
+    q<{ id: string; name: string | null; email: string; role: string; photo_key: string | null; status: string }>(
+      `SELECT id, name, email, role, photo_key, status FROM users
+        WHERE team_id = $1 AND status IN ('active', 'pending') AND role IN ('team_manager', 'racer', 'crew')
+        ORDER BY CASE role WHEN 'team_manager' THEN 0 WHEN 'racer' THEN 1 ELSE 2 END, lower(coalesce(name, email))`,
+      [teamId],
+    ),
+    q<{
+      session_id: string; session_name: string; weekend_name: string; category_id: string | null; starts_at: string;
+      driver_name: string; user_name: string | null; position: number | null; status: string; points: string;
+    }>(
+      `SELECT s.id AS session_id, s.name AS session_name, w.name AS weekend_name, s.category_id, s.starts_at,
+              r.driver_name, NULLIF(u.name, '') AS user_name, r.position, r.status, r.points::text AS points
+         FROM session_results r JOIN race_sessions s ON s.id = r.session_id JOIN race_weekends w ON w.id = s.weekend_id
+         LEFT JOIN users u ON u.id = r.user_id
+        WHERE r.team_id = $1 AND w.season_id = $2
+        ORDER BY s.starts_at DESC, r.row_order LIMIT 20`,
+      [teamId, season.id],
+    ),
+  ]);
+  const entered = new Set(enteredIds);
+  // Where it stands: every category of the season it is entered in or has results in.
+  const raced = new Set(results.map((r) => r.category_id).filter((x): x is string => Boolean(x)));
+  const categories = seasonCats.filter((c) => entered.has(c.id) || raced.has(c.id));
+  const { standings } = await import("./results");
+  const tables = await Promise.all(categories.map((c) => standings(c.id)));
+  const lines: TeamStandingLine[] = [];
+  categories.forEach((c, n) => {
+    const table = tables[n].teams;
+    const i = table.findIndex((t) => t.id === teamId);
+    if (i >= 0) lines.push({ category: c, position: i + 1, of: table.length, points: table[i].points, wins: table[i].wins, podiums: table[i].podiums });
+  });
+  return {
+    team: { id: team.id, name: team.name, photoUrl: teamPhotoUrl(team.id, team.photo_key) },
+    categories,
+    people: people.map((p) => ({
+      id: p.id,
+      name: p.name || p.email,
+      role: p.role,
+      photoUrl: userPhotoUrl(p.id, p.photo_key),
+      pending: p.status === "pending",
+    })),
+    standings: lines,
+    results: results.map((r) => ({
+      sessionId: r.session_id,
+      sessionName: r.session_name,
+      weekendName: r.weekend_name,
+      categoryId: r.category_id,
+      startsAt: new Date(r.starts_at).toISOString(),
+      driverName: r.user_name ?? r.driver_name,
+      position: r.position,
+      status: r.status,
+      points: Number(r.points),
+    })),
+  };
 }

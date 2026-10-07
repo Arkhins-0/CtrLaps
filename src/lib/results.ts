@@ -5,7 +5,8 @@ import { categoryMemberSql } from "./categoryChannels";
 import { categoriesOf } from "./categories";
 import { one, q, run, tx } from "./db";
 import { currentSeason, listSeasons } from "./seasons";
-import { myCategories } from "./teams";
+import { myCategories, teamPhotoUrl } from "./teams";
+import { userPhotoUrl } from "./profile";
 import { rowPoints, scoresByName, type Scoring } from "./scoring";
 import { resultsAudience } from "./emailPrefs";
 import { sendResults } from "./email";
@@ -275,6 +276,10 @@ export type DriverStanding = {
   userId: string | null;
   carNumber: string;
   teamName: string | null;
+  /** Their latest team, for its page. */
+  teamId: string | null;
+  /** Their account's photo; null for a typed name or no photo. */
+  photoUrl: string | null;
   points: number;
   wins: number;
   podiums: number;
@@ -283,7 +288,7 @@ export type DriverStanding = {
   /** Their result per session id (sessions they weren't in are left out). */
   rounds: Record<string, DriverRound>;
 };
-export type TeamStanding = { id: string; name: string; points: number; wins: number; podiums: number; rounds: Record<string, number> };
+export type TeamStanding = { id: string; name: string; photoUrl: string | null; points: number; wins: number; podiums: number; rounds: Record<string, number> };
 
 type StandingRow = {
   session_id: string;
@@ -298,6 +303,7 @@ type StandingRow = {
   unlinked: boolean;
   team_id: string | null;
   team_name: string | null;
+  team_photo: string | null;
   points: string;
   pole: boolean;
   fastest_lap: boolean;
@@ -316,7 +322,7 @@ export async function standings(categoryId: string): Promise<{ drivers: DriverSt
     q<StandingRow>(
       `SELECT r.session_id, s.starts_at, r.position, r.status, r.car_number, r.driver_name, r.user_id,
               NULLIF(u.name, '') AS user_name, r.unlinked,
-              r.team_id, t.name AS team_name, r.points::text AS points, r.pole, r.fastest_lap
+              r.team_id, t.name AS team_name, t.photo_key AS team_photo, r.points::text AS points, r.pole, r.fastest_lap
        FROM session_results r JOIN race_sessions s ON s.id = r.session_id
        LEFT JOIN users u ON u.id = r.user_id LEFT JOIN teams t ON t.id = r.team_id
        WHERE s.category_id = $1 ORDER BY s.starts_at, r.row_order`,
@@ -355,12 +361,15 @@ export async function standings(categoryId: string): Promise<{ drivers: DriverSt
     const points = Number(r.points);
     const won = r.position === 1;
     const podium = r.position !== null && r.position <= 3;
-    const d = drivers.get(key) ?? { key, name: "", userId: null, carNumber: "", teamName: null, points: 0, wins: 0, podiums: 0, starts: 0, best: null, rounds: {} };
+    const d = drivers.get(key) ?? { key, name: "", userId: null, carNumber: "", teamName: null, teamId: null, photoUrl: null, points: 0, wins: 0, podiums: 0, starts: 0, best: null, rounds: {} };
     // The account: picked on the row, or found by the typed name; it carries the account's own name.
     if (r.user_id || nameOf.has(key)) d.userId = r.user_id ?? key;
     d.name = r.user_name ?? nameOf.get(key) ?? (d.userId ? d.name || r.driver_name : r.driver_name);
     if (r.car_number) d.carNumber = r.car_number;
-    if (r.team_name) d.teamName = r.team_name;
+    if (r.team_name) {
+      d.teamName = r.team_name;
+      d.teamId = r.team_id;
+    }
     d.points += points;
     d.wins += won ? 1 : 0;
     d.podiums += podium ? 1 : 0;
@@ -369,13 +378,21 @@ export async function standings(categoryId: string): Promise<{ drivers: DriverSt
     d.rounds[r.session_id] = { position: r.position, status: r.status, points, pole: r.pole, fastestLap: r.fastest_lap };
     drivers.set(key, d);
     if (r.team_id && r.team_name) {
-      const t = teams.get(r.team_id) ?? { id: r.team_id, name: r.team_name, points: 0, wins: 0, podiums: 0, rounds: {} };
+      const t = teams.get(r.team_id) ?? { id: r.team_id, name: r.team_name, photoUrl: teamPhotoUrl(r.team_id, r.team_photo), points: 0, wins: 0, podiums: 0, rounds: {} };
       t.points += points;
       t.wins += won ? 1 : 0;
       t.podiums += podium ? 1 : 0;
       t.rounds[r.session_id] = (t.rounds[r.session_id] ?? 0) + points;
       teams.set(r.team_id, t);
     }
+  }
+  // Drivers with an account show its photo.
+  const accounts = Array.from(new Set(Array.from(drivers.values()).map((d) => d.userId).filter((x): x is string => Boolean(x))));
+  if (accounts.length) {
+    const photos = new Map(
+      (await q<{ id: string; photo_key: string | null }>("SELECT id, photo_key FROM users WHERE id = ANY($1::uuid[])", [accounts])).map((u) => [u.id, u.photo_key]),
+    );
+    for (const d of drivers.values()) if (d.userId) d.photoUrl = userPhotoUrl(d.userId, photos.get(d.userId) ?? null);
   }
   const round2 = (n: number) => Math.round(n * 100) / 100;
   return {

@@ -29,6 +29,8 @@ export type SessionUser = {
   status: Status;
   parent_id: string | null;
   team_name: string | null;
+  /** The team as a record (for its page); follows team_name. */
+  team_id?: string | null;
   name: string | null;
   dob: string | null;
   phone: string | null;
@@ -45,7 +47,7 @@ export type SessionUser = {
 export function userColumns(alias = ""): string {
   const p = alias ? `${alias}.` : "";
   return (
-    `${p}id, ${p}email, ${p}role, ${p}status, ${p}parent_id, ${p}team_name, ${p}name, ${p}dob::text AS dob, ` +
+    `${p}id, ${p}email, ${p}role, ${p}status, ${p}parent_id, ${p}team_name, ${p}team_id, ${p}name, ${p}dob::text AS dob, ` +
     `${p}phone, ${p}photo_key, ${p}verify_code, ${p}qr_token, ${p}profile_completed_at, ${p}created_at, ${p}is_dev`
   );
 }

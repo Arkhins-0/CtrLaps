@@ -23,6 +23,8 @@ export type PublicUser = {
   dob: string | null;
   phone: string | null;
   teamName: string | null;
+  /** The team's id, for its page. */
+  teamId: string | null;
   parentId: string | null;
   photoUrl: string | null;
   verifyCode: string;
@@ -44,6 +46,7 @@ export function toPublic(u: SessionUser): PublicUser {
     dob: u.dob,
     phone: u.phone,
     teamName: u.team_name,
+    teamId: u.team_id ?? null,
     parentId: u.parent_id,
     photoUrl: userPhotoUrl(u.id, u.photo_key),
     verifyCode: u.verify_code,

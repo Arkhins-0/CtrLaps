@@ -3,10 +3,25 @@ import { requireUser } from "@/lib/auth";
 import { one } from "@/lib/db";
 import { fail, json } from "@/lib/http";
 import { currentSeason } from "@/lib/seasons";
-import { deleteTeam, listTeams, renameTeam, setTeamEntries, teamByName } from "@/lib/teams";
+import { canEditTeam, deleteTeam, listTeams, renameTeam, setTeamEntries, teamByName, teamPage } from "@/lib/teams";
+import { descendants } from "@/lib/hierarchy";
 import { audit } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * A team's page, for anyone signed in. `canEdit`: may change its photo. `canOpen`: the people whose own page the viewer
+ * may open (those below them, as on People).
+ */
+export const GET = handle<Params<"id">>(async (_request, { params }) => {
+  const me = await requireUser();
+  const { id } = await params;
+  if (!isUuid(id)) return fail("No such team.", 404);
+  const [page, below, canEdit] = await Promise.all([teamPage(id), descendants(me), canEditTeam(me, id)]);
+  if (!page) return fail("No such team.", 404);
+  const ids = new Set(below.map((u) => u.id));
+  return json({ ...page, canEdit, canOpen: page.people.filter((p) => ids.has(p.id) || p.id === me.id).map((p) => p.id) });
+});
 
 /** Admin or coordinator: rename `{name}` and/or set the current season's entries `{categoryIds}`. */
 export const PATCH = handle<Params<"id">>(async (request, { params }) => {

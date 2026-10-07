@@ -1,5 +1,5 @@
-import { placeNewVolunteer, syncAllVolunteerGroups } from "@/lib/volunteers";
-import { body, handle, str } from "@/lib/api";
+import { moveVolunteer, placeNewVolunteer, syncAllVolunteerGroups, volunteerGroup } from "@/lib/volunteers";
+import { body, handle, isUuid, str } from "@/lib/api";
 import { issueToken, requireUser, USER_COLUMNS, type SessionUser } from "@/lib/auth";
 import { APP_NAME, SITE_URL } from "@/lib/config";
 import { one, run } from "@/lib/db";
@@ -49,6 +49,9 @@ export const POST = handle(async (request) => {
   if (!isRole(role) || !canCreateRole(creator.role, role)) return fail("You cannot give that role.", 403);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Enter a valid email address.");
   if (role === "team_manager" && !typedTeam) return fail("Enter the team name.");
+  // A delegate can go straight into their delegation (JK Tyre, FMSCI…); none leaves them for later.
+  const delegationId = role === "race_official" ? str(b.delegationId, 64) || null : null;
+  if (delegationId && (!isUuid(delegationId) || (await volunteerGroup(delegationId))?.kind !== "delegation")) return fail("No such delegation.", 404);
   // Racers and crew take their team manager's team; anyone else giving the role may type one.
   const teamFor = (current: string | null): string | null =>
     role === "team_manager"
@@ -71,6 +74,7 @@ export const POST = handle(async (request) => {
     if ((existing.role === "volunteer" || existing.role === "race_official") && role !== existing.role) await run("UPDATE users SET volunteer_group_id = NULL WHERE id = $1", [existing.id]);
     if (role === "volunteer" && creator.role === "coordinator") await placeNewVolunteer(existing.id, creator.id);
     await syncAllVolunteerGroups();
+    if (delegationId) await moveVolunteer(creator, existing.id, delegationId);
     await audit(creator.id, existing.id, "user.promoted", { from: existing.role, to: role });
     await sendNotice(
       [{ email: existing.email, name: existing.name }],
@@ -88,6 +92,7 @@ export const POST = handle(async (request) => {
   await syncTeamIds([user.id]);
   if (role === "volunteer" && creator.role === "coordinator") await placeNewVolunteer(user.id, creator.id);
   if (role === "admin" || role === "coordinator") await syncAllVolunteerGroups();
+  if (delegationId) await moveVolunteer(creator, user.id, delegationId);
   const token = await issueToken(user.id, "invite", 24 * 7);
   await sendInvite({ email: user.email }, token, creator.name || creator.email, ROLE_LABEL[role]).catch((error) =>
     console.error("[invite]", error),
