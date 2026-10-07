@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
+import { contrastText } from "@/lib/colors";
 
 type Settings = {
   automatic: boolean;
@@ -60,7 +61,7 @@ export function EmailSettings() {
                         type="button"
                         className="chip"
                         title={`${c.name}${c.mine ? " (one of yours)" : ""}`}
-                        style={c.on ? { backgroundColor: c.color, borderColor: c.color, color: "#0B0B0C" } : { borderColor: `${c.color}80`, color: c.color }}
+                        style={c.on ? { backgroundColor: c.color, borderColor: c.color, color: contrastText(c.color) } : { borderColor: `${c.color}80`, color: c.color }}
                         onClick={() => save({ results: { [c.id]: !c.on } })}
                       >
                         {c.code}

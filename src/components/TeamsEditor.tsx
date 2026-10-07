@@ -7,6 +7,7 @@ import { usePendingEdits } from "@/lib/pendingEdits";
 import type { Team } from "@/lib/teams";
 import { Icon } from "./Icon";
 import { SaveBar } from "./SaveBar";
+import { contrastText } from "@/lib/colors";
 
 /**
  * Teams and the race categories each is entered in this season. Tapping categories and renaming wait, so many teams
@@ -62,7 +63,7 @@ export function TeamsEditor({ initial, categories }: { initial: Team[]; categori
             key={c.id}
             type="button"
             className="chip px-2 py-0.5 text-[11px]"
-            style={on ? { backgroundColor: c.color, borderColor: c.color, color: "#0B0B0C" } : { borderColor: `${c.color}66`, color: c.color }}
+            style={on ? { backgroundColor: c.color, borderColor: c.color, color: contrastText(c.color) } : { borderColor: `${c.color}66`, color: c.color }}
             title={c.name}
             onClick={() => onToggle(c.id)}
             disabled={disabled}

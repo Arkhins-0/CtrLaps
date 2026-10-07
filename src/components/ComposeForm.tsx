@@ -8,6 +8,7 @@ import type { RosterCategory } from "@/lib/categoryChannels";
 import type { PublicUser } from "@/lib/users";
 import { Avatar } from "./Avatar";
 import { MessageComposer } from "./MessageComposer";
+import { contrastText } from "@/lib/colors";
 
 /** Pick who, below you, gets the message — by person, a whole role, or a race category's people at once. */
 export function ComposeForm({ people, categories = [] }: { people: PublicUser[]; categories?: RosterCategory[] }) {
@@ -72,7 +73,7 @@ export function ComposeForm({ people, categories = [] }: { people: PublicUser[];
                   key={c.id}
                   type="button"
                   className="chip"
-                  style={all ? { backgroundColor: c.color, borderColor: c.color, color: "#0B0B0C" } : { borderColor: `${c.color}80`, color: c.color }}
+                  style={all ? { backgroundColor: c.color, borderColor: c.color, color: contrastText(c.color) } : { borderColor: `${c.color}80`, color: c.color }}
                   onClick={() => toggleIds(ids)}
                   title={c.name}
                 >

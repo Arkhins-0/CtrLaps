@@ -1,4 +1,5 @@
 import type { Category } from "@/lib/categories";
+import { contrastText } from "@/lib/colors";
 
 /** A race category as a small tag in its colour: "ITC". */
 export function CategoryTag({ category, title }: { category: Pick<Category, "code" | "color" | "name">; title?: boolean }) {
@@ -50,7 +51,7 @@ export function CategoryChips({
           <button
             key={c.id}
             className="chip"
-            style={on ? { backgroundColor: c.color, borderColor: c.color, color: "#0B0B0C" } : { borderColor: `${c.color}80`, color: c.color }}
+            style={on ? { backgroundColor: c.color, borderColor: c.color, color: contrastText(c.color) } : { borderColor: `${c.color}80`, color: c.color }}
             onClick={() => onChange(on ? null : c.id)}
             title={c.name}
           >

@@ -3,6 +3,7 @@ import "server-only";
 import { q, tx } from "./db";
 import { isColor } from "./categoryColors";
 import type { Scoring } from "./scoring";
+import { snapToPalette } from "./colors";
 
 /*
  * Race categories (classes) per season — Formula LGB 1300, ITC… A weekend lists the ones racing that round; a
@@ -46,7 +47,8 @@ export function categoriesInput(value: unknown): CategoryInput[] | { error: stri
     if (codes.has(code)) return { error: `Two categories share the code ${code}.` };
     if (!isColor(color)) return { error: `Pick a colour for ${name}.` };
     codes.add(code);
-    out.push({ id, name, code, color });
+    // Any colour sent is pulled onto the category palette, so tags stay on-brand and readable.
+    out.push({ id, name, code, color: snapToPalette(color) });
   }
   return out;
 }

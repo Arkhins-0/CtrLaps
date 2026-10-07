@@ -76,6 +76,7 @@ import com.arkhins.ctrlaps.ui.theme.NightPanel
 import com.arkhins.ctrlaps.ui.theme.Snow
 import com.arkhins.ctrlaps.ui.theme.SnowFaint
 import com.arkhins.ctrlaps.ui.theme.SnowSoft
+import com.arkhins.ctrlaps.ui.contrastText
 
 /* The handful of pieces every screen is built from. */
 
@@ -248,7 +249,7 @@ fun Chip(text: String, tone: Color = SnowSoft, filled: Boolean = false, onClick:
         .border(1.dp, if (filled) tone else tone.copy(alpha = 0.4f), shape)
     val clickable = if (onClick != null) base.clickable(onClick = onClick) else base
     Box(clickable.padding(horizontal = 10.dp, vertical = 4.dp)) {
-        Text(text, style = MaterialTheme.typography.labelSmall, color = if (filled) OnGold else tone)
+        Text(text, style = MaterialTheme.typography.labelSmall, color = if (filled) tone.contrastText() else tone)
     }
 }
 

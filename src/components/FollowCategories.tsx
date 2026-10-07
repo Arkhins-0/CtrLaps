@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/client";
 import type { Category } from "@/lib/categories";
+import { contrastText } from "@/lib/colors";
 
 /** A user (no role yet) picks the race categories they follow: their posts reach Home, their sessions are "Mine". */
 export function FollowCategories({ categories, initial }: { categories: Category[]; initial: string[] }) {
@@ -47,7 +48,7 @@ export function FollowCategories({ categories, initial }: { categories: Category
               key={c.id}
               type="button"
               className="chip"
-              style={on ? { backgroundColor: c.color, borderColor: c.color, color: "#0B0B0C" } : { borderColor: `${c.color}80`, color: c.color }}
+              style={on ? { backgroundColor: c.color, borderColor: c.color, color: contrastText(c.color) } : { borderColor: `${c.color}80`, color: c.color }}
               onClick={() => toggle(c.id)}
               title={c.name}
               aria-pressed={on}

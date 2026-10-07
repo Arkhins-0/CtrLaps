@@ -5,6 +5,7 @@ import { api } from "@/lib/client";
 import type { Category } from "@/lib/categories";
 import type { Role } from "@/lib/roles";
 import { CategoryTag } from "./schedule/CategoryTag";
+import { contrastText } from "@/lib/colors";
 
 /**
  * A person's race categories on their page: a racer's classes ("Races in", from their team's entries), a race
@@ -77,7 +78,7 @@ export function RaceCategories({
               <button
                 key={c.id}
                 className="chip px-2 py-0.5 text-[11px]"
-                style={on ? { backgroundColor: c.color, borderColor: c.color, color: "#0B0B0C" } : { borderColor: `${c.color}66`, color: c.color }}
+                style={on ? { backgroundColor: c.color, borderColor: c.color, color: contrastText(c.color) } : { borderColor: `${c.color}66`, color: c.color }}
                 title={c.name}
                 onClick={() => toggle(c.id)}
                 disabled={busy}
