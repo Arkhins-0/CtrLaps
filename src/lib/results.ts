@@ -497,5 +497,15 @@ export async function standingsPage(user: SessionUser, asked: string | null, sea
   const mine = season.id === current.id ? ((await myCategories(user)) ?? []) : [];
   const chosen = categories.find((c) => c.id === asked) ?? categories.find((c) => mine.includes(c.id)) ?? categories[0] ?? null;
   const empty = { drivers: [] as DriverStanding[], teams: [] as TeamStanding[], sessions: [] as StandingSession[] };
-  return { seasons, seasonId: season.id, categories, categoryId: chosen?.id ?? null, ...(chosen ? await standings(chosen.id) : empty) };
+  // How many sessions have results in each category: the number on its chip.
+  const counts = Object.fromEntries(
+    (
+      await q<{ category_id: string; n: number }>(
+        `SELECT s.category_id, count(DISTINCT s.id)::int AS n FROM race_sessions s JOIN session_results r ON r.session_id = s.id
+          WHERE s.category_id = ANY($1::uuid[]) GROUP BY s.category_id`,
+        [categories.map((c) => c.id)],
+      )
+    ).map((r) => [r.category_id, r.n]),
+  );
+  return { seasons, seasonId: season.id, categories, counts, categoryId: chosen?.id ?? null, ...(chosen ? await standings(chosen.id) : empty) };
 }
