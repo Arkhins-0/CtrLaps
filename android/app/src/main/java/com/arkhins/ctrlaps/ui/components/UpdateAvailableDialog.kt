@@ -1,6 +1,7 @@
 package com.arkhins.ctrlaps.ui.components
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -40,6 +41,8 @@ fun UpdateAvailableDialog(
     onOpenSettings: () -> Unit,
     onOpenReleasePage: () -> Unit,
     onDismiss: () -> Unit,
+    /** "Skip this version", offered before the download starts. */
+    onSkip: (() -> Unit)? = null,
     whatsNew: Boolean = false,
     /** The person's role: lines of the notes meant for other roles are left out. */
     role: String? = null,
@@ -109,7 +112,12 @@ fun UpdateAvailableDialog(
             }
         },
         dismissButton = if (whatsNew) null else {
-            { TextButton(onClick = onDismiss) { Text(if (stage is UpdateStage.Downloading) "Hide" else "Later") } }
+            {
+                Row {
+                    if (onSkip != null && stage == UpdateStage.Idle) TextButton(onClick = onSkip) { Text("Skip this version", color = SnowFaint) }
+                    TextButton(onClick = onDismiss) { Text(if (stage is UpdateStage.Downloading) "Hide" else "Later") }
+                }
+            }
         },
     )
 }

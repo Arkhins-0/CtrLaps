@@ -137,6 +137,17 @@ android {
         }
     }
 
+    // A release also comes as one smaller APK per processor type (the in-app updater picks the phone's own, about
+    // half the size) beside the universal one. Only when a release is being built: debug and fast builds stay one APK.
+    splits {
+        abi {
+            isEnable = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

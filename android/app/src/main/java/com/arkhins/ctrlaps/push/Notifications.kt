@@ -236,6 +236,15 @@ object Notifications {
         post(context, "updated", builder)
     }
 
+    /** The background check found a newer release: a tap opens the app, where the update popup waits. */
+    fun showUpdateAvailable(context: Context, version: String) {
+        val builder = base(context, CHANNEL_OTHER, "/home", "update-available")
+            .setContentTitle("${Config.APP_NAME} v$version is out")
+            .setContentText("Tap to update")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+        post(context, "update-available", builder)
+    }
+
     /* ─────────────────────────────── Pieces ─────────────────────────────── */
 
     /** What the Notifications page files it under. */

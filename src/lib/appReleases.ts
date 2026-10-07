@@ -28,7 +28,10 @@ export type NoteSection = { title: string; items: NoteItem[] };
 export type ReleaseInfo = {
   version: string;
   releaseUrl: string;
+  /** The universal APK: runs on every phone. */
   apkUrl: string | null;
+  /** Smaller APKs for one processor type each ("arm64-v8a", …), when the release has them; the app picks its own. */
+  apks: Record<string, string>;
   /** The changes as plain lines ("- …"), for older apps: no headings, no role tags. */
   notes: string;
   /** The same changes by heading, each line with the roles it is for (the app shows a person only theirs). */
@@ -36,8 +39,15 @@ export type ReleaseInfo = {
 };
 
 let cache: { at: number; info: ReleaseInfo | null } | null = null;
-/** Where GitHub keeps the latest release's APK (the API address and the public one), for /api/app-version/apk. */
-let asset: { version: string; apiUrl: string; publicUrl: string } | null = null;
+type Asset = { apiUrl: string; publicUrl: string };
+/**
+ * Where GitHub keeps the latest release's APKs (the API address and the public one), for /api/app-version/apk: the
+ * universal one, and one per processor type.
+ */
+let asset: { version: string; universal: Asset | null; abis: Record<string, Asset> } | null = null;
+
+/** A per-processor APK is named "CTRLAPS-v1.2.3.4.arm64-v8a.apk" (after the universal "CTRLAPS-v1.2.3.4.apk" in a listing). */
+const ABI_APK = /\.(arm64-v8a|armeabi-v7a|x86_64|x86)\.apk$/i;
 
 const headers = (accept = "application/vnd.github+json"): Record<string, string> => ({
   Accept: accept,
@@ -90,14 +100,21 @@ async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
     // A release carries both a signed release APK and a debug one. The debug
     // build has its own application id, so it would install beside the app
     // rather than update it — prefer the one that isn't debug.
-    const apks = (data.assets ?? []).filter((a) => a.name.toLowerCase().endsWith(".apk"));
-    const apk = apks.find((a) => !/debug/i.test(a.name)) ?? apks[0];
+    const apks = (data.assets ?? []).filter((a) => a.name.toLowerCase().endsWith(".apk") && !/debug/i.test(a.name));
+    const apk = apks.find((a) => !ABI_APK.test(a.name)) ?? null;
     const version = data.tag_name.replace(/^v/i, "");
-    asset = apk ? { version, apiUrl: apk.url, publicUrl: apk.browser_download_url } : null;
+    const abis: Record<string, Asset> = {};
+    for (const a of apks) {
+      const abi = a.name.match(ABI_APK)?.[1]?.toLowerCase();
+      if (abi) abis[abi] = { apiUrl: a.url, publicUrl: a.browser_download_url };
+    }
+    asset = { version, universal: apk ? { apiUrl: apk.url, publicUrl: apk.browser_download_url } : null, abis };
+    const link = (abi?: string) => `${SITE_URL}/api/app-version/apk?v=${encodeURIComponent(version)}${abi ? `&abi=${abi}` : ""}`;
     return {
       version,
       releaseUrl: data.html_url,
-      apkUrl: apk ? `${SITE_URL}/api/app-version/apk?v=${encodeURIComponent(version)}` : null,
+      apkUrl: apk ? link() : null,
+      apks: Object.fromEntries(Object.keys(abis).map((abi) => [abi, link(abi)])),
       notes: changesOnly(data.body ?? ""),
       sections: noteSections(data.body ?? ""),
     };
@@ -154,18 +171,20 @@ export async function allReleases(): Promise<ChangelogEntry[]> {
  * link (asked for with the token, so it works for a private repository),
  * or the plain public link when that fails. Null when there is no APK.
  */
-export async function apkDownloadUrl(): Promise<string | null> {
+export async function apkDownloadUrl(abi?: string | null): Promise<string | null> {
   // The same half-hour check as the version: a new release replaces the APK here too.
   await latestRelease();
-  if (!asset) return null;
+  // The phone's own processor type when the release has it, else the universal APK.
+  const file = (abi ? asset?.abis[abi.toLowerCase()] : undefined) ?? asset?.universal;
+  if (!file) return null;
   try {
-    const response = await fetch(asset.apiUrl, { headers: headers("application/octet-stream"), redirect: "manual", cache: "no-store" });
+    const response = await fetch(file.apiUrl, { headers: headers("application/octet-stream"), redirect: "manual", cache: "no-store" });
     const location = response.headers.get("location");
     if (response.status >= 300 && response.status < 400 && location) return location;
   } catch {
     // Fall through to the public link.
   }
-  return asset.publicUrl;
+  return file.publicUrl;
 }
 
 /** The GitHub releases page, for when there is no release yet. */

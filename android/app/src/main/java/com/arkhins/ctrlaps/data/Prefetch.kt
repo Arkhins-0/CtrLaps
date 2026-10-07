@@ -178,7 +178,9 @@ class Prefetch(private val app: CtrlapsApplication) {
 /** WorkManager's hook for [Prefetch]: the run while the app is closed. */
 class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        (applicationContext as CtrlapsApplication).prefetch.run(force = true)
+        val app = applicationContext as CtrlapsApplication
+        app.prefetch.run(force = true)
+        runCatching { app.updater.checkInBackground(app.updates) }
         return Result.success()
     }
 }

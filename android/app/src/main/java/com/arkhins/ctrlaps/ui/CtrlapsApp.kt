@@ -189,6 +189,7 @@ fun CtrlapsApp() {
                     vm.dismissUpdate()
                 },
                 onDismiss = vm::dismissUpdate,
+                onSkip = vm::skipUpdate,
             )
         }
     }

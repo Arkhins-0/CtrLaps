@@ -282,6 +282,8 @@ class AppViewModel(private val app: CtrlapsApplication) : ViewModel() {
                         val newer = isNewerVersion(latest.info.version, BuildConfig.VERSION_NAME)
                         updateInfo = if (newer) latest.info else null
                         if (newer && force) updateDismissed = false
+                        // A version the person chose to skip doesn't pop up by itself; About still offers it.
+                        if (newer && !force && app.updater.skipped == latest.info.version) updateDismissed = true
                         noReleaseYet = false
                     }
                     Latest.None -> {
@@ -301,12 +303,18 @@ class AppViewModel(private val app: CtrlapsApplication) : ViewModel() {
         updateDismissed = true
     }
 
+    /** "Skip this version": no popup for it again; a newer one, or checking in About, brings it back. */
+    fun skipUpdate() {
+        updateInfo?.let { app.updater.skipped = it.version }
+        updateDismissed = true
+    }
+
     fun showUpdate() {
         updateDismissed = false
     }
 
     fun downloadAndInstall() {
-        val url = updateInfo?.apkUrl ?: return
+        val url = updateInfo?.apkFor(android.os.Build.SUPPORTED_ABIS) ?: return
         if (updateStage is UpdateStage.Downloading) return
         updateStage = UpdateStage.Downloading(0f)
         viewModelScope.launch {

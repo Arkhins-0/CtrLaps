@@ -43,6 +43,28 @@ class AppUpdater(private val context: Context) {
         .readTimeout(120, TimeUnit.SECONDS)
         .build()
 
+    private val prefs = context.getSharedPreferences("ctrlaps_updates", Context.MODE_PRIVATE)
+
+    /** The version the person chose to skip: its popup doesn't come back by itself. */
+    var skipped: String?
+        get() = prefs.getString("skipped", null)
+        set(value) = prefs.edit().putString("skipped", value).apply()
+
+    /**
+     * The background download's look at the latest release, at most every six hours: a new version that wasn't
+     * skipped gets one notification (a tap opens the app, where the update popup waits).
+     */
+    suspend fun checkInBackground(checker: UpdateChecker) {
+        val now = System.currentTimeMillis()
+        if (now - prefs.getLong("checked_at", 0L) < 6 * 60 * 60 * 1000L) return
+        prefs.edit().putLong("checked_at", now).apply()
+        val info = (runCatching { checker.latest() }.getOrNull() as? Latest.Release)?.info ?: return
+        if (!isNewerVersion(info.version, com.arkhins.ctrlaps.BuildConfig.VERSION_NAME)) return
+        if (info.version == skipped || info.version == prefs.getString("notified", null)) return
+        prefs.edit().putString("notified", info.version).apply()
+        com.arkhins.ctrlaps.push.Notifications.showUpdateAvailable(context, info.version)
+    }
+
     /** One file, replaced by each download. The path is mirrored in res/xml/file_paths.xml. */
     private fun target(): File = File(File(context.cacheDir, "updates").apply { mkdirs() }, "update.apk")
 

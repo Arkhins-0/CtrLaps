@@ -18,7 +18,12 @@ data class AppVersionInfo(
     val notes: String = "",
     /** The notes by heading, each line with the roles it is for (see ReleaseNotes.kt). */
     val sections: List<NoteSection> = emptyList(),
-)
+    /** Smaller APKs for one processor type each ("arm64-v8a", …); [apkUrl] is the universal one. */
+    val apks: Map<String, String> = emptyMap(),
+) {
+    /** The APK for this phone: its own processor type's when the release has one (about half the size), else the universal one. */
+    fun apkFor(abis: Array<String>): String? = abis.firstNotNullOfOrNull { apks[it.lowercase()] } ?: apkUrl
+}
 
 /** The parts of GitHub's "latest release" response the fallback needs. */
 @Serializable
@@ -30,12 +35,15 @@ internal data class GitHubRelease(
 ) {
     /** Prefer the release APK over a debug one when both are attached. */
     fun toVersionInfo(): AppVersionInfo {
-        val apks = assets.filter { it.name.endsWith(".apk", ignoreCase = true) }
-        val apk = apks.firstOrNull { !it.name.contains("debug", ignoreCase = true) } ?: apks.firstOrNull()
+        val apks = assets.filter { it.name.endsWith(".apk", ignoreCase = true) && !it.name.contains("debug", ignoreCase = true) }
+        // "CTRLAPS-v1.2.3.4.arm64-v8a.apk" is for one processor type; the one without is universal.
+        val abi = Regex("""\.(arm64-v8a|armeabi-v7a|x86_64|x86)\.apk$""", RegexOption.IGNORE_CASE)
+        val apk = apks.firstOrNull { !abi.containsMatchIn(it.name) }
         return AppVersionInfo(
             version = tagName.trim().removePrefix("v"),
             releaseUrl = htmlUrl,
             apkUrl = apk?.browserDownloadUrl,
+            apks = apks.mapNotNull { a -> abi.find(a.name)?.groupValues?.get(1)?.lowercase()?.let { it to a.browserDownloadUrl } }.toMap(),
             notes = body.orEmpty(),
             sections = noteSections(body.orEmpty()),
         )

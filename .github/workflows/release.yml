@@ -67,8 +67,12 @@ jobs:
       - name: Stage APKs
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/release/*.apk dist/app-release.apk
-          cp app/build/outputs/apk/debug/*.apk dist/app-debug.apk
+          # The universal APK, and one per processor type (build.gradle.kts `splits`).
+          cp app/build/outputs/apk/release/app-universal-release.apk dist/app-release.apk
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            cp "app/build/outputs/apk/release/app-$abi-release.apk" "dist/app-release-$abi.apk"
+          done
+          cp app/build/outputs/apk/debug/app-universal-debug.apk dist/app-debug.apk
           # The R8 mapping makes a release crash log readable again.
           cp app/build/outputs/mapping/release/mapping.txt dist/mapping.txt
       - name: Refuse to ship an unsigned release APK
@@ -76,7 +80,7 @@ jobs:
         # so fail here, loudly, rather than publish one.
         run: |
           BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
-          "$BT/apksigner" verify --print-certs dist/app-release.apk
+          for f in dist/app-release*.apk; do "$BT/apksigner" verify --print-certs "$f"; done
       - uses: actions/upload-artifact@v4
         with:
           name: apks
@@ -112,6 +116,10 @@ jobs:
         run: |
           mkdir -p dist
           cp apks/app-release.apk "dist/CTRLAPS-${{ github.ref_name }}.apk"
+          # "CTRLAPS-v1.2.3.4.arm64-v8a.apk": listed after the universal one, which older apps take first.
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            cp "apks/app-release-$abi.apk" "dist/CTRLAPS-${{ github.ref_name }}.$abi.apk"
+          done
           cp apks/app-debug.apk "dist/CTRLAPS-debug-${{ github.ref_name }}.apk"
           cp apks/mapping.txt "dist/mapping-${{ github.ref_name }}.txt"
           cd dist && sha256sum * > SHA256SUMS.txt
