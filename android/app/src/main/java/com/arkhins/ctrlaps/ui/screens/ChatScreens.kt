@@ -1156,7 +1156,7 @@ private fun Bubble(
     // Not yet on the server: nothing to reply to, edit or delete.
     val local = m.id.startsWith("local-")
     val scope = rememberCoroutineScope()
-    val haptic = LocalHapticFeedback.current
+    val haptic = com.arkhins.ctrlaps.ui.components.rememberHaptics()
     val density = LocalDensity.current
     val trigger = with(density) { 64.dp.toPx() }
     val furthest = with(density) { 96.dp.toPx() }
@@ -1181,7 +1181,7 @@ private fun Bubble(
                 indication = null,
                 onClick = { if (selecting) onToggle() },
                 onLongClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    haptic.longPress()
                     onToggle()
                 },
             )
@@ -1203,7 +1203,7 @@ private fun Bubble(
                     scope.launch { slide.snapTo(next) }
                     if (!armed && next <= -trigger) {
                         armed = true
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        haptic.longPress()
                     } else if (armed && next > -trigger) {
                         armed = false
                     }
@@ -1277,7 +1277,7 @@ private fun Bubble(
                             onClick = { if (selecting) onToggle() else onRetry?.invoke() },
                             onLongClick = {
                                 if (local) return@combinedClickable
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                haptic.longPress()
                                 onToggle()
                             },
                         )
@@ -1337,7 +1337,7 @@ private fun Bubble(
                                 photos,
                                 view,
                                 onLongPress = if (local) null else ({
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    haptic.longPress()
                                     onToggle()
                                 }),
                                 fill = true,
@@ -1363,7 +1363,7 @@ private fun Bubble(
                         m.linkPreview?.let { card ->
                             if (files.isNotEmpty()) Spacer(Modifier.height(6.dp))
                             LinkCard(card, onDark = !mine, onLongPress = if (local) null else ({
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                haptic.longPress()
                                 onToggle()
                             }))
                             if (text.isNotBlank()) Spacer(Modifier.height(4.dp))

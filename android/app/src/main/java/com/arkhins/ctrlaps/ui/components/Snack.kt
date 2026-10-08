@@ -125,7 +125,7 @@ object Snack {
 fun SnackHost() {
     val m = Snack.shown.value
     val clipboard = LocalClipboardManager.current
-    val haptics = LocalHapticFeedback.current
+    val haptics = com.arkhins.ctrlaps.ui.components.rememberHaptics()
     Box(Modifier.fillMaxSize().imePadding().navigationBarsPadding(), contentAlignment = Alignment.BottomCenter) {
         AnimatedVisibility(
             visible = m != null,
@@ -146,7 +146,7 @@ fun SnackHost() {
                         onClick = { Snack.dismiss() },
                         onLongClick = {
                             clipboard.setText(AnnotatedString(shown.text))
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            haptics.longPress()
                         },
                     )
                     .padding(start = 0.dp, end = 6.dp),

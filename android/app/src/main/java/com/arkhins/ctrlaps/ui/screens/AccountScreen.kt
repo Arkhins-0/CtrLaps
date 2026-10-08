@@ -330,6 +330,7 @@ private val FINDABLE = listOf(
     Findable("Interface", "Settings › Interface", "interface", "look feel motion"),
     Findable("Animations", "Settings › Interface", "interface", "animation motion speed slow fast off reduce transitions"),
     Findable("Blur", "Settings › Interface", "interface", "blur dialogs banner effects"),
+    Findable("Haptics", "Settings › Interface", "interface", "vibration vibrate buzz touch feedback"),
     Findable("Email", "Settings › Email", "email-settings", "mail newsletters unsubscribe"),
     Findable("Delete account", "Settings › Delete account", "delete-account", "remove erase close"),
     Findable("About", "About", "about", "version"),

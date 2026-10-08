@@ -398,10 +398,11 @@ fun Avatar(url: String?, name: String, size: Int = 40, preview: Boolean = true, 
 @Composable
 fun Chip(text: String, tone: Color = SnowSoft, filled: Boolean = false, onClick: (() -> Unit)? = null) {
     val shape = RoundedCornerShape(999.dp)
+    val haptics = rememberHaptics()
     val base = Modifier
         .background(if (filled) tone else NightPanel, shape)
         .border(1.dp, if (filled) tone else tone.copy(alpha = 0.4f), shape)
-    val clickable = if (onClick != null) base.clickable(onClick = onClick) else base
+    val clickable = if (onClick != null) base.clickable { haptics.tick(); onClick() } else base
     Box(clickable.padding(horizontal = 10.dp, vertical = 4.dp)) {
         // Without labelSmall's wide spacing: a status or a code reads as a word.
         Text(text, style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.2.sp), color = if (filled) tone.contrastText() else tone)
@@ -450,7 +451,7 @@ fun KeyValue(label: String, value: String, mono: Boolean = false, copyable: Bool
 fun CopyButton(value: String, what: String = "Code") {
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
+    val haptic = rememberHaptics()
     Box(
         Modifier
             .padding(start = 6.dp)
@@ -458,7 +459,7 @@ fun CopyButton(value: String, what: String = "Code") {
             .clip(CircleShape)
             .clickable {
                 clipboard.setText(AnnotatedString(value))
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                haptic.longPress()
                 Snack.show("Code $value copied")
             },
         contentAlignment = Alignment.Center,

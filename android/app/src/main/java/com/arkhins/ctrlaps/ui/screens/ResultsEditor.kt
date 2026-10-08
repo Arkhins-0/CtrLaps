@@ -126,6 +126,7 @@ private fun List<Row>.position(key: String) = filter { it.status == "finished" }
  */
 @Composable
 fun ResultsEditor(sessionId: String, data: SessionResultsResponse, onSaved: (SessionResultsResponse) -> Unit, onCancel: () -> Unit) {
+    val haptics = com.arkhins.ctrlaps.ui.components.rememberHaptics()
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     val scoring = data.scoring
@@ -243,7 +244,7 @@ fun ResultsEditor(sessionId: String, data: SessionResultsResponse, onSaved: (Ses
                         }
                         Switch(
                             checked = scores,
-                            onCheckedChange = { on -> scores = on; rows = scored(rows, on) },
+                            onCheckedChange = { on -> haptics.toggle(on); scores = on; rows = scored(rows, on) },
                             colors = SwitchDefaults.colors(checkedThumbColor = OnGold, checkedTrackColor = Gold),
                         )
                     }
@@ -313,7 +314,7 @@ fun ResultsEditor(sessionId: String, data: SessionResultsResponse, onSaved: (Ses
                 Text(if (sentBefore) "Notify again" else "Notify followers", style = MaterialTheme.typography.titleSmall, color = Snow)
                 Text("A push, and an email to those who keep results email on", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
             }
-            Switch(checked = notify, onCheckedChange = { notify = it }, colors = SwitchDefaults.colors(checkedThumbColor = OnGold, checkedTrackColor = Gold))
+            Switch(checked = notify, onCheckedChange = { haptics.toggle(it); notify = it }, colors = SwitchDefaults.colors(checkedThumbColor = OnGold, checkedTrackColor = Gold))
         }
         Row(
             Modifier.fillMaxWidth().background(NightPanel).padding(horizontal = 16.dp, vertical = 10.dp),

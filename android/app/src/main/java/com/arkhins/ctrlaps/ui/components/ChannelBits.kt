@@ -35,12 +35,13 @@ fun UnreadBadge(count: Int, muted: Boolean, modifier: Modifier = Modifier) {
 /** Mute or unmute a channel's notifications (push only; unread still counts): a bell, struck through when muted. */
 @Composable
 fun MuteChip(muted: Boolean, enabled: Boolean = true, onToggle: () -> Unit) {
+    val haptics = rememberHaptics()
     IconAction(
         androidx.compose.ui.res.painterResource(if (muted) com.arkhins.ctrlaps.R.drawable.ic_bell_off else com.arkhins.ctrlaps.R.drawable.ic_bell),
         if (muted) "Muted. Tap for notifications" else "Notifications on. Tap to mute",
         if (muted) Gold else com.arkhins.ctrlaps.ui.theme.SnowSoft,
         enabled = enabled,
-        onClick = onToggle,
+        onClick = { haptics.toggle(!muted); onToggle() },
     )
 }
 

@@ -1,6 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
 import com.arkhins.ctrlaps.ui.components.Snack
+import com.arkhins.ctrlaps.ui.components.rememberHaptics
 import com.arkhins.ctrlaps.ui.components.DontAsk
 import com.arkhins.ctrlaps.ui.theme.NightLine
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
@@ -306,7 +307,7 @@ fun ThemeScreen() {
 
 /**
  * How the app moves, after Arkhime's interface settings: animations on or off and how quick they are (every
- * animation follows it, see AppMotion), and blur behind dialogs and on the profile banner (Android 12+).
+ * animation follows it, see AppMotion), haptics, and blur behind dialogs and on the profile banner (Android 12+).
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -314,6 +315,7 @@ fun InterfaceScreen() {
     val animations by InterfaceSetting.animations.collectAsState()
     val speed by InterfaceSetting.speed.collectAsState()
     val blur by InterfaceSetting.blur.collectAsState()
+    val haptics by InterfaceSetting.haptics.collectAsState()
     Column(
         Modifier
             .fillMaxSize()
@@ -344,6 +346,10 @@ fun InterfaceScreen() {
                 }
             }
         }
+        Column {
+            GroupTitle("Feel")
+            ThemeSwitch(R.drawable.ic_vibration, "Haptics", "A light buzz on switches, stars, sends and picks", haptics) { InterfaceSetting.setHaptics(it) }
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             Column {
                 GroupTitle("Effects")
@@ -355,7 +361,9 @@ fun InterfaceScreen() {
 
 /** A theme switch: an accent icon, a bold title, a quieter line, and the switch. */
 @Composable
-private fun ThemeSwitch(icon: Int, title: String, hint: String, on: Boolean, onChange: (Boolean) -> Unit) {
+private fun ThemeSwitch(icon: Int, title: String, hint: String, on: Boolean, onFlip: (Boolean) -> Unit) {
+    val haptics = rememberHaptics()
+    val onChange = { v: Boolean -> haptics.toggle(v); onFlip(v) }
     Row(
         Modifier.fillMaxWidth().clickable { onChange(!on) }.padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,

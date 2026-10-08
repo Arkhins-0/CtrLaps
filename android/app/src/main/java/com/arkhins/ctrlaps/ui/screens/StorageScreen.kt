@@ -250,7 +250,9 @@ private fun AutoDownloadPanel(auto: AutoDownload) {
 }
 
 @Composable
-private fun SwitchRow(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
+private fun SwitchRow(label: String, on: Boolean, onFlip: (Boolean) -> Unit) {
+    val haptics = com.arkhins.ctrlaps.ui.components.rememberHaptics()
+    val onChange = { v: Boolean -> haptics.toggle(v); onFlip(v) }
     Row(Modifier.fillMaxWidth().clickable { onChange(!on) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = Snow, modifier = Modifier.weight(1f))
         Switch(

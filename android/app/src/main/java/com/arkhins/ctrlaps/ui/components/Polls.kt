@@ -77,6 +77,7 @@ private const val MAX_OPTIONS = 12
  */
 @Composable
 fun CreatePollScreen(onClose: () -> Unit, onSend: suspend (NewPoll) -> Unit) {
+    val haptics = com.arkhins.ctrlaps.ui.components.rememberHaptics()
     val scope = rememberCoroutineScope()
     var question by remember { mutableStateOf("") }
     val options = remember { mutableStateListOf("", "") }
@@ -113,7 +114,7 @@ fun CreatePollScreen(onClose: () -> Unit, onSend: suspend (NewPoll) -> Unit) {
                         Text("Allow multiple answers", style = MaterialTheme.typography.titleMedium, color = Snow, modifier = Modifier.weight(1f))
                         Switch(
                             checked = multiple,
-                            onCheckedChange = { multiple = it },
+                            onCheckedChange = { haptics.toggle(it); multiple = it },
                             colors = SwitchDefaults.colors(checkedThumbColor = OnGold, checkedTrackColor = Gold, uncheckedThumbColor = SnowFaint, uncheckedTrackColor = NightPanel),
                         )
                     }

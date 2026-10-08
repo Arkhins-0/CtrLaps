@@ -20,7 +20,7 @@ enum class AnimationSpeed(val label: String, val scale: Float) {
 
 /**
  * How the app moves and feels, kept on the phone (Settings → Interface), after Arkhime's interface settings:
- * animations on or off and their speed, and blur behind dialogs and on the profile banner.
+ * animations on or off and their speed, haptics, and blur behind dialogs and on the profile banner.
  */
 object InterfaceSetting {
     private var prefs: SharedPreferences? = null
@@ -30,6 +30,8 @@ object InterfaceSetting {
     val speed: StateFlow<AnimationSpeed> = _speed
     private val _blur = MutableStateFlow(true)
     val blur: StateFlow<Boolean> = _blur
+    private val _haptics = MutableStateFlow(true)
+    val haptics: StateFlow<Boolean> = _haptics
 
     fun init(context: Context) {
         if (prefs != null) return
@@ -37,6 +39,7 @@ object InterfaceSetting {
             _animations.value = p.getBoolean("animations", true)
             _speed.value = runCatching { AnimationSpeed.valueOf(p.getString("speed", null) ?: "Normal") }.getOrDefault(AnimationSpeed.Normal)
             _blur.value = p.getBoolean("blur", true)
+            _haptics.value = p.getBoolean("haptics", true)
         }
     }
 
@@ -48,6 +51,11 @@ object InterfaceSetting {
     fun setSpeed(speed: AnimationSpeed) {
         _speed.value = speed
         prefs?.edit()?.putString("speed", speed.name)?.apply()
+    }
+
+    fun setHaptics(on: Boolean) {
+        _haptics.value = on
+        prefs?.edit()?.putBoolean("haptics", on)?.apply()
     }
 
     fun setBlur(on: Boolean) {

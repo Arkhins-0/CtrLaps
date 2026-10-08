@@ -47,6 +47,7 @@ import kotlinx.serialization.json.putJsonObject
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun EmailSettingsScreen() {
+    val haptics = com.arkhins.ctrlaps.ui.components.rememberHaptics()
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     var s by remember { mutableStateOf<EmailSettings?>(null) }
@@ -93,7 +94,7 @@ fun EmailSettingsScreen() {
                                     }
                                     Switch(
                                         checked = k.on,
-                                        onCheckedChange = { save(kind = k.key, on = it) },
+                                        onCheckedChange = { haptics.toggle(it); save(kind = k.key, on = it) },
                                         colors = SwitchDefaults.colors(checkedThumbColor = OnGold, checkedTrackColor = Gold),
                                     )
                                 }

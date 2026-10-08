@@ -306,6 +306,7 @@ private fun CodeRow(code: String, current: Int?) {
  */
 @Composable
 private fun RecentChecks(onCheck: (Verified) -> Unit) {
+    val haptics = com.arkhins.ctrlaps.ui.components.rememberHaptics()
     val app = LocalApp.current
     val history = app.verifyHistory
     val checks by history.checks.collectAsState()
@@ -341,7 +342,7 @@ private fun RecentChecks(onCheck: (Verified) -> Unit) {
                         }
                         Text(checkedWhen(c.at), style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                         val on = p.id in starred
-                        IconButton(onClick = { history.toggleStar(p.id) }) {
+                        IconButton(onClick = { haptics.toggle(!on); history.toggleStar(p.id) }) {
                             Icon(
                                 painterResource(if (on) R.drawable.ic_star else R.drawable.ic_star_border),
                                 contentDescription = if (on) "Unstar" else "Star",

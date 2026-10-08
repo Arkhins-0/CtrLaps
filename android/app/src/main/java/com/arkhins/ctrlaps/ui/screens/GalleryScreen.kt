@@ -107,7 +107,7 @@ fun GalleryScreen(
 ) {
     val app = LocalApp.current
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
+    val haptic = com.arkhins.ctrlaps.ui.components.rememberHaptics()
     val photos = remember(g) { g.photos }
     // One message's several files: forwarded or taken out as files of it. Otherwise the photos are messages.
     val oneMessage = remember(g) { g.oneMessage }
@@ -160,7 +160,7 @@ fun GalleryScreen(
                     .combinedClickable(
                         onClick = { if (selected.isNotEmpty()) toggle(f) else onView(photos.firstOrNull { it.file.id == f.id }?.message.let { m -> FileView.Image(f, m?.createdAt, m) }) },
                         onLongClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            haptic.longPress()
                             toggle(f)
                         },
                     ),

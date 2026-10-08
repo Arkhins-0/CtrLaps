@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arkhins.ctrlaps.ui.theme.Snow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -59,6 +60,11 @@ fun WheelPicker(items: List<String>, selected: Int, onSelect: (Int) -> Unit, mod
         snapshotFlow { state.isScrollInProgress }.distinctUntilChanged().filter { !it }.collect { if (centre != selected) onSelect(centre) }
     }
     LaunchedEffect(selected) { if (!state.isScrollInProgress && centre != selected) state.animateScrollToItem(selected) }
+    // A step each time a new row reaches the middle while the wheel turns.
+    val haptics = rememberHaptics()
+    LaunchedEffect(state) {
+        snapshotFlow { centre }.distinctUntilChanged().drop(1).collect { if (state.isScrollInProgress) haptics.step() }
+    }
 
     Box(modifier.height(ROW * SHOWN), contentAlignment = Alignment.Center) {
         // The band the chosen row sits in.

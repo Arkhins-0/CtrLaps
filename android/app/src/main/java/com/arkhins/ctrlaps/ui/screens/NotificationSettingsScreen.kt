@@ -230,7 +230,10 @@ private fun channelPage(context: Context, channel: String) =
  * whole app's notifications are off, so a kind can't be on.
  */
 @Composable
-private fun StateRow(icon: Int, title: String, hint: String, warning: String? = null, on: Boolean, dim: Boolean = false, onChange: Boolean = false, onClick: () -> Unit) {
+private fun StateRow(icon: Int, title: String, hint: String, warning: String? = null, on: Boolean, dim: Boolean = false, onChange: Boolean = false, onTap: () -> Unit) {
+    // A choice of ours flips here, so it buzzes; one of the phone's opens its page instead.
+    val haptics = com.arkhins.ctrlaps.ui.components.rememberHaptics()
+    val onClick = { if (onChange) haptics.toggle(!on); onTap() }
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,

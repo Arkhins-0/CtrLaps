@@ -416,6 +416,7 @@ private fun PersonRow(photo: String?, u: PublicUser, starred: Boolean, codes: Li
 /** One person: the profile, and what may be done to it. */
 @Composable
 fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle: (String) -> Unit) {
+    val haptics = com.arkhins.ctrlaps.ui.components.rememberHaptics()
     val app = LocalApp.current
     val scope = rememberCoroutineScope()
     var data by remember { mutableStateOf<UserResponse?>(null) }
@@ -515,6 +516,7 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
                 }
                 // The same star as Verify's list: starred people are pinned there.
                 QuickAction(painterResource(if (on) R.drawable.ic_star else R.drawable.ic_star_border), if (on) "Starred" else "Star", Modifier.weight(1f), highlight = on) {
+                    haptics.toggle(!on)
                     app.verifyHistory.toggleStar(Verified(u.id, u.name, u.role, u.roleLabel, u.teamName, u.status, u.statusLabel, u.verifyCode, u.photoUrl, u.profileComplete))
                 }
                 QuickAction(painterResource(R.drawable.ic_scan), "QR code", Modifier.weight(1f)) { showQr = true }

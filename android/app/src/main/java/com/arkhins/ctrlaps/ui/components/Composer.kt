@@ -189,6 +189,7 @@ fun Composer(
     // Files go one after another, each a while apart: each send uses the caller's lambda as it is by then
     // (a chat's reply, say, rides only with the first).
     val currentSend by rememberUpdatedState(send)
+    val haptics = rememberHaptics()
     val currentSendFiles by rememberUpdatedState(sendFiles)
 
     // Starting an edit fills the field; leaving it clears what the edit put there.
@@ -354,6 +355,7 @@ fun Composer(
         val files = if (editing) emptyList() else images + docs + audios
         val loc = if (editing) null else location
         if (busy || (text.isBlank() && files.isEmpty() && loc == null)) return
+        haptics.confirm()
         // A chat takes the files as they are and sends them in the background: nothing to wait for here.
         val handOver = currentSendFiles
         if (handOver != null && files.isNotEmpty()) {

@@ -77,8 +77,9 @@ fun IdCard(v: Verified) {
             // The same star as Verify's list: starred people are pinned there.
             val starred by app.verifyHistory.starred.collectAsState()
             val on = v.id in starred
+            val haptics = rememberHaptics()
             Box(
-                Modifier.padding(start = 8.dp).size(32.dp).clip(CircleShape).clickable { app.verifyHistory.toggleStar(v) },
+                Modifier.padding(start = 8.dp).size(32.dp).clip(CircleShape).clickable { haptics.toggle(!on); app.verifyHistory.toggleStar(v) },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(

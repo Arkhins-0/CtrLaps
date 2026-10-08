@@ -152,9 +152,10 @@ private fun ReminderRow(
             if (warning != null) Text(warning, style = MaterialTheme.typography.bodySmall, color = Danger, modifier = Modifier.padding(top = 2.dp))
         }
         Spacer(Modifier.width(12.dp))
+        val haptics = com.arkhins.ctrlaps.ui.components.rememberHaptics()
         Switch(
             checked = on,
-            onCheckedChange = onSwitch,
+            onCheckedChange = { haptics.toggle(it); onSwitch(it) },
             enabled = !dim,
             modifier = Modifier.semantics { contentDescription = if (on) "On" else "Off" },
             colors = SwitchDefaults.colors(

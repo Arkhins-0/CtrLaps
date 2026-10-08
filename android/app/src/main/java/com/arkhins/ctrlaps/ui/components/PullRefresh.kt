@@ -6,6 +6,9 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,6 +31,11 @@ fun PullRefresh(onRefresh: suspend () -> Unit, modifier: Modifier = Modifier, co
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val state = rememberPullToRefreshState()
+    // A buzz when the pull is far enough that letting go refreshes.
+    val haptics = rememberHaptics()
+    LaunchedEffect(state) {
+        snapshotFlow { state.distanceFraction >= 1f }.distinctUntilChanged().collect { past -> if (past && !refreshing) haptics.threshold() }
+    }
     PullToRefreshBox(
         isRefreshing = refreshing,
         onRefresh = {
