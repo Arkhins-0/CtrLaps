@@ -17,6 +17,7 @@ import { APP_NAME } from "./config";
 import { userPhotoUrl } from "./profile";
 import { currentSeason, LIVE_SEASON } from "./seasons";
 import { canPostCategory, categoryConversation, categoryInfo } from "./categoryChannels";
+import { samePostJustNow } from "./limits";
 
 /*
  * Messages, four ways: a one-off broadcast to chosen people below, a post
@@ -483,6 +484,9 @@ export async function sendBroadcast(
   const files = await checkFiles(sender, draft);
   const subject = draft.subject?.trim().replace(/\s+/g, " ") ?? "";
   const kept = subject ? { ...draft, body: [`*${subject.replace(/\*/g, "")}*`, draft.body.trim()].filter(Boolean).join("\n") } : draft;
+  // Sent a moment ago to the very same people (a second tap, a retry): that one stands, and nobody is told twice.
+  const again = await samePostJustNow(sender.id, { recipientIds: recipients }, kept.body, files[0]?.id ?? null);
+  if (again) return { id: again, delivered: recipients.length };
   const id = await insertMessage(null, sender, kept, files);
   const text = preview(draft.body, files);
   const mail = draft.urgent || files.length > 0 || draft.forceEmail;
@@ -552,6 +556,8 @@ export async function postToChannel(sender: SessionUser, weekendId: string, draf
   if (!channel.open) throw new AuthError(403, "This channel is closed.");
   if (!hasContent(draft)) throw new AuthError(400, "Write something or attach a document.");
   const files = await checkFiles(sender, draft);
+  const again = await samePostJustNow(sender.id, { conversationId: channel.id }, draft.body, files[0]?.id ?? null);
+  if (again) return again;
   const id = await insertMessage(channel.id, sender, draft, files);
   const text = preview(draft.body, files);
   await deliver({
@@ -592,6 +598,8 @@ export async function postToCategory(sender: SessionUser, categoryId: string, dr
   if (!hasContent(draft)) throw new AuthError(400, "Write something or attach a document.");
   const files = await checkFiles(sender, draft);
   const conversationId = await categoryConversation(categoryId);
+  const again = await samePostJustNow(sender.id, { conversationId }, draft.body, files[0]?.id ?? null);
+  if (again) return again;
   const id = await insertMessage(conversationId, sender, draft, files);
   const text = preview(draft.body, files);
   // Everyone reads every category channel, and gets its posts unless they muted it.

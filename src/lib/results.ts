@@ -87,7 +87,13 @@ export async function notifyResults(sessionId: string): Promise<void> {
   if (!info?.category_id) return;
   const rows = await sessionResults(sessionId);
   if (rows.length === 0) return;
-  await run("UPDATE race_sessions SET results_notified_at = now() WHERE id = $1", [sessionId]);
+  // Claimed in one step: whoever sets the time first sends; anyone within the same half minute finds it taken.
+  const claimed = await one(
+    `UPDATE race_sessions SET results_notified_at = now()
+     WHERE id = $1 AND (results_notified_at IS NULL OR results_notified_at < now() - interval '30 seconds') RETURNING id`,
+    [sessionId],
+  );
+  if (!claimed) return;
   const podium = rows.filter((r) => r.status === "finished" && r.position !== null).slice(0, 3).map((r) => `${r.position}. ${r.driverName}`).join(" · ");
   const audience = await resultsAudience(info.category_id);
   const link = `/results/${sessionId}`;

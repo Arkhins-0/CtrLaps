@@ -194,6 +194,13 @@ export type TicketDraft = { name: string; email: string; phone: string | null; c
  * are told, and the person gets an email with the ticket's number.
  */
 export async function raiseTicket(user: SessionUser | null, d: TicketDraft): Promise<{ id: string; number: number; label: string }> {
+  // The same ticket again moments later (a second tap, a retry after a lost answer): the first one stands, told once.
+  const again = await one<{ id: string; number: number }>(
+    `SELECT id, number FROM support_tickets WHERE lower(email) = $1 AND subject = $2 AND details = $3 AND created_at > now() - interval '2 minutes'
+     ORDER BY created_at DESC LIMIT 1`,
+    [d.email.toLowerCase(), d.subject, d.details],
+  );
+  if (again) return { ...again, label: ticketNumber(again.number) };
   const { conversationId, ticket } = await tx(async (c) => {
     const conv = (await c.query<{ id: string }>("INSERT INTO conversations (kind) VALUES ('support') RETURNING id")).rows[0]!;
     const row = (

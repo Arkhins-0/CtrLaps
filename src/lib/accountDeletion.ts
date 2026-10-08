@@ -86,6 +86,8 @@ export async function eraseAccount(userId: string): Promise<void> {
   const email = user.email.toLowerCase();
 
   const files = await tx(async (c) => {
+    const still = await c.query("SELECT 1 FROM users WHERE id = $1 AND status <> 'deleted' FOR UPDATE", [userId]);
+    if (still.rowCount === 0) return null;
     // Their support tickets, chat and all (the conversation takes the ticket and its messages with it).
     await c.query(
       `DELETE FROM conversations WHERE id IN (SELECT conversation_id FROM support_tickets WHERE user_id = $1 OR lower(email) = $2)`,
@@ -122,6 +124,7 @@ export async function eraseAccount(userId: string): Promise<void> {
     await c.query("INSERT INTO audit_log (actor_id, target_id, action) VALUES (NULL, $1, 'account.deleted')", [userId]);
     return unused;
   });
+  if (files === null) return;
 
   // The bytes, once the database no longer points at them.
   if (user.photo_key) await storage().remove(user.photo_key).catch((error) => console.error("[deletion] photo", error));
