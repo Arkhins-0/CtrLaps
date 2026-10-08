@@ -8,6 +8,7 @@ import android.net.Uri
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -53,6 +54,9 @@ data class Queued(
     /** False while [file] is still being copied onto the phone: nothing goes before it is there. */
     val ready: Boolean = true,
 )
+
+/** How long a message waits after the server said the chat is sending too fast (429) before it goes again. */
+private const val TOO_FAST_WAIT_MS = 15_000L
 
 /**
  * Messages sent while the phone is offline, or before the server has
@@ -269,20 +273,29 @@ class Outbox(
     private class Offline : Exception()
 
     /** One step of sending [item]: its result, or null once the server has turned it down (the message is marked). */
-    private suspend fun <T> step(item: Queued, block: suspend () -> T): T? = try {
-        block()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: NoConnectionException) {
-        throw Offline()
-    } catch (e: ApiException) {
-        // A server fault is not the message's: it waits, like a lost connection.
-        if (e.code >= 500) throw Offline()
-        refuse(item)
-        null
-    } catch (e: Exception) {
-        refuse(item)
-        null
+    private suspend fun <T> step(item: Queued, block: suspend () -> T): T? {
+        while (true) {
+            try {
+                return block()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: NoConnectionException) {
+                throw Offline()
+            } catch (e: ApiException) {
+                // Sending too fast for the server (429): not the message's fault either; it goes again in a while.
+                if (e.code == 429) {
+                    delay(TOO_FAST_WAIT_MS)
+                    continue
+                }
+                // A server fault is not the message's: it waits, like a lost connection.
+                if (e.code >= 500) throw Offline()
+                refuse(item)
+                return null
+            } catch (e: Exception) {
+                refuse(item)
+                return null
+            }
+        }
     }
 
     private suspend fun refuse(item: Queued) {

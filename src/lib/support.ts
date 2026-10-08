@@ -1,4 +1,5 @@
 import "server-only";
+import { checkPace } from "./limits";
 
 import { after } from "next/server";
 import { AuthError, type SessionUser } from "./auth";
@@ -201,6 +202,7 @@ export async function raiseTicket(user: SessionUser | null, d: TicketDraft): Pro
     [d.email.toLowerCase(), d.subject, d.details],
   );
   if (again) return { ...again, label: ticketNumber(again.number) };
+  if (user) await checkPace(user.id, "ticket");
   const { conversationId, ticket } = await tx(async (c) => {
     const conv = (await c.query<{ id: string }>("INSERT INTO conversations (kind) VALUES ('support') RETURNING id")).rows[0]!;
     const row = (
@@ -266,6 +268,7 @@ export async function replyToTicket(user: SessionUser, id: string, draft: Draft)
   if (t.status !== "open") throw new AuthError(403, "This ticket is closed. Reopen it to write again.");
   if (draft.poll || draft.calendarEvent) throw new AuthError(400, "Polls and events are not for support.");
   const dev = isDeveloper(user);
+  await checkPace(user.id, "chat");
   const { draft: ready, files } = await prepareDraft(user, t.conversation_id, { ...draft, forwardOf: null });
   const messageId = await insertMessage(t.conversation_id, user, ready, files);
   const text = preview(ready.body, files);

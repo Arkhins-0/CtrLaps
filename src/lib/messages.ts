@@ -17,7 +17,7 @@ import { APP_NAME } from "./config";
 import { userPhotoUrl } from "./profile";
 import { currentSeason, LIVE_SEASON } from "./seasons";
 import { canPostCategory, categoryConversation, categoryInfo } from "./categoryChannels";
-import { samePostJustNow } from "./limits";
+import { checkPace, samePostJustNow } from "./limits";
 
 /*
  * Messages, four ways: a one-off broadcast to chosen people below, a post
@@ -487,6 +487,7 @@ export async function sendBroadcast(
   // Sent a moment ago to the very same people (a second tap, a retry): that one stands, and nobody is told twice.
   const again = await samePostJustNow(sender.id, { recipientIds: recipients }, kept.body, files[0]?.id ?? null);
   if (again) return { id: again, delivered: recipients.length };
+  await checkPace(sender.id, draft.forceEmail ? "email" : "post");
   const id = await insertMessage(null, sender, kept, files);
   const text = preview(draft.body, files);
   const mail = draft.urgent || files.length > 0 || draft.forceEmail;
@@ -558,6 +559,7 @@ export async function postToChannel(sender: SessionUser, weekendId: string, draf
   const files = await checkFiles(sender, draft);
   const again = await samePostJustNow(sender.id, { conversationId: channel.id }, draft.body, files[0]?.id ?? null);
   if (again) return again;
+  await checkPace(sender.id, "post");
   const id = await insertMessage(channel.id, sender, draft, files);
   const text = preview(draft.body, files);
   await deliver({
@@ -600,6 +602,7 @@ export async function postToCategory(sender: SessionUser, categoryId: string, dr
   const conversationId = await categoryConversation(categoryId);
   const again = await samePostJustNow(sender.id, { conversationId }, draft.body, files[0]?.id ?? null);
   if (again) return again;
+  await checkPace(sender.id, "post");
   const id = await insertMessage(conversationId, sender, draft, files);
   const text = preview(draft.body, files);
   // Everyone reads every category channel, and gets its posts unless they muted it.
@@ -779,6 +782,7 @@ export async function postGroup(sender: SessionUser, conversationId: string, dra
   if (me.closed) throw new AuthError(403, "This chat is closed.");
   if (me.permission !== "full") throw new AuthError(403, "You can read this chat, but not send messages.");
   if (conv.send_policy === "admins" && me.role !== "admin") throw new AuthError(403, "Only the group's admins can send here.");
+  await checkPace(sender.id, "chat");
   const { draft: ready, files } = await prepareDraft(sender, conv.id, draft);
   draft = ready;
   const id = await insertMessage(conv.id, sender, draft, files);
@@ -852,6 +856,7 @@ export async function postDirect(sender: SessionUser, conversationId: string, dr
   if (!canRead(sender, conv)) throw new AuthError(403, "Not your chat.");
   if (draft.poll) throw new AuthError(400, "Polls are for groups and announcements.");
   if (draft.calendarEvent) throw new AuthError(400, "Events are for groups and announcements.");
+  await checkPace(sender.id, "chat");
   const { draft: ready, files } = await prepareDraft(sender, conv.id, draft);
   draft = ready;
   const otherId = conv.owner_id === sender.id ? conv.member_id! : conv.owner_id!;
