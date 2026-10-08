@@ -1,6 +1,28 @@
 package com.arkhins.ctrlaps.ui.screens
 
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.draw.clip
+import com.arkhins.ctrlaps.ui.components.Attachment
+import com.arkhins.ctrlaps.ui.components.LinkCard
+import com.arkhins.ctrlaps.ui.components.PhotoGrid
+import com.arkhins.ctrlaps.ui.components.TextWithMeta
+import com.arkhins.ctrlaps.ui.components.formatted
+import com.arkhins.ctrlaps.ui.components.runPhotos
+import com.arkhins.ctrlaps.ui.components.runText
+import com.arkhins.ctrlaps.ui.components.stamped
+import com.arkhins.ctrlaps.ui.components.textBesideCard
+import com.arkhins.ctrlaps.ui.components.textOf
+import com.arkhins.ctrlaps.ui.localTime
+import com.arkhins.ctrlaps.data.attachments
+import com.arkhins.ctrlaps.ui.components.isImage
 
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.material.icons.automirrored.outlined.List
@@ -598,59 +620,72 @@ fun TicketScreen(vm: AppViewModel, ticketId: String, onView: (FileView) -> Unit,
 
     val d = v
     Column(Modifier.fillMaxSize().imePadding()) {
-        LazyColumn(Modifier.weight(1f), state = list, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(Modifier.weight(1f), state = list, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             when {
                 error != null && d == null -> item { ErrorText(error) }
                 d == null -> item { Loading() }
                 else -> {
                     val t = d.ticket
+                    // Flat, as the newer pages: what it is about large, then (for Support) who raised it as icon rows.
                     item {
-                        Panel {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text(t.label, style = MaterialTheme.typography.labelLarge, color = Gold, fontFamily = FontFamily.Monospace)
-                                    Chip(if (t.status == "open") "Open" else "Closed", if (t.status == "open") Gold else SnowFaint)
-                                    Chip(t.category, SnowSoft)
-                                }
-                                Text(t.subject, style = MaterialTheme.typography.titleMedium, color = Snow)
-                                Text(localDateTime(t.createdAt), style = MaterialTheme.typography.labelSmall, color = SnowFaint)
-                                if (d.isDev) {
-                                    Text(
-                                        listOfNotNull(t.name, t.email, t.phone, if (t.userId == null) "no account (replies go by email)" else null).joinToString(" · "),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = SnowSoft,
-                                    )
-                                }
-                                // The details open the chat below (with any files) when it was raised signed in: not twice.
-                                if (d.messages.none { it.body.trim() == t.details.trim() }) Text(t.details, style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
-                                ErrorText(error)
-                                if (d.canClose) GhostButton("Close ticket", enabled = !busy) { closing = true }
-                                if (d.canReopen) {
-                                    GoldButton("Reopen ticket", Modifier.fillMaxWidth(), enabled = !busy) { setStatus("open") }
-                                    if (!d.isDev) d.reopenUntil?.let { Text("You can reopen it until ${localDateTime(it)}.", style = MaterialTheme.typography.labelSmall, color = SnowFaint) }
-                                }
-                                if (t.status == "closed" && !d.canReopen && !d.isDev) {
-                                    Text("Closed more than 2 days ago. Raise a new ticket if you still need help.", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
-                                }
+                        Column(Modifier.padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(t.label, style = MaterialTheme.typography.labelLarge, color = Gold, fontFamily = FontFamily.Monospace)
+                                Chip(if (t.status == "open") "Open" else "Closed", if (t.status == "open") Gold else SnowFaint, filled = t.status == "open")
+                                Chip(t.category, SnowSoft)
                             }
+                            Text(t.subject, style = MaterialTheme.typography.titleLarge.copy(fontSize = 24.sp, lineHeight = 30.sp), fontWeight = FontWeight.Bold, color = Snow)
+                            Text("Raised ${localDateTime(t.createdAt)}", style = MaterialTheme.typography.bodySmall, color = SnowSoft.copy(alpha = 0.8f))
                         }
                     }
-                    if (d.messages.isEmpty()) item { Text(if (d.isDev) "No replies yet." else "Support will reply here.", style = MaterialTheme.typography.labelSmall, color = SnowFaint, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
-                    // Lines about the ticket itself ("Support closed the ticket") as a pill; photos sent together as one grid.
+                    if (d.isDev) item {
+                        Column {
+                            DetailRow(Icons.Outlined.Person, "Raised by", t.name + if (t.userId == null) " · no account" else "")
+                            DetailRow(Icons.Outlined.Email, "Email", t.email + if (t.userId == null) " · replies go here" else "")
+                            t.phone?.takeIf { it.isNotBlank() }?.let { DetailRow(Icons.Outlined.Phone, "Contact", it) }
+                        }
+                    }
+                    // The details open the chat below (with any files) when it was raised signed in: not twice.
+                    if (d.messages.none { it.body.trim() == t.details.trim() }) item {
+                        Text(t.details, style = MaterialTheme.typography.bodyMedium, color = SnowSoft, modifier = Modifier.padding(vertical = 4.dp))
+                    }
+                    item {
+                        Column {
+                            ErrorText(error)
+                            if (d.canClose) MenuRow("Close ticket", if (d.isDev) "Tell them it is sorted" else "Sorted? You can reopen it within 2 days", icon = rememberVectorPainter(Icons.Outlined.CheckCircle), arrow = false) { if (!busy) closing = true }
+                            if (d.canReopen) {
+                                MenuRow(
+                                    "Reopen ticket",
+                                    if (!d.isDev) d.reopenUntil?.let { "Until ${localDateTime(it)}" } ?: "Write to Support again" else "Open it again",
+                                    highlight = true,
+                                    icon = rememberVectorPainter(Icons.Outlined.Refresh),
+                                    arrow = false,
+                                ) { if (!busy) setStatus("open") }
+                            }
+                            if (t.status == "closed" && !d.canReopen && !d.isDev) {
+                                Text("Closed more than 2 days ago. Raise a new ticket if you still need help.", style = MaterialTheme.typography.bodySmall, color = SnowFaint, modifier = Modifier.padding(vertical = 8.dp))
+                            }
+                            HorizontalDivider(color = NightLine, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+                        }
+                    }
+                    if (d.messages.isEmpty()) item { Text(if (d.isDev) "No replies yet." else "Support will reply here.", style = MaterialTheme.typography.labelSmall, color = SnowFaint, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) }
+                    // As a chat: yours on the right in the accent, Support's on the left; lines about the ticket as a
+                    // pill; photos sent together as one grid.
                     val runs = photoRuns(d.messages.filter { it.event == null })
                     val byFirst = runs.associateBy { it.first().id }
                     items(d.messages.filter { it.event != null || it.id in byFirst }, key = { it.id }) { m ->
                         if (m.event != null) {
-                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
                                 Text(
                                     m.event,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = SnowFaint,
-                                    modifier = Modifier.background(NightPanel, RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 4.dp),
+                                    color = SnowSoft,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.background(NightPanel.copy(alpha = 0.7f), RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 4.dp),
                                 )
                             }
                         } else {
-                            MessageCard(byFirst.getValue(m.id), onView)
+                            TicketBubble(byFirst.getValue(m.id), onView)
                         }
                     }
                 }
@@ -678,5 +713,59 @@ fun TicketScreen(vm: AppViewModel, ticketId: String, onView: (FileView) -> Unit,
             confirmButton = { TextButton(onClick = { closing = false; setStatus("closed") }) { Text("Close", color = Gold) } },
             dismissButton = { TextButton(onClick = { closing = false }) { Text("Cancel", color = SnowSoft) } },
         )
+    }
+}
+
+/**
+ * One message in a ticket, as a chat bubble (the same look as Chats): yours in the accent on the right, Support's
+ * (or, for Support, the person's) dark on the left with who wrote it; photos as a grid, files as cards, the time
+ * tucked into the last line.
+ */
+@Composable
+private fun TicketBubble(run: List<com.arkhins.ctrlaps.data.Message>, onView: (FileView) -> Unit) {
+    val m = run.last()
+    val mine = m.mine
+    val view: (FileView) -> Unit = { onView(it.stamped(run)) }
+    val shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = if (mine) 18.dp else 4.dp, bottomEnd = if (mine) 4.dp else 18.dp)
+    val photos = runPhotos(run)
+    val files = run.flatMap { it.attachments }.filterNot { it.isImage }
+    val text = if (run.size > 1) runText(run) else textBesideCard(textOf(m.body), m.linkPreview)
+    val picture = photos.isNotEmpty() || m.linkPreview != null
+    val inset = if (picture) Modifier.padding(horizontal = 9.dp) else Modifier
+    val meta: @Composable () -> Unit = {
+        Text(localTime(m.createdAt), style = MaterialTheme.typography.labelSmall, color = if (mine) OnGold.copy(alpha = 0.6f) else SnowFaint)
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
+        Column(
+            Modifier
+                .widthIn(max = 300.dp)
+                .then(if (picture) Modifier.width(IntrinsicSize.Max) else Modifier)
+                .clip(shape)
+                .background(if (mine) Gold else NightPanel)
+                .border(1.dp, if (mine) Gold else NightLine, shape)
+                .then(if (picture) Modifier.padding(start = 3.dp, end = 3.dp, top = 3.dp, bottom = 6.dp) else Modifier.padding(horizontal = 12.dp, vertical = 8.dp)),
+        ) {
+            if (!mine) {
+                Text(m.sender?.name ?: "Support", style = MaterialTheme.typography.labelMedium, color = Gold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = inset)
+                Spacer(Modifier.height(2.dp))
+            }
+            PhotoGrid(photos, view, fill = true)
+            files.forEachIndexed { i, f ->
+                if (i > 0 || photos.isNotEmpty()) Spacer(Modifier.height(6.dp))
+                Box(inset) { Attachment(f, view, onDark = !mine) }
+            }
+            m.linkPreview?.let { card ->
+                if (files.isNotEmpty() || photos.isNotEmpty()) Spacer(Modifier.height(6.dp))
+                LinkCard(card, onDark = !mine)
+            }
+            if (text.isNotBlank()) {
+                if (files.isNotEmpty() || photos.isNotEmpty() || m.linkPreview != null) Spacer(Modifier.height(6.dp))
+                val words = remember(text) { formatted(text) }
+                TextWithMeta(words, style = MaterialTheme.typography.bodyMedium.copy(color = if (mine) OnGold else Snow), meta = meta, modifier = inset)
+            } else {
+                Spacer(Modifier.height(2.dp))
+                Row(Modifier.align(Alignment.End).then(inset)) { meta() }
+            }
+        }
     }
 }
