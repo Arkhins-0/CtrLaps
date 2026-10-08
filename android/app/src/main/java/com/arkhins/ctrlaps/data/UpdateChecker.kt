@@ -63,6 +63,9 @@ class UpdateChecker {
      * to look past its own cache.
      */
     suspend fun latest(fresh: Boolean = false): Latest = withContext(Dispatchers.IO) {
+        // The test app (package ….debug, beside the live one) is never offered the live release: new test builds
+        // come from the team as a file.
+        if (com.arkhins.ctrlaps.BuildConfig.APPLICATION_ID.endsWith(".debug")) return@withContext Latest.None
         askSources(fresh).also { if (it is Latest.Release) remember(it.info) }
     }
 

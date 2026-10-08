@@ -93,6 +93,8 @@ android {
         versionName = ctrlapsVersionName
 
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
+        // The name under the icon: the test app (its own package, beside the live one) says so.
+        resValue("string", "app_name", "CTR[L]APS")
         manifestPlaceholders["appLinkHost"] = appLinkHost
         // The site the app shares saved passwords with (its assetlinks.json also lists get_login_creds).
         resValue("string", "asset_statements", "[{\\\"include\\\": \\\"https://$appLinkHost/.well-known/assetlinks.json\\\"}]")
@@ -126,7 +128,10 @@ android {
             if (hasSigning) signingConfig = signingConfigs.getByName("release")
         }
         debug {
-            if (debugSuffixKnown) applicationIdSuffix = ".debug"
+            if (debugSuffixKnown) {
+                applicationIdSuffix = ".debug"
+                resValue("string", "app_name", "CTR[L]APS Test")
+            }
         }
         // For trying the app on a phone at real speed: optimised like a release (debug builds of
         // Compose run several times slower), but signed and named like the debug build, so it installs
@@ -134,7 +139,10 @@ android {
         create("fast") {
             initWith(getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
-            if (debugSuffixKnown) applicationIdSuffix = ".debug"
+            if (debugSuffixKnown) {
+                applicationIdSuffix = ".debug"
+                resValue("string", "app_name", "CTR[L]APS Test")
+            }
             matchingFallbacks += "release"
         }
     }
