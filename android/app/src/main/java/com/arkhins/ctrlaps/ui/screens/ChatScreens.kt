@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.arrive
+
 import com.arkhins.ctrlaps.ui.components.PullRefresh
 import com.arkhins.ctrlaps.ui.components.LoadingShape
 import com.arkhins.ctrlaps.ui.components.Snack
@@ -318,6 +320,8 @@ private fun ChatListPage(vm: AppViewModel, onOpen: (String) -> Unit, onNewChat: 
                 }
             }
         }
+        // The chats arrive one after another as the tab opens.
+        val arrival = com.arkhins.ctrlaps.ui.components.rememberArrival()
         PullRefresh(onRefresh = { vm.refreshAll() }, modifier = Modifier.weight(1f)) {
             LazyColumn(Modifier.fillMaxSize().nestedScroll(pull), contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)) {
                 // A volunteer's group or a delegate's delegation, pinned above their chats.
@@ -341,7 +345,7 @@ private fun ChatListPage(vm: AppViewModel, onOpen: (String) -> Unit, onNewChat: 
                             )
                         }
                     }
-                    else -> itemsIndexed(shown, key = { _, chat -> chat.id }) { i, chat ->
+                    else -> itemsIndexed(shown, key = { _, chat -> chat.id }) { i, chat -> Column(Modifier.arrive(arrival)) {
                         if (i > 0) Box(Modifier.padding(start = 76.dp)) { Divider() }
                         Row(
                             Modifier
@@ -369,7 +373,7 @@ private fun ChatListPage(vm: AppViewModel, onOpen: (String) -> Unit, onNewChat: 
                                 }
                             }
                         }
-                    }
+                    } }
                 }
             }
         }

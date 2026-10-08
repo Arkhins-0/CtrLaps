@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.arrive
+
 import com.arkhins.ctrlaps.ui.components.SessionCountdown
 import com.arkhins.ctrlaps.ui.components.PullRefresh
 import com.arkhins.ctrlaps.R
@@ -223,9 +225,11 @@ fun HomeScreen(
     // Admins and coordinators send announcements, to anyone.
     val canSend = vm.me?.canAnnounce == true
 
+    // Home's cards arrive one after another as it opens.
+    val arrival = com.arkhins.ctrlaps.ui.components.rememberArrival()
     PullRefresh(onRefresh = { vm.refreshAll() }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            item {
+            item { Column(Modifier.arrive(arrival)) {
                 // The admin's or coordinator's card rides in this first row, so the rows counted below stay where they are.
                 board?.let { b ->
                     Column {
@@ -253,11 +257,11 @@ fun HomeScreen(
                         }
                     }
                 }
-            }
+            } }
 
             if (events.isNotEmpty()) {
-                item { SectionHeader("Upcoming events") }
-                item {
+                item { Box(Modifier.arrive(arrival)) { SectionHeader("Upcoming events") } }
+                item { Box(Modifier.arrive(arrival)) {
                     UpcomingEventsCard(events) { e ->
                         if (e.conversationId != null) onOpenChat(e.conversationId)
                         else scope.launch {
@@ -266,13 +270,13 @@ fun HomeScreen(
                             if (idx >= 0) list.animateScrollToItem(idx + 5 + (if (chats.isNotEmpty()) 2 else 0) + (if (channels.isNotEmpty()) 1 + channels.size else 0))
                         }
                     }
-                }
+                } }
             }
 
             if (chats.isNotEmpty()) {
-                item { SectionHeader("Chats", "All chats", onAllChats) }
+                item { Box(Modifier.arrive(arrival)) { SectionHeader("Chats", "All chats", onAllChats) } }
                 item {
-                    Panel(padding = PaddingValues(6.dp)) {
+                    Panel(Modifier.arrive(arrival), padding = PaddingValues(6.dp)) {
                         Column {
                             shownChats.forEachIndexed { i, chat ->
                                 if (i > 0) Divider()
@@ -306,9 +310,9 @@ fun HomeScreen(
             }
 
             if (channels.isNotEmpty()) {
-                item { SectionHeader("Weekend channels") }
+                item { Box(Modifier.arrive(arrival)) { SectionHeader("Weekend channels") } }
                 items(channels, key = { it.weekend.id }) { c ->
-                    Panel(Modifier.clickable { onOpenWeekend(c.weekend.id) }) {
+                    Panel(Modifier.arrive(arrival).clickable { onOpenWeekend(c.weekend.id) }) {
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(c.weekend.name, style = MaterialTheme.typography.titleSmall, color = Snow, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -339,7 +343,7 @@ fun HomeScreen(
             }
 
             item {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.arrive(arrival).padding(top = 4.dp)) {
                     Text("Announcements", style = MaterialTheme.typography.titleMedium, color = Snow, modifier = Modifier.weight(1f))
                     if (canSend) GoldButton("New message", onClick = onCompose)
                 }
@@ -354,7 +358,7 @@ fun HomeScreen(
                     feedRows(photoRuns(m.asReversed()).asReversed(), newIds).forEach { row ->
                         when (row) {
                             is FeedRow.Day -> stickyHeader(key = row.key) { DayHeader(row.label) }
-                            is FeedRow.Run -> item(key = row.key) { MessageCard(row.run, onView, highlight = row.run.any { it.id == highlight }) }
+                            is FeedRow.Run -> item(key = row.key) { Box(Modifier.arrive(arrival)) { MessageCard(row.run, onView, highlight = row.run.any { it.id == highlight }) } }
                             FeedRow.New -> item(key = row.key) { NewLine() }
                         }
                     }

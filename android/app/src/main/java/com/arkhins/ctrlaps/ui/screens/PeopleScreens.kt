@@ -1,6 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
 import com.arkhins.ctrlaps.ui.components.popped
+import com.arkhins.ctrlaps.ui.components.arrive
 
 import com.arkhins.ctrlaps.ui.components.TeamPicker
 import com.arkhins.ctrlaps.ui.components.PullRefresh
@@ -223,6 +224,8 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
     // Each person's race category codes, for the line under their name.
     val codes = remember(roster) { roster.flatMap { c -> c.memberIds.map { it to c.code } }.groupBy({ it.first }, { it.second }) }
     PullRefresh(onRefresh = { reload++ }, modifier = Modifier.fillMaxSize()) {
+        // People arrive one after another as the tab opens.
+        val arrival = com.arkhins.ctrlaps.ui.components.rememberArrival()
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -362,9 +365,9 @@ fun PeopleScreen(me: Me?, onOpen: (String) -> Unit, onAdd: () -> Unit, onEmail: 
                             me?.canRelay == true -> ({ onEmail(if (role == "volunteer") "volunteers" else "security") })
                             else -> null
                         }
-                        GroupTitle(rolePlural(role), list.size, Modifier.padding(top = 10.dp), action = if (mail != null) "Email" else null, onAction = mail)
+                        GroupTitle(rolePlural(role), list.size, Modifier.arrive(arrival).padding(top = 10.dp), action = if (mail != null) "Email" else null, onAction = mail)
                     }
-                        items(list, key = { it.id }) { u -> PersonRow(app.api.absolute(u.photoUrl), u, u.id in starred, codes[u.id].orEmpty()) { onOpen(u.id) } }
+                        items(list, key = { it.id }) { u -> Box(Modifier.arrive(arrival)) { PersonRow(app.api.absolute(u.photoUrl), u, u.id in starred, codes[u.id].orEmpty()) { onOpen(u.id) } } }
                     }
                 }
             }
