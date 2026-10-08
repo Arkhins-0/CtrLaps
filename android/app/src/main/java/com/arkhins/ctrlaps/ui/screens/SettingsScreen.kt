@@ -49,6 +49,10 @@ import androidx.compose.runtime.collectAsState
 import com.arkhins.ctrlaps.ui.theme.Gold
 import com.arkhins.ctrlaps.ui.theme.ThemeMode
 import com.arkhins.ctrlaps.ui.theme.ThemeSetting
+import com.arkhins.ctrlaps.ui.theme.InterfaceSetting
+import com.arkhins.ctrlaps.ui.theme.AnimationSpeed
+import com.arkhins.ctrlaps.ui.theme.AppMotion
+import androidx.compose.ui.draw.alpha
 import com.arkhins.ctrlaps.data.MediaLibrary
 import android.Manifest
 import android.app.Activity
@@ -140,7 +144,7 @@ private data class Access(
  */
 /** Settings: a menu into its pages. */
 @Composable
-fun SettingsScreen(onPermissions: () -> Unit, onTheme: () -> Unit, onEmail: () -> Unit, onDelete: () -> Unit) {
+fun SettingsScreen(onPermissions: () -> Unit, onTheme: () -> Unit, onInterface: () -> Unit, onEmail: () -> Unit, onDelete: () -> Unit) {
     val context = LocalContext.current
     var items by remember { mutableStateOf(lastSeen) }
     LaunchedEffect(Unit) { items = withContext(Dispatchers.Default) { accessList(context) }.also { lastSeen = it } }
@@ -165,6 +169,9 @@ fun SettingsScreen(onPermissions: () -> Unit, onTheme: () -> Unit, onEmail: () -
             )
             val mode by ThemeSetting.mode.collectAsState()
             MenuRow("Theme", mode.label, icon = painterResource(R.drawable.ic_eye), onClick = onTheme)
+            val animations by InterfaceSetting.animations.collectAsState()
+            val speed by InterfaceSetting.speed.collectAsState()
+            MenuRow("Interface", if (animations) "Animations: ${speed.label.lowercase()}" else "Animations off", icon = painterResource(R.drawable.ic_animation), onClick = onInterface)
             MenuRow("Email", "Which emails you get", icon = rememberVectorPainter(Icons.Outlined.Email), onClick = onEmail)
             MenuRow("Delete account", "Erase your account and the details we hold", icon = rememberVectorPainter(Icons.Outlined.Delete), danger = true, onClick = onDelete)
             // Shown only when some "Don't ask me again" was ticked.
@@ -293,6 +300,55 @@ fun ThemeScreen() {
         ColorPickerDialog(Color(customColor), onDismiss = { picking = false }) { c ->
             ThemeSetting.setCustomColor(c.toArgb())
             picking = false
+        }
+    }
+}
+
+/**
+ * How the app moves, after Arkhime's interface settings: animations on or off and how quick they are (every
+ * animation follows it, see AppMotion), and blur behind dialogs and on the profile banner (Android 12+).
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+fun InterfaceScreen() {
+    val animations by InterfaceSetting.animations.collectAsState()
+    val speed by InterfaceSetting.speed.collectAsState()
+    val blur by InterfaceSetting.blur.collectAsState()
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Column {
+            GroupTitle("Motion")
+            ThemeSwitch(R.drawable.ic_animation, "Animations", "Screens slide, sheets rise and photos grow. Off: everything changes at once", animations) { InterfaceSetting.setAnimations(it) }
+            // The phone's own switch (Developer options, Accessibility) wins: say so rather than look broken.
+            if (AppMotion.system == 0f) {
+                Text(
+                    "Animations are off on this phone (Accessibility or Developer options), so nothing moves here either.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Gold,
+                    modifier = Modifier.padding(start = 44.dp, bottom = 8.dp),
+                )
+            }
+            Column(Modifier.padding(start = 44.dp, top = 4.dp, bottom = 8.dp).alpha(if (animations) 1f else 0.4f)) {
+                Text("Speed", style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp), fontWeight = FontWeight.Bold, color = Snow)
+                Text("How long each animation takes", style = MaterialTheme.typography.bodySmall, color = SnowSoft.copy(alpha = 0.8f))
+                Spacer(Modifier.height(10.dp))
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AnimationSpeed.entries.forEach { s ->
+                        Chip(s.label, Gold, filled = s == speed, onClick = if (animations) ({ InterfaceSetting.setSpeed(s) }) else null)
+                    }
+                }
+            }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Column {
+                GroupTitle("Effects")
+                ThemeSwitch(R.drawable.ic_blur, "Blur", "What is behind a dialog, and the photo behind your profile banner", blur) { InterfaceSetting.setBlur(it) }
+            }
         }
     }
 }

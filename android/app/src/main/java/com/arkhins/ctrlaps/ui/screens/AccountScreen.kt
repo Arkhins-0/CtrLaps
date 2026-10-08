@@ -327,6 +327,9 @@ private val FINDABLE = listOf(
     Findable("Theme", "Settings › Theme", "theme", "dark light mode system appearance"),
     Findable("Pure black", "Settings › Theme", "theme", "amoled oled black dark battery"),
     Findable("Accent colour", "Settings › Theme", "theme", "color gold orange green blue violet"),
+    Findable("Interface", "Settings › Interface", "interface", "look feel motion"),
+    Findable("Animations", "Settings › Interface", "interface", "animation motion speed slow fast off reduce transitions"),
+    Findable("Blur", "Settings › Interface", "interface", "blur dialogs banner effects"),
     Findable("Email", "Settings › Email", "email-settings", "mail newsletters unsubscribe"),
     Findable("Delete account", "Settings › Delete account", "delete-account", "remove erase close"),
     Findable("About", "About", "about", "version"),
@@ -443,6 +446,7 @@ private fun FollowCategoriesPanel(vm: AppViewModel) {
 fun ProfileBanner(photo: String?, name: String, role: String, onChange: (() -> Unit)? = null, onRemove: (() -> Unit)? = null, status: @Composable () -> Unit) {
     val context = LocalContext.current
     var bounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    val blur by com.arkhins.ctrlaps.ui.theme.InterfaceSetting.blur.collectAsState()
     Box(
         Modifier
             .fillMaxWidth()
@@ -456,7 +460,7 @@ fun ProfileBanner(photo: String?, name: String, role: String, onChange: (() -> U
                 model = photo,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.matchParentSize().blur(28.dp),
+                modifier = Modifier.matchParentSize().then(if (blur) Modifier.blur(28.dp) else Modifier),
             )
         }
         // Darker on the left, where the words are, so they read on any photo.

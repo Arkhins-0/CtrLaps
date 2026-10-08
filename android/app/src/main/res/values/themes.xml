@@ -10,6 +10,16 @@
     </style>
 
     <style name="Theme.Ctrlaps.Dialog" parent="android:ThemeOverlay.Material.Dialog" />
+    <!-- A dialog with nothing blurred behind it (Settings → Interface → Blur off). -->
+    <style name="Theme.Ctrlaps.Dialog.Plain" parent="android:ThemeOverlay.Material.Dialog" />
+
+    <!-- Laid over the activity's theme while it runs, so the next dialog opens blurred or plain as chosen. -->
+    <style name="ThemeOverlay.Ctrlaps.DialogBlur" parent="">
+        <item name="android:dialogTheme">@style/Theme.Ctrlaps.Dialog</item>
+    </style>
+    <style name="ThemeOverlay.Ctrlaps.DialogPlain" parent="">
+        <item name="android:dialogTheme">@style/Theme.Ctrlaps.Dialog.Plain</item>
+    </style>
 
     <!-- The championship badge on night while the app starts. -->
     <style name="Theme.Ctrlaps.Starting" parent="Theme.SplashScreen">

@@ -117,6 +117,7 @@ import com.arkhins.ctrlaps.ui.screens.GroupScreen
 import com.arkhins.ctrlaps.ui.screens.SettingsScreen
 import com.arkhins.ctrlaps.ui.screens.PermissionsScreen
 import com.arkhins.ctrlaps.ui.screens.ThemeScreen
+import com.arkhins.ctrlaps.ui.screens.InterfaceScreen
 import com.arkhins.ctrlaps.ui.screens.AboutScreen
 import com.arkhins.ctrlaps.ui.screens.ActivityScreen
 import com.arkhins.ctrlaps.ui.screens.VolunteerGroupScreen
@@ -480,7 +481,7 @@ private fun MainNav(vm: AppViewModel) {
 
             composable("details") { Pushed("Account", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Person)) { AccountDetailsScreen(vm) } }
             composable("storage") { Pushed("Storage", flat = true, bigIcon = BigIcon(drawable = R.drawable.ic_download)) { StorageScreen() } }
-            composable("settings") { Pushed("Settings", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Settings)) { SettingsScreen(onPermissions = { nav.open("permissions") }, onTheme = { nav.open("theme") }, onEmail = { nav.open("email-settings") }, onDelete = { nav.open("delete-account") }) } }
+            composable("settings") { Pushed("Settings", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Settings)) { SettingsScreen(onPermissions = { nav.open("permissions") }, onTheme = { nav.open("theme") }, onInterface = { nav.open("interface") }, onEmail = { nav.open("email-settings") }, onDelete = { nav.open("delete-account") }) } }
             composable("email-settings") { Pushed("Email", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Email)) { EmailSettingsScreen() } }
             composable("activity") { Pushed("Activity log", flat = true, bigIcon = BigIcon(vector = Icons.AutoMirrored.Filled.List)) { ActivityScreen() } }
             // The Volunteers page on its own (also what a link or a debug route to "volunteers" opens).
@@ -495,6 +496,7 @@ private fun MainNav(vm: AppViewModel) {
             composable("channels") { Pushed("Channels") { ChannelsScreen(vm, openWeekend) { nav.open("category/$it") } } }
             composable("delete-account") { Pushed("Delete account", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Delete)) { DeleteAccountScreen(onDeleted = { vm.accountDeleted() }) } }
             composable("theme") { Pushed("Theme", flat = true, bigIcon = BigIcon(drawable = R.drawable.ic_palette)) { ThemeScreen() } }
+            composable("interface") { Pushed("Interface", flat = true, bigIcon = BigIcon(drawable = R.drawable.ic_animation)) { InterfaceScreen() } }
             composable("permissions") { Pushed("Permissions", flat = true, bigIcon = BigIcon(vector = Icons.Filled.Lock)) { PermissionsScreen() } }
             composable("notification-settings") { Pushed("Notifications", flat = true, bigIcon = BigIcon(drawable = R.drawable.ic_bell)) { NotificationSettingsScreen(onHistory = { nav.open("notifications") }, onPermissions = { nav.open("permissions") }) } }
             composable("notifications") { Pushed("Notifications", flat = true, bigIcon = BigIcon(drawable = R.drawable.ic_bell)) { NotificationsScreen() } }

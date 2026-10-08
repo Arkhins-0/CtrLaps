@@ -1,6 +1,11 @@
 package com.arkhins.ctrlaps
 
 import com.arkhins.ctrlaps.ui.theme.ThemeSetting
+import com.arkhins.ctrlaps.ui.theme.InterfaceSetting
+import com.arkhins.ctrlaps.ui.theme.AppMotion
+import androidx.compose.ui.platform.createLifecycleAwareWindowRecomposer
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
@@ -20,12 +25,23 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         ThemeSetting.init(this)
+        InterfaceSetting.init(this)
+        AppMotion.readSystem(this)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
         handle(intent)
-        setContent {
+        // Dialogs read their window theme from the activity's when they open, so blur on or off reaches the next one.
+        lifecycleScope.launch {
+            InterfaceSetting.blur.collect { on ->
+                theme.applyStyle(if (on) R.style.ThemeOverlay_Ctrlaps_DialogBlur else R.style.ThemeOverlay_Ctrlaps_DialogPlain, true)
+            }
+        }
+        // The window's usual recomposer, but with the app's animation scale in it (Settings → Interface): every
+        // animation inside, dialogs and sheets included, takes its length from AppMotion.
+        val recomposer = window.decorView.createLifecycleAwareWindowRecomposer(AppMotion, lifecycle)
+        setContent(parent = recomposer) {
             CompositionLocalProvider(LocalApp provides (application as CtrlapsApplication)) {
                 CtrlapsTheme {
                     CtrlapsApp()
@@ -36,6 +52,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        AppMotion.readSystem(this)
         Notifications.foreground = true
     }
 
