@@ -378,7 +378,6 @@ fun WeekendCard(
     var error by remember { mutableStateOf<String?>(null) }
     var open by remember { mutableStateOf(startOpen) }
     var menu by remember { mutableStateOf(false) }
-    val turn by animateFloatAsState(if (open) 180f else 0f, label = "sessions-arrow")
     val now = System.currentTimeMillis()
     val byId = categories.associateBy { it.id }
     val running = w.categoryIds.mapNotNull { byId[it] }
@@ -407,12 +406,7 @@ fun WeekendCard(
                 }
                 if (sessions.isNotEmpty()) {
                     IconButton(onClick = { open = !open }) {
-                        Icon(
-                            Icons.Outlined.KeyboardArrowDown,
-                            contentDescription = if (open) "Hide sessions" else "Show sessions",
-                            tint = Gold,
-                            modifier = Modifier.size(28.dp).rotate(turn),
-                        )
+                        com.arkhins.ctrlaps.ui.components.Chevron(open, Gold, 28.dp, if (open) "Hide sessions" else "Show sessions")
                     }
                 }
                 if (isAdmin) {
@@ -454,11 +448,7 @@ fun WeekendCard(
                 }
             }
             ErrorText(error)
-            AnimatedVisibility(
-                visible = open && sessions.isNotEmpty(),
-                enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
-                exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
-            ) {
+            com.arkhins.ctrlaps.ui.components.Expand(open && sessions.isNotEmpty()) {
                 Column(Modifier.padding(start = 70.dp)) {
                     Spacer(Modifier.height(6.dp))
                     sessions.forEachIndexed { i, s ->

@@ -392,9 +392,9 @@ private fun ResultRow(
                 Text(if (r.manual) "pts · set" else "pts", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
             }
             Spacer(Modifier.width(6.dp))
-            Text("⌄", color = SnowFaint, style = MaterialTheme.typography.titleMedium, modifier = Modifier.rotate(if (open) 180f else 0f))
+            com.arkhins.ctrlaps.ui.components.Chevron(open, SnowFaint, 22.dp)
         }
-        AnimatedVisibility(open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+        com.arkhins.ctrlaps.ui.components.Expand(open) {
             Column(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp)) {
                 Box(Modifier.fillMaxWidth().height(1.dp).background(NightLine))
                 Spacer(Modifier.height(12.dp))

@@ -340,7 +340,7 @@ private fun PointsBar(points: Double, leader: Double, tone: Color, modifier: Mod
 @Composable
 private fun DriverRow(place: Int, s: DriverStanding, leader: Double, rounds: List<StandingSession>, tone: Color, open: Boolean, onTeam: (String) -> Unit, onToggle: () -> Unit) {
     val app = LocalApp.current
-    Column(Modifier.fillMaxWidth().animateContentSize().clip(RoundedCornerShape(14.dp)).clickable(onClick = onToggle).padding(vertical = 8.dp)) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onToggle).padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             PlaceNumber(place, tone)
             Spacer(Modifier.width(10.dp))
@@ -375,7 +375,7 @@ private fun DriverRow(place: Int, s: DriverStanding, leader: Double, rounds: Lis
             Text(pointsText(s.points), style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp), color = Snow, fontWeight = FontWeight.Bold)
         }
         PointsBar(s.points, leader, tone, Modifier.padding(start = 88.dp, top = 6.dp))
-        if (open && rounds.isNotEmpty()) {
+        com.arkhins.ctrlaps.ui.components.Expand(open && rounds.isNotEmpty()) {
             FlowRow(Modifier.padding(start = 88.dp, top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 rounds.forEachIndexed { i, session -> RoundTile("R${i + 1}", s.rounds[session.id]) }
             }

@@ -51,9 +51,9 @@ fun DashboardCard(d: Dashboard, onWeekend: (String) -> Unit, onPerson: (String) 
         Row(Modifier.fillMaxWidth().clickable { shown = if (shown == key) null else key }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${list.size}", style = MaterialTheme.typography.titleSmall, color = Snow)
             Text(" $label", style = MaterialTheme.typography.bodyMedium, color = SnowSoft, modifier = Modifier.weight(1f))
-            Text(if (shown == key) "▾" else "›", color = Gold)
+            Chevron(shown == key, Gold, 20.dp)
         }
-        if (shown == key) {
+        Expand(shown == key) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
                 list.forEach { p -> Chip(p.name, SnowSoft) { onPerson(p.id) } }
             }
@@ -73,8 +73,9 @@ fun DashboardCard(d: Dashboard, onWeekend: (String) -> Unit, onPerson: (String) 
                 if (!open) Text("  $summary", style = MaterialTheme.typography.bodySmall, color = SnowSoft, modifier = Modifier.weight(1f), maxLines = 1)
                 else androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                 Text(if (open) "Hide" else "Show", style = MaterialTheme.typography.labelSmall, color = SnowFaint)
+                Chevron(open, SnowFaint, 20.dp)
             }
-            if (open) {
+            Expand(open) { Column {
                 d.sessions.forEach { s ->
                     Row(Modifier.fillMaxWidth().clickable { onWeekend(s.weekendId) }.padding(top = 6.dp)) {
                         Text("${s.name} · ${s.weekendName}", style = MaterialTheme.typography.bodyMedium, color = SnowSoft, modifier = Modifier.weight(1f), maxLines = 1)
@@ -86,7 +87,7 @@ fun DashboardCard(d: Dashboard, onWeekend: (String) -> Unit, onPerson: (String) 
                 people("pending", "haven't accepted their invite", d.pending)
                 people("unfinished", "haven't finished their profile", d.unfinished)
                 people("suspended", "suspended", d.suspended)
-            }
+            } }
         }
     }
 }
