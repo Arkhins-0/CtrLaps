@@ -6,6 +6,10 @@ import com.arkhins.ctrlaps.ui.theme.AppMotion
 import androidx.compose.ui.platform.createLifecycleAwareWindowRecomposer
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import android.animation.ObjectAnimator
+import android.view.View
+import android.view.animation.AnticipateInterpolator
+import androidx.core.animation.doOnEnd
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
@@ -22,7 +26,22 @@ import com.arkhins.ctrlaps.ui.theme.CtrlapsTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        // The badge slides up out of the way as the app appears (after Arkhime's), at the chosen animation speed;
+        // with animations off it just goes.
+        installSplashScreen().setOnExitAnimationListener { splash ->
+            val view = splash.view
+            if (!AppMotion.on || view.height == 0) {
+                splash.remove()
+                return@setOnExitAnimationListener
+            }
+            ObjectAnimator.ofFloat(view, View.TRANSLATION_Y, 0f, -view.height.toFloat()).apply {
+                interpolator = AnticipateInterpolator()
+                // The phone's own animator scale applies to this one by itself; only the app's speed is added.
+                duration = (200 * InterfaceSetting.speed.value.scale).toLong()
+                doOnEnd { splash.remove() }
+                start()
+            }
+        }
         super.onCreate(savedInstanceState)
         ThemeSetting.init(this)
         InterfaceSetting.init(this)
