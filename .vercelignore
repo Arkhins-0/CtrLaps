@@ -1,0 +1,23 @@
+# What a deploy from this PC (vercel deploy) leaves out: only the website goes up.
+
+# The Android app, its build and its keys
+android/
+*.jks
+*.keystore
+*.apk
+*.aab
+
+# Settings and secrets (the project's own values are on Vercel)
+.env
+.env.*
+*firebase-adminsdk*.json
+
+# Builds, caches and local tooling
+node_modules/
+.next/
+.next-verify/
+out/
+/data/
+/dist/
+.claude/
+public/splash-icon/
