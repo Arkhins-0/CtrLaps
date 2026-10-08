@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import androidx.compose.material.icons.outlined.Close
+
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.Create
@@ -333,18 +335,37 @@ fun TicketFormScreen(vm: AppViewModel, onRaised: (String) -> Unit) {
     var category by rememberSaveable { mutableStateOf("") }
     var subject by rememberSaveable { mutableStateOf("") }
     var details by rememberSaveable { mutableStateOf("") }
-    // Come from the crash page: an app problem, with the report in the details (once).
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var raised by remember { mutableStateOf<RaisedTicket?>(null) }
+    // Screenshots and files going with it (up to ten; the server takes them from someone signed in).
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val files = remember { androidx.compose.runtime.mutableStateListOf<TicketFile>() }
+    var sending by remember { mutableStateOf<String?>(null) }
+    // Come from the crash page: an app problem, the error in the details and the whole report attached (once).
     androidx.compose.runtime.LaunchedEffect(Unit) {
         com.arkhins.ctrlaps.data.CrashReporter.ticket.value?.let {
             category = "App problem"
             subject = "The app stopped"
             details = it
             com.arkhins.ctrlaps.data.CrashReporter.ticket.value = null
+            com.arkhins.ctrlaps.data.CrashReporter.read(context)?.let { report ->
+                val f = java.io.File(context.cacheDir, "support/${com.arkhins.ctrlaps.data.CrashReporter.REPORT_NAME}").apply { parentFile?.mkdirs(); writeText(report) }
+                files.add(TicketFile(com.arkhins.ctrlaps.data.CrashReporter.REPORT_NAME, "text/plain", f.path))
+            }
         }
     }
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var raised by remember { mutableStateOf<RaisedTicket?>(null) }
+    fun add(uris: List<android.net.Uri>) {
+        val room = MAX_TICKET_FILES - files.size
+        if (uris.size > room) error = "Up to $MAX_TICKET_FILES files go with a ticket."
+        scope.launch { uris.take(room.coerceAtLeast(0)).forEach { uri -> copyForTicket(context, uri)?.let { files.add(it) } } }
+    }
+    val pickPhotos = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia(MAX_TICKET_FILES),
+    ) { add(it) }
+    val pickFiles = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments(),
+    ) { add(it) }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         val r = raised
@@ -365,9 +386,35 @@ fun TicketFormScreen(vm: AppViewModel, onRaised: (String) -> Unit) {
         CategoryPicker(category, SUPPORT_CATEGORIES, "What is it about?") { category = it }
         Field(subject, { subject = it }, "Subject", enabled = !busy, placeholder = "In a few words")
         Field(details, { details = it }, "Details", singleLine = false, enabled = !busy, placeholder = "What happened, what you expected, and on which phone")
+        files.forEach { f ->
+            Row(
+                Modifier.fillMaxWidth().background(NightPanel, RoundedCornerShape(12.dp)).padding(start = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    androidx.compose.ui.res.painterResource(if (f.mime.startsWith("image/")) com.arkhins.ctrlaps.R.drawable.ic_gallery else com.arkhins.ctrlaps.R.drawable.ic_document),
+                    contentDescription = null,
+                    tint = Gold,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(f.name, style = MaterialTheme.typography.bodyMedium, color = Snow, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                androidx.compose.material3.IconButton(onClick = { files.remove(f) }, enabled = !busy) {
+                    Icon(Icons.Outlined.Close, contentDescription = "Remove ${f.name}", tint = SnowFaint)
+                }
+            }
+        }
+        if (files.size < MAX_TICKET_FILES) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GhostButton("Add screenshots", Modifier.weight(1f), enabled = !busy) {
+                    pickPhotos.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }
+                GhostButton("Add files", Modifier.weight(1f), enabled = !busy) { pickFiles.launch(arrayOf("*/*")) }
+            }
+        }
         ErrorText(error)
         GoldButton(
-            if (busy) "Sending…" else "Raise ticket",
+            if (busy) sending ?: "Sending…" else "Raise ticket",
             Modifier.fillMaxWidth(),
             enabled = !busy && name.isNotBlank() && email.isNotBlank() && category.isNotBlank() && subject.isNotBlank() && details.isNotBlank(),
         ) {
@@ -375,19 +422,45 @@ fun TicketFormScreen(vm: AppViewModel, onRaised: (String) -> Unit) {
             error = null
             scope.launch {
                 try {
+                    // The files go up first; a photo as a photo, anything else as a document.
+                    val ids = files.mapIndexed { i, f ->
+                        sending = "Uploading ${i + 1} of ${files.size}…"
+                        com.arkhins.ctrlaps.data.uploadFile(app.api, app.documents, app.chatMedia, java.io.File(f.path), f.name, f.mime, asDocument = !f.mime.startsWith("image/")).id
+                    }
+                    sending = null
                     raised = app.api.post("/api/support/tickets", RaisedTicket.serializer()) {
                         put("name", name.trim()); put("email", email.trim()); put("phone", phone.trim())
                         put("category", category); put("subject", subject.trim()); put("details", details.trim())
+                        if (ids.isNotEmpty()) putJsonArray("fileIds") { ids.forEach { add(it) } }
                     }
                     vm.changed()
                 } catch (e: Exception) {
                     error = e.message ?: "Could not send it."
                 } finally {
                     busy = false
+                    sending = null
                 }
             }
         }
     }
+}
+
+/** The most files a ticket takes (the server's limit). */
+private const val MAX_TICKET_FILES = 10
+
+/** A screenshot or file going with a ticket: a copy in the app's cache until it is sent. */
+private data class TicketFile(val name: String, val mime: String, val path: String)
+
+/** A picked file copied in (a picker's link may stop working before the ticket goes), with its name and type. */
+private suspend fun copyForTicket(context: android.content.Context, uri: android.net.Uri): TicketFile? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    runCatching {
+        val resolver = context.contentResolver
+        val name = resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: "file"
+        val out = java.io.File(context.cacheDir, "support/${System.nanoTime()}-$name").apply { parentFile?.mkdirs() }
+        resolver.openInputStream(uri)!!.use { input -> out.outputStream().use { input.copyTo(it) } }
+        TicketFile(name, resolver.getType(uri) ?: "application/octet-stream", out.path)
+    }.getOrNull()
 }
 
 /* ───────────────────────────── Tickets ───────────────────────────── */

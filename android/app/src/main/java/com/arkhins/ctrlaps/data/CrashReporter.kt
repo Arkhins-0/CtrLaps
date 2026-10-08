@@ -64,11 +64,17 @@ object CrashReporter {
 
     fun read(context: Context): String? = runCatching { File(context.filesDir, FILE).readText() }.getOrNull()
 
-    /** What goes in a ticket: room for a line on what was happening, then the phone and the error (the server keeps 5,000). */
+    /**
+     * What goes in a ticket's details: room for a line on what was happening, then the phone and the error (the server
+     * keeps 5,000 characters). The whole report, log and all, goes with it as a file ([REPORT_NAME]).
+     */
     fun ticketText(report: String): String {
         val error = report.substringAfter("\n\n", report).substringBefore("\n\nRecent log:")
-        return ("The app stopped while I was using it. What I was doing:\n\n\n—\n" + error).take(4800)
+        return ("The app stopped while I was using it. What I was doing:\n\n\n— The full report is attached as $REPORT_NAME.\n" + error).take(4800)
     }
+
+    /** The name the whole report goes by when it is attached to a ticket. */
+    const val REPORT_NAME = "crash-report.txt"
 
     private fun save(context: Context, report: String) {
         File(context.filesDir, FILE).apply { parentFile?.mkdirs() }.writeText(report)
