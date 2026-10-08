@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.popped
+
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -342,12 +344,14 @@ private fun RecentChecks(onCheck: (Verified) -> Unit) {
                         }
                         Text(checkedWhen(c.at), style = MaterialTheme.typography.labelSmall, color = SnowFaint)
                         val on = p.id in starred
+                        val pop = com.arkhins.ctrlaps.ui.components.rememberPop(on)
+                        val tint by androidx.compose.animation.animateColorAsState(if (pop.shown) Gold else SnowFaint, label = "star")
                         IconButton(onClick = { haptics.toggle(!on); history.toggleStar(p.id) }) {
                             Icon(
-                                painterResource(if (on) R.drawable.ic_star else R.drawable.ic_star_border),
+                                painterResource(if (pop.shown) R.drawable.ic_star else R.drawable.ic_star_border),
                                 contentDescription = if (on) "Unstar" else "Star",
-                                tint = if (on) Gold else SnowFaint,
-                                modifier = Modifier.size(22.dp),
+                                tint = tint,
+                                modifier = Modifier.size(22.dp).popped(pop),
                             )
                         }
                     }

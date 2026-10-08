@@ -78,15 +78,17 @@ fun IdCard(v: Verified) {
             val starred by app.verifyHistory.starred.collectAsState()
             val on = v.id in starred
             val haptics = rememberHaptics()
+            val pop = rememberPop(on)
+            val tint by androidx.compose.animation.animateColorAsState(if (pop.shown) Gold else SnowFaint, label = "star")
             Box(
                 Modifier.padding(start = 8.dp).size(32.dp).clip(CircleShape).clickable { haptics.toggle(!on); app.verifyHistory.toggleStar(v) },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    painterResource(if (on) R.drawable.ic_star else R.drawable.ic_star_border),
+                    painterResource(if (pop.shown) R.drawable.ic_star else R.drawable.ic_star_border),
                     contentDescription = if (on) "Unstar" else "Star",
-                    tint = if (on) Gold else SnowFaint,
-                    modifier = Modifier.size(20.dp),
+                    tint = tint,
+                    modifier = Modifier.size(20.dp).popped(pop),
                 )
             }
         }

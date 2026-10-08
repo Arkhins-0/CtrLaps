@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.popped
+
 import com.arkhins.ctrlaps.ui.components.TeamPicker
 import com.arkhins.ctrlaps.ui.components.PullRefresh
 import com.arkhins.ctrlaps.ui.components.LoadingShape
@@ -515,7 +517,8 @@ fun PersonScreen(me: Me?, userId: String, onOpenChat: (String) -> Unit, onTitle:
                     }
                 }
                 // The same star as Verify's list: starred people are pinned there.
-                QuickAction(painterResource(if (on) R.drawable.ic_star else R.drawable.ic_star_border), if (on) "Starred" else "Star", Modifier.weight(1f), highlight = on) {
+                val star = com.arkhins.ctrlaps.ui.components.rememberPop(on)
+                QuickAction(painterResource(if (star.shown) R.drawable.ic_star else R.drawable.ic_star_border), if (on) "Starred" else "Star", Modifier.weight(1f), highlight = on, iconModifier = Modifier.popped(star)) {
                     haptics.toggle(!on)
                     app.verifyHistory.toggleStar(Verified(u.id, u.name, u.role, u.roleLabel, u.teamName, u.status, u.statusLabel, u.verifyCode, u.photoUrl, u.profileComplete))
                 }
@@ -1087,7 +1090,7 @@ private fun DeveloperPanel(isDev: Boolean, busy: Boolean, onChange: (Boolean) ->
 
 /** A quick action under a person's banner: an icon over a word, on a soft tile. */
 @Composable
-fun QuickAction(icon: Painter, label: String, modifier: Modifier = Modifier, enabled: Boolean = true, highlight: Boolean = false, onClick: () -> Unit) {
+fun QuickAction(icon: Painter, label: String, modifier: Modifier = Modifier, enabled: Boolean = true, highlight: Boolean = false, iconModifier: Modifier = Modifier, onClick: () -> Unit) {
     Column(
         modifier
             .clip(RoundedCornerShape(16.dp))
@@ -1097,7 +1100,7 @@ fun QuickAction(icon: Painter, label: String, modifier: Modifier = Modifier, ena
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(icon, contentDescription = null, tint = Gold, modifier = Modifier.size(24.dp))
+        Icon(icon, contentDescription = null, tint = Gold, modifier = iconModifier.size(24.dp))
         Text(label, style = MaterialTheme.typography.labelLarge, color = if (highlight) Gold else Snow)
     }
 }

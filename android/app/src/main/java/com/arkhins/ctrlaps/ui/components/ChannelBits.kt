@@ -1,5 +1,6 @@
 package com.arkhins.ctrlaps.ui.components
 
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -36,11 +37,15 @@ fun UnreadBadge(count: Int, muted: Boolean, modifier: Modifier = Modifier) {
 @Composable
 fun MuteChip(muted: Boolean, enabled: Boolean = true, onToggle: () -> Unit) {
     val haptics = rememberHaptics()
+    // The bell pops as it flips, its colour fading across.
+    val pop = rememberPop(muted)
+    val tint by androidx.compose.animation.animateColorAsState(if (pop.shown) Gold else com.arkhins.ctrlaps.ui.theme.SnowSoft, label = "bell")
     IconAction(
-        androidx.compose.ui.res.painterResource(if (muted) com.arkhins.ctrlaps.R.drawable.ic_bell_off else com.arkhins.ctrlaps.R.drawable.ic_bell),
+        androidx.compose.ui.res.painterResource(if (pop.shown) com.arkhins.ctrlaps.R.drawable.ic_bell_off else com.arkhins.ctrlaps.R.drawable.ic_bell),
         if (muted) "Muted. Tap for notifications" else "Notifications on. Tap to mute",
-        if (muted) Gold else com.arkhins.ctrlaps.ui.theme.SnowSoft,
+        tint,
         enabled = enabled,
+        iconModifier = Modifier.popped(pop),
         onClick = { haptics.toggle(!muted); onToggle() },
     )
 }

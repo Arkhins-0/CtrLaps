@@ -216,14 +216,14 @@ fun IconAction(icon: ImageVector, description: String, tint: Color, filled: Bool
 }
 
 @Composable
-fun IconAction(icon: Painter, description: String, tint: Color, filled: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
+fun IconAction(icon: Painter, description: String, tint: Color, filled: Boolean = false, enabled: Boolean = true, iconModifier: Modifier = Modifier, onClick: () -> Unit) {
     IconButton(onClick = onClick, enabled = enabled) {
         Box(
             Modifier
                 .size(36.dp)
                 .background(if (filled) Gold else Color.Transparent, CircleShape),
             contentAlignment = Alignment.Center,
-        ) { Icon(icon, contentDescription = description, tint = tint, modifier = Modifier.size(22.dp)) }
+        ) { Icon(icon, contentDescription = description, tint = tint, modifier = iconModifier.size(22.dp)) }
     }
 }
 
