@@ -333,6 +333,15 @@ fun TicketFormScreen(vm: AppViewModel, onRaised: (String) -> Unit) {
     var category by rememberSaveable { mutableStateOf("") }
     var subject by rememberSaveable { mutableStateOf("") }
     var details by rememberSaveable { mutableStateOf("") }
+    // Come from the crash page: an app problem, with the report in the details (once).
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        com.arkhins.ctrlaps.data.CrashReporter.ticket.value?.let {
+            category = "App problem"
+            subject = "The app stopped"
+            details = it
+            com.arkhins.ctrlaps.data.CrashReporter.ticket.value = null
+        }
+    }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var raised by remember { mutableStateOf<RaisedTicket?>(null) }

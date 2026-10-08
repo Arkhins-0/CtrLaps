@@ -87,10 +87,22 @@ class MainActivity : ComponentActivity() {
 
     /** A tapped notification carries an in-app link; an App Link carries a URL. Both become a pending route. */
     private fun handle(intent: Intent?) {
+        // Opened from the crash page's Raise a ticket: the support form, with the report filled in.
+        intent?.getStringExtra(com.arkhins.ctrlaps.data.CrashReporter.EXTRA_TICKET)?.let {
+            com.arkhins.ctrlaps.data.CrashReporter.ticket.value = it
+            intent.removeExtra(com.arkhins.ctrlaps.data.CrashReporter.EXTRA_TICKET)
+            Links.pending.value = "/support/new"
+            return
+        }
         val fromNotification = intent?.getStringExtra(Notifications.EXTRA_LINK)
         val fromUrl = intent?.data?.let { uri -> uri.path?.let { p -> p + (uri.query?.let { "?$it" } ?: "") } }
         // Debug builds only: `adb shell am start -n com.arkhins.ctrlaps/.MainActivity --es route settings` opens any screen
         // by its navigation route (Settings, Storage, a group's info…), for testing on a phone that refuses adb taps.
+        // Debug builds: `--es crash 1` stops the app on purpose a moment after it opens, to see the crash page.
+        if (BuildConfig.DEBUG && intent?.getStringExtra("crash") != null) {
+            intent.removeExtra("crash")
+            window.decorView.postDelayed({ throw IllegalStateException("A test crash, asked for over adb") }, 1500)
+        }
         if (BuildConfig.DEBUG) intent?.getStringExtra("sheet")?.let { com.arkhins.ctrlaps.ui.DebugHooks.sheet.value = it; intent.removeExtra("sheet") }
         val debugRoute = if (BuildConfig.DEBUG) intent?.getStringExtra("route")?.let { "route:$it" } else null
         val link = debugRoute ?: fromNotification ?: fromUrl ?: return

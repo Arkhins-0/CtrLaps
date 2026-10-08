@@ -119,6 +119,15 @@
             </intent-filter>
         </activity>
 
+        <!-- After a crash on screen: the report, with Raise a ticket, Copy, Share and Open again. Its own process,
+             so it still opens once the app's is gone. -->
+        <activity
+            android:name=".CrashActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:process=":crash"
+            android:theme="@style/Theme.Ctrlaps" />
+
         <service
             android:name=".push.CtrlapsMessagingService"
             android:exported="false">

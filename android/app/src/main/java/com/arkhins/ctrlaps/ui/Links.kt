@@ -41,6 +41,7 @@ object Links {
             "support" -> when {
                 second == "tickets" && parts.getOrNull(2) != null -> "support/ticket/${parts[2]}"
                 second == "tickets" -> "support/tickets"
+                second == "new" -> "support/new"
                 else -> "support"
             }
             "archive" -> if (second == null) "archive" else "archive/$second"

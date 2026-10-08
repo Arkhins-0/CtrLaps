@@ -80,6 +80,9 @@ class CtrlapsApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        // The crash page runs in its own process (":crash"): none of the app's machinery starts there.
+        if (processName().endsWith(":crash")) return
+        com.arkhins.ctrlaps.data.CrashReporter.install(this)
         session.load()
         Notifications.createChannels(this)
         runCatching {
@@ -99,6 +102,10 @@ class CtrlapsApplication : Application(), ImageLoaderFactory {
         Prefetch.schedule(this)
         appScope.launch { api.online.collect { if (it) prefetch.run() } }
     }
+
+    private fun processName(): String =
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) getProcessName()
+        else runCatching { java.io.File("/proc/self/cmdline").readText().trim('\u0000') }.getOrDefault("")
 
     /** Event reminders set again from the upcoming list (after an answer, or on Home). */
     fun refreshEventReminders() {
