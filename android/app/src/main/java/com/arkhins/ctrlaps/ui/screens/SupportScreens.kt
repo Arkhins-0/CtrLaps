@@ -621,7 +621,8 @@ fun TicketScreen(vm: AppViewModel, ticketId: String, onView: (FileView) -> Unit,
                                         color = SnowSoft,
                                     )
                                 }
-                                Text(t.details, style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
+                                // The details open the chat below (with any files) when it was raised signed in: not twice.
+                                if (d.messages.none { it.body.trim() == t.details.trim() }) Text(t.details, style = MaterialTheme.typography.bodyMedium, color = SnowSoft)
                                 ErrorText(error)
                                 if (d.canClose) GhostButton("Close ticket", enabled = !busy) { closing = true }
                                 if (d.canReopen) {

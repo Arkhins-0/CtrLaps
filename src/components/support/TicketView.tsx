@@ -67,7 +67,8 @@ export function TicketView({ initial }: { initial: View }) {
             {!t.userId && " · no account (replies go by email)"}
           </p>
         )}
-        <p className="whitespace-pre-wrap text-sm text-snow-soft">{t.details}</p>
+        {/* The details open the chat below (with any files) when it was raised signed in: not twice. */}
+        {!v.messages.some((m) => m.body.trim() === t.details.trim()) && <p className="whitespace-pre-wrap text-sm text-snow-soft">{t.details}</p>}
         <div className="flex flex-wrap items-center gap-2">
           {v.canClose && <button className="btn-ghost px-4 py-1.5 text-xs" disabled={busy} onClick={() => setStatus("closed")}>Close ticket</button>}
           {v.canReopen && <button className="btn-gold px-4 py-1.5 text-xs" disabled={busy} onClick={() => setStatus("open")}>Reopen ticket</button>}
