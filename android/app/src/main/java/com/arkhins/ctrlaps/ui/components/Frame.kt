@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -235,7 +236,8 @@ fun CountdownChip(onOpenWeekend: (String) -> Unit) {
  * photo. Unread counts sit on Home and Chats.
  */
 @Composable
-fun BottomNav(current: String, unreadHome: Int, unreadChats: Int, photoUrl: String?, name: String, showChats: Boolean, onSelect: (String) -> Unit) {
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+fun BottomNav(current: String, unreadHome: Int, unreadChats: Int, photoUrl: String?, name: String, showChats: Boolean, onAccountLongPress: () -> Unit = {}, onSelect: (String) -> Unit) {
     // The message bar sits just above this bar while it shows.
     androidx.compose.runtime.DisposableEffect(Unit) {
         Snack.overTabBar.value = true
@@ -287,11 +289,17 @@ fun BottomNav(current: String, unreadHome: Int, unreadChats: Int, photoUrl: Stri
             }
         }
         val active = current == "account"
+        // A tap: the Account tab. A long press: straight to your details.
+        val haptics = rememberHaptics()
         Box(
             Modifier
                 .size(52.dp)
                 .background(if (active) Snow.copy(alpha = 0.1f) else Night, RoundedCornerShape(16.dp))
-                .clickable { onSelect("account") },
+                .combinedClickable(
+                    onClick = { onSelect("account") },
+                    onLongClickLabel = "Your details",
+                    onLongClick = { haptics.longPress(); onAccountLongPress() },
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Box(

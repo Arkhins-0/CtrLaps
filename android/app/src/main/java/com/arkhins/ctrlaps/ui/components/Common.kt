@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -444,6 +445,29 @@ fun KeyValue(label: String, value: String, mono: Boolean = false, copyable: Bool
             if (copyable) CopyButton(value, label)
         }
     }
+}
+
+/**
+ * A long press copies this phone's and the app's details (version, Android, model, language), to paste into a support
+ * ticket, with a buzz and a message. Put on the version line; a tap does nothing.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun Modifier.copiesDeviceInfo(): Modifier {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val haptics = rememberHaptics()
+    return combinedClickable(
+        interactionSource = null,
+        indication = null,
+        onClick = {},
+        onLongClickLabel = "Copy device details",
+        onLongClick = {
+            clipboard.setText(AnnotatedString(com.arkhins.ctrlaps.data.deviceInfo(context)))
+            haptics.longPress()
+            Snack.show("Device details copied, to paste into a ticket")
+        },
+    )
 }
 
 /** A small copy icon beside a code: copies it, buzzes once, and says "Code … copied". */

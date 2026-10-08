@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.copiesDeviceInfo
+
 import com.arkhins.ctrlaps.ui.components.QuestionSheet
 import com.arkhins.ctrlaps.ui.components.DontAsk
 import androidx.compose.ui.layout.boundsInWindow
@@ -233,7 +235,8 @@ fun AccountScreen(
             style = MaterialTheme.typography.labelSmall,
             color = SnowFaint,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+            // A long press copies the device details for a ticket.
+            modifier = Modifier.fillMaxWidth().then(Modifier.copiesDeviceInfo()).padding(top = 4.dp, bottom = 8.dp),
         )
     }
 

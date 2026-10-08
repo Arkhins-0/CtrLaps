@@ -368,6 +368,7 @@ private fun MainNav(vm: AppViewModel) {
                 photoUrl = app.api.absolute(vm.me?.user?.photoUrl),
                 name = vm.me?.user?.displayName ?: "?",
                 showChats = vm.me?.user?.role != "user",
+                onAccountLongPress = { nav.open("details") },
             ) { dest ->
                 nav.navigate(dest) {
                     popUpTo("home") { inclusive = dest == "home" }

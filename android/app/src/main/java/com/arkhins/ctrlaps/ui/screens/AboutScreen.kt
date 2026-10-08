@@ -1,5 +1,7 @@
 package com.arkhins.ctrlaps.ui.screens
 
+import com.arkhins.ctrlaps.ui.components.copiesDeviceInfo
+
 import androidx.compose.material.icons.outlined.Delete
 import kotlinx.serialization.json.put
 import kotlinx.coroutines.launch
@@ -150,7 +152,8 @@ fun AboutScreen(vm: AppViewModel, onChangelog: () -> Unit, onLegal: (String) -> 
             "CTR[L]APS v${BuildConfig.VERSION_NAME}${if (BuildConfig.DEBUG) " · Debug" else ""}",
             style = MaterialTheme.typography.labelSmall,
             color = SnowFaint,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+            // A long press copies the device details for a ticket.
+            modifier = Modifier.fillMaxWidth().then(Modifier.copiesDeviceInfo()).padding(vertical = 20.dp),
             textAlign = TextAlign.Center,
         )
     }
