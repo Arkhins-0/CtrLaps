@@ -12,9 +12,8 @@ android/
 .env.*
 *firebase-adminsdk*.json
 
-# Builds, caches and local tooling
-node_modules/
-.next/
+# Builds, caches and local tooling (node_modules and .next are left out by the CLI anyway; naming them here also hid
+# the installed packages from builds started by GitHub, which then split the site into too many functions)
 .next-verify/
 out/
 /data/
